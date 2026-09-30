@@ -14,10 +14,14 @@ interface UpdateOptions {
   loader?: string;
   prerelease?: boolean;
   yes?: boolean;
+  targetFile?: string;
+  skipBanner?: boolean;
 }
 
 export async function updateCommand(opts: UpdateOptions) {
-  showBanner();
+  if (!opts.skipBanner) {
+    showBanner();
+  }
   await instanceConfig.load();
   const activeInst = instanceConfig.getActiveInstance();
 
@@ -36,13 +40,20 @@ export async function updateCommand(opts: UpdateOptions) {
   }
 
   const s = p.spinner();
+  s.start(pc.cyan('Memindai mod lokal dan mencari pembaruan di Modrinth...'));
+
   const instanceDir = activeInst?.rootDir ?? path.dirname(modsDir);
   const graph = new DependencyGraph(instanceDir);
   await graph.load();
   await graph.reconcileWithDisk(modsDir);
 
   const entries = await readdir(modsDir);
-  const activeJars = entries.filter((f) => f.endsWith('.jar'));
+  const activeJars = entries.filter((f) => f.endsWith('.jar') && (!opts.targetFile || f === opts.targetFile));
+
+  if (activeJars.length === 0) {
+    s.stop(pc.yellow('Tidak ada mod aktif (.jar) yang terpasang di folder ini.'));
+    return;
+  }
 
   const fileHashes: { filename: string; sha1: string; filePath: string }[] = [];
   for (const jar of activeJars) {

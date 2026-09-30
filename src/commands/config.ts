@@ -1,4 +1,5 @@
 import { instanceConfig } from '../core/instance/config.js';
+import { profileSnapshotManager } from '../core/profile/snapshotManager.js';
 import { p, pc, showBanner } from '../ui/prompts.js';
 
 export async function configCommand(action: 'show' | 'set' | 'use', key?: string, value?: string) {
@@ -45,8 +46,34 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
 
       if (key === 'defaultGameVersion' || key === 'mc-version') {
         instanceConfig.set('defaultGameVersion', value);
+        const activeKey = cfg.activeInstance;
+        const active = instanceConfig.getActiveInstance();
+        if (activeKey && active) {
+          const s = p.spinner();
+          s.start(`Mengalihkan versi game instance "${active.name}" ke ${value}...`);
+          try {
+            const res = await profileSnapshotManager.switchProfile(activeKey, active.loader || 'fabric', value);
+            s.stop(pc.green(`Versi dialihkan ke ${value}! (${res.savedCount} mod diarsipkan, ${res.restoredCount} mod dipulihkan)`));
+          } catch (err: any) {
+            s.stop(pc.red('Gagal mengalihkan profil!'));
+            p.log.error(err.message);
+          }
+        }
       } else if (key === 'defaultLoader' || key === 'loader') {
         instanceConfig.set('defaultLoader', value);
+        const activeKey = cfg.activeInstance;
+        const active = instanceConfig.getActiveInstance();
+        if (activeKey && active) {
+          const s = p.spinner();
+          s.start(`Mengalihkan mod loader instance "${active.name}" ke ${value}...`);
+          try {
+            const res = await profileSnapshotManager.switchProfile(activeKey, value, active.gameVersion || '1.21.1');
+            s.stop(pc.green(`Loader dialihkan ke ${value}! (${res.savedCount} mod diarsipkan, ${res.restoredCount} mod dipulihkan)`));
+          } catch (err: any) {
+            s.stop(pc.red('Gagal mengalihkan loader!'));
+            p.log.error(err.message);
+          }
+        }
       } else if (key === 'defaultEnvironment' || key === 'env') {
         if (value !== 'client' && value !== 'server') {
           p.log.error('Environment harus "client" atau "server".');

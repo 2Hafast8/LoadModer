@@ -1,6 +1,7 @@
 import { instanceDetector } from '../core/instance/detector.js';
 import { instanceConfig } from '../core/instance/config.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
+import { getMinecraftVersionChoices } from '../core/minecraft/versions.js';
 
 export async function initCommand() {
   showBanner();
@@ -49,13 +50,35 @@ export async function initCommand() {
   let loader = target.loader;
 
   if (!gameVersion) {
-    const inputVersion = await p.text({
-      message: 'Versi Minecraft belum terdeteksi. Masukkan versi game target:',
-      placeholder: 'misal: 1.21.1 atau 26.2',
-      validate: (v) => (!v ? 'Versi tidak boleh kosong' : undefined),
+    const vChoices = await getMinecraftVersionChoices();
+    const selectOptions: Array<{ value: string; label: string; hint?: string }> = vChoices.map((c) => ({
+      value: c.value,
+      label: c.name,
+      hint: c.hint,
+    }));
+    selectOptions.push({
+      value: '__custom__',
+      label: '✏️   Ketik Versi Minecraft Lainnya...',
+      hint: 'Masukkan versi manual',
     });
-    exitIfCancel(inputVersion);
-    gameVersion = inputVersion.trim();
+
+    const selectedVer = await p.select({
+      message: 'Versi Minecraft belum terdeteksi. Pilih versi game target:',
+      options: selectOptions,
+    });
+    exitIfCancel(selectedVer);
+
+    if (selectedVer === '__custom__') {
+      const inputVersion = await p.text({
+        message: 'Masukkan versi Minecraft game target:',
+        placeholder: 'misal: 1.20.6 atau 26.2',
+        validate: (v) => (!v ? 'Versi tidak boleh kosong' : undefined),
+      });
+      exitIfCancel(inputVersion);
+      gameVersion = inputVersion.trim();
+    } else {
+      gameVersion = selectedVer as string;
+    }
   }
 
   if (!loader) {

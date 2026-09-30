@@ -11,6 +11,8 @@ interface SearchOptions {
   type?: string;
   mcVersion?: string;
   loader?: string;
+  category?: string;
+  env?: 'client' | 'server';
   limit?: string;
   sort?: string;
   json?: boolean;
@@ -23,6 +25,8 @@ export async function searchCommand(query: string, opts: SearchOptions) {
   const gameVersion = opts.mcVersion ?? activeInst?.gameVersion;
   const loader = opts.loader ?? activeInst?.loader;
   const projectType = (opts.type as ProjectType) ?? 'mod';
+  const category = opts.category;
+  const environment = opts.env;
   const limit = Math.min(Number(opts.limit) || 10, 50);
   const sort = (opts.sort as SearchIndex) ?? 'relevance';
 
@@ -31,7 +35,7 @@ export async function searchCommand(query: string, opts: SearchOptions) {
 
   const response = await modrinthClient.search(
     query,
-    { gameVersion, loader, projectType },
+    { gameVersion, loader, projectType, category, environment },
     limit,
     sort
   );

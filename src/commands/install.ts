@@ -4,22 +4,28 @@ import { modrinthClient } from '../api/client.js';
 import { instanceConfig } from '../core/instance/config.js';
 import { ModpackUnpacker } from '../core/modpack/unpacker.js';
 import { DependencyGraph } from '../core/dependency/graph.js';
+import { resolveAndInstallDependencies } from '../core/dependency/resolver.js';
 import { p, pc, showBanner } from '../ui/prompts.js';
 import { formatBytes } from '../utils/format.js';
+import type { ModVersion } from '../types/modrinth.js';
 
 interface InstallOptions {
   type?: string;
   mcVersion?: string;
   loader?: string;
+  versionId?: string;
   dir?: string;
   env?: 'client' | 'server';
   dryRun?: boolean;
   yes?: boolean;
   noDeps?: boolean;
+  skipBanner?: boolean;
 }
 
 export async function installCommand(targets: string[], opts: InstallOptions) {
-  showBanner();
+  if (!opts.skipBanner) {
+    showBanner();
+  }
   await instanceConfig.load();
   const activeInst = instanceConfig.getActiveInstance();
 
@@ -58,7 +64,12 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
           continue;
         }
         const bestVer = versions[0];
+        if (!bestVer) continue;
         const packFile = bestVer.files.find((f) => f.filename.endsWith('.mrpack')) ?? bestVer.files[0];
+        if (!packFile) {
+          p.log.error(`Tidak ada berkas .mrpack yang ditemukan untuk "${target}".`);
+          continue;
+        }
         mrpackFile = path.join(instanceDir, packFile.filename);
 
         p.log.info(`Mengunduh berkas modpack ${packFile.filename}...`);
@@ -85,42 +96,77 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
     }
 
     p.log.step(`Mencari mod: ${pc.bold(slug)}...`);
-    const versions = await modrinthClient.getProjectVersions(slug, { gameVersion, loader });
-    if (versions.length === 0) {
-      p.log.error(`Tidak ada versi yang cocok untuk "${slug}" di Minecraft ${gameVersion ?? ''} / ${loader ?? ''}`);
+    let best: ModVersion | undefined;
+    if (opts.versionId) {
+      try {
+        best = await modrinthClient.getVersion(opts.versionId);
+      } catch {}
+    }
+
+    if (!best) {
+      const versions = await modrinthClient.getProjectVersions(slug, { gameVersion, loader });
+      if (versions.length === 0) {
+        p.log.error(`Tidak ada versi yang cocok untuk "${slug}" di Minecraft ${gameVersion ?? ''} / ${loader ?? ''}`);
+        continue;
+      }
+      best = versions.find((v) => v.version_type === 'release') ?? versions[0];
+    }
+
+    if (!best) {
+      p.log.error(`Tidak dapat menemukan versi yang valid untuk mod "${slug}".`);
       continue;
     }
 
-    const best = versions.find((v) => v.version_type === 'release') ?? versions[0];
     const file = best.files.find((f) => f.primary) ?? best.files[0];
     if (!file) {
       p.log.error(`Tidak ada file unduhan untuk mod "${slug}".`);
       continue;
     }
 
+    let projectMeta: any;
+    try {
+      projectMeta = await modrinthClient.getProject(best.project_id || slug);
+    } catch {}
+
+    const projectType = opts.type || projectMeta?.project_type || 'mod';
+    let destDir = modsDir;
+    if (projectType === 'shader') {
+      destDir = path.join(instanceDir, 'shaderpacks');
+    } else if (projectType === 'resourcepack') {
+      destDir = path.join(instanceDir, 'resourcepacks');
+    }
+
     if (opts.dryRun) {
-      p.log.info(`[dry-run] Akan memasang: ${file.filename} (${formatBytes(file.size)})`);
+      p.log.info(`[dry-run] Akan memasang ${projectType}: ${file.filename} (${formatBytes(file.size)}) ke ${destDir}`);
       continue;
     }
 
-    p.log.info(`⬇️  Mengunduh ${pc.cyan(file.filename)} (${formatBytes(file.size)})...`);
-    const dest = path.join(modsDir, file.filename);
+    p.log.info(`⬇️  Mengunduh ${projectType} ${pc.cyan(file.filename)} (${formatBytes(file.size)})...`);
+    const dest = path.join(destDir, file.filename);
 
     await modrinthClient.download(file.url, dest, {
       sha512: file.hashes.sha512,
       size: file.size,
     });
 
-    // Hapus versi lama dari mod yang sama agar tidak duplikat
+    // Hapus versi lama dari aset yang sama agar tidak duplikat
     try {
-      const existingFiles = await readdir(modsDir);
+      const existingFiles = await readdir(destDir);
       for (const ex of existingFiles) {
-        if (ex !== file.filename && ex.toLowerCase().startsWith(slug.toLowerCase()) && ex.endsWith('.jar')) {
-          await rm(path.join(modsDir, ex), { force: true });
+        if (
+          ex !== file.filename &&
+          ex.toLowerCase().startsWith(slug.toLowerCase()) &&
+          (ex.endsWith('.jar') || ex.endsWith('.zip'))
+        ) {
+          await rm(path.join(destDir, ex), { force: true });
           p.log.message(pc.dim(`Versi lama dihapus: ${ex}`));
         }
       }
     } catch {}
+
+    const reqDeps = (best.dependencies || [])
+      .filter((d): d is typeof d & { project_id: string } => d.dependency_type === 'required' && Boolean(d.project_id))
+      .map((d) => d.project_id);
 
     graph.registerMod(slug, {
       projectId: best.project_id,
@@ -129,43 +175,28 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
       filename: file.filename,
       sha512: file.hashes.sha512,
       isRoot: true,
-      dependencies: best.dependencies
-        .filter((d) => d.dependency_type === 'required' && d.project_id)
-        .map((d) => d.project_id!),
+      dependencies: reqDeps,
     });
 
-    // Pasang dependensi wajib
-    if (!opts.noDeps && best.dependencies.length > 0) {
-      for (const dep of best.dependencies) {
-        if (dep.dependency_type === 'required' && dep.project_id) {
-          try {
-            const depProj = await modrinthClient.getProject(dep.project_id);
-            const depVersions = await modrinthClient.getProjectVersions(depProj.slug, { gameVersion, loader });
-            const depBest = depVersions.find((v) => v.version_type === 'release') ?? depVersions[0];
-            const depFile = depBest?.files.find((f) => f.primary) ?? depBest?.files[0];
+    // Pasang dependensi mod library otomatis hanya untuk mod
+    if (!opts.noDeps && projectType === 'mod') {
+      const depResult = await resolveAndInstallDependencies({
+        mainModSlug: slug,
+        mainVersion: best,
+        project: projectMeta,
+        modsDir,
+        gameVersion: gameVersion ?? '1.21.1',
+        loader: loader ?? 'fabric',
+        graph,
+        dryRun: opts.dryRun,
+      });
 
-            if (depFile) {
-              const depDest = path.join(modsDir, depFile.filename);
-              p.log.info(`⬇️  Mengunduh dependensi wajib: ${pc.cyan(depFile.filename)}`);
-              await modrinthClient.download(depFile.url, depDest, {
-                sha512: depFile.hashes.sha512,
-                size: depFile.size,
-              });
-
-              graph.registerMod(depProj.slug, {
-                projectId: depBest.project_id,
-                versionId: depBest.id,
-                versionNumber: depBest.version_number,
-                filename: depFile.filename,
-                sha512: depFile.hashes.sha512,
-                isRoot: false,
-                dependencies: [],
-              });
-            }
-          } catch (depErr) {
-            p.log.warn(`Gagal memproses dependensi ${dep.project_id}: ${(depErr as Error).message}`);
-          }
-        }
+      if (depResult.installed.length > 0) {
+        p.log.success(
+          pc.green(
+            `✔ Berhasil memasang ${depResult.installed.length} library tambahan yang sesuai untuk ${loader?.toUpperCase() ?? 'FABRIC'} ${gameVersion ?? '1.21.1'}!`
+          )
+        );
       }
     }
 

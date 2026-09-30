@@ -4,10 +4,13 @@ import { p, pc, showBanner } from '../ui/prompts.js';
 
 interface BisectOptions {
   dir?: string;
+  skipBanner?: boolean;
 }
 
 export async function bisectCommand(subcommand: string, opts: BisectOptions) {
-  showBanner();
+  if (!opts.skipBanner) {
+    showBanner();
+  }
   await instanceConfig.load();
   const activeInst = instanceConfig.getActiveInstance();
 

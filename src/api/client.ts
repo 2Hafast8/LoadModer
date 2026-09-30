@@ -13,6 +13,7 @@ import type {
   ModVersion,
   SearchResponse,
   VersionType,
+  ModrinthGameVersionTag,
 } from '../types/modrinth.js';
 
 export class ModrinthError extends Error {
@@ -104,11 +105,26 @@ export class ModrinthClient {
     const pType = filter.projectType ?? 'mod';
     facets.push([`project_type:${pType}`]);
 
-    if (filter.gameVersion) {
+    if (filter.gameVersion && filter.gameVersion !== 'all') {
       facets.push([`versions:${filter.gameVersion}`]);
     }
-    if (filter.loader) {
-      facets.push([`categories:${filter.loader}`]);
+    if (filter.loader && filter.loader !== 'all') {
+      facets.push([`categories:${filter.loader.toLowerCase()}`]);
+    }
+    if (filter.category && filter.category !== 'all') {
+      facets.push([`categories:${filter.category.toLowerCase()}`]);
+    }
+    if (filter.categories && filter.categories.length > 0) {
+      for (const cat of filter.categories) {
+        if (cat && cat !== 'all') {
+          facets.push([`categories:${cat.toLowerCase()}`]);
+        }
+      }
+    }
+    if (filter.environment === 'client') {
+      facets.push(['client_side:required', 'client_side:optional']);
+    } else if (filter.environment === 'server') {
+      facets.push(['server_side:required', 'server_side:optional']);
     }
 
     return this.request('/search', {
@@ -179,6 +195,11 @@ export class ModrinthClient {
         version_types: versionTypes,
       },
     });
+  }
+
+  // ---------- Tags & Metadata ----------
+  async getGameVersions(): Promise<ModrinthGameVersionTag[]> {
+    return this.request<ModrinthGameVersionTag[]>('/tag/game_version');
   }
 
   // ---------- Download Pipeline ----------

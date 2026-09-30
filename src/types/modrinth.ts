@@ -77,6 +77,19 @@ export interface ModProject {
   followers: number;
   versions: string[];
   icon_url?: string;
+  author?: string;
+  team?: string;
+  organization?: string;
+  client_side?: 'required' | 'optional' | 'unsupported';
+  server_side?: 'required' | 'optional' | 'unsupported';
+  license?: { id?: string; name?: string; url?: string };
+  source_url?: string;
+  issues_url?: string;
+  wiki_url?: string;
+  discord_url?: string;
+  donation_urls?: { id?: string; platform?: string; url?: string }[];
+  published?: string;
+  updated?: string;
 }
 
 export interface FilterOptions {
@@ -84,4 +97,13 @@ export interface FilterOptions {
   loader?: string;
   projectType?: ProjectType;
   environment?: 'client' | 'server';
+  category?: string;
+  categories?: string[];
+}
+
+export interface ModrinthGameVersionTag {
+  version: string;
+  version_type: 'release' | 'snapshot' | 'alpha' | 'beta';
+  date: string;
+  major: boolean;
 }

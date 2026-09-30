@@ -11,6 +11,7 @@ import { toggleCommand } from './commands/toggle.js';
 import { bisectCommand } from './commands/bisect.js';
 import { configCommand } from './commands/config.js';
 import { watchCommand } from './commands/watch.js';
+import { profileSwitchCommand, profileListCommand } from './commands/profile.js';
 import { launchHomeDashboard } from './ui/dashboard/home.js';
 import { pc } from './ui/prompts.js';
 
@@ -47,6 +48,8 @@ program
   .option('-t, --type <type>', 'Tipe proyek: mod | modpack | shader | resourcepack', 'mod')
   .option('-v, --mc-version <version>', 'Versi Minecraft spesifik')
   .option('-l, --loader <loader>', 'Mod loader: fabric | forge | neoforge | quilt')
+  .option('-c, --category <category>', 'Filter kategori Modrinth (misal: optimization, adventure, library)')
+  .option('-e, --env <target>', 'Target lingkungan: client | server')
   .option('-n, --limit <n>', 'Jumlah hasil pencarian', '10')
   .option('-s, --sort <index>', 'Urutan: relevance | downloads | follows | newest | updated', 'relevance')
   .option('--json', 'Tampilkan hasil dalam format JSON murni')
@@ -196,7 +199,28 @@ program
     })
   );
 
-// 11. home
+// 11. profile
+const profileCmd = program
+  .command('profile')
+  .description('Kelola profil versi Minecraft dan mod loader (auto-snapshot & restore)');
+
+profileCmd
+  .command('list')
+  .description('Menampilkan daftar snapshot profil tersimpan')
+  .action(handleAction(profileListCommand));
+
+profileCmd
+  .command('switch')
+  .description('Beralih ke versi Minecraft atau mod loader lain')
+  .option('-l, --loader <loader>', 'Mod loader target (fabric | forge | neoforge | quilt)')
+  .option('-v, --mc-version <version>', 'Versi Minecraft target (misal: 1.21.1)')
+  .action(
+    handleAction(async (opts) => {
+      await profileSwitchCommand(opts.loader, opts.mcVersion);
+    })
+  );
+
+// 12. home
 program
   .command('home')
   .description('Buka antarmuka interaktif dashboard LoadModer')

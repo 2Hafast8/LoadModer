@@ -8,10 +8,13 @@ interface RemoveOptions {
   dir?: string;
   prune?: boolean;
   yes?: boolean;
+  skipBanner?: boolean;
 }
 
 export async function removeCommand(targets: string[], opts: RemoveOptions) {
-  showBanner();
+  if (!opts.skipBanner) {
+    showBanner();
+  }
   await instanceConfig.load();
   const activeInst = instanceConfig.getActiveInstance();
 

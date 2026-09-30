@@ -3,31 +3,31 @@ import { readdir, stat } from 'node:fs/promises';
 import chalk from 'chalk';
 import { showBanner, clearScreen, logger, theme } from '../theme.js';
 import { askInteractiveMenu, askSearchMenu, ask, type InteractiveChoice } from '../interactive.js';
-import { toggleCommand } from '../../commands/toggle.js';
-import { removeCommand } from '../../commands/remove.js';
-import { updateCommand } from '../../commands/update.js';
 import { DependencyGraph } from '../../core/dependency/graph.js';
 import { formatBytes } from '../../utils/format.js';
+import { runInstalledModDetailRoute } from './detail.js';
+import { instanceConfig } from '../../core/instance/config.js';
 import type { SavedInstanceConfig } from '../../types/instance.js';
 
 export async function runInteractiveManager(activeInstance: SavedInstanceConfig | undefined): Promise<void> {
-  const modsDir = activeInstance?.modsDir;
-  if (!modsDir) {
-    logger.error('Folder mods belum terdaftar. Jalankan "loadmoder init" terlebih dahulu.');
-    await ask('Tekan Enter untuk kembali...');
-    return;
-  }
-
   let managing = true;
 
   while (managing) {
-    const instanceDir = activeInstance?.rootDir ?? path.dirname(modsDir);
+    await instanceConfig.load();
+    const currentInstance = instanceConfig.getActiveInstance() ?? activeInstance;
+    const modsDir = currentInstance?.modsDir;
+    if (!modsDir) {
+      logger.error('Folder mods belum terdaftar. Jalankan "loadmoder init" terlebih dahulu.');
+      await ask('Tekan Enter untuk kembali...');
+      return;
+    }
+
+    const instanceDir = currentInstance?.rootDir ?? path.dirname(modsDir);
     const graph = new DependencyGraph(instanceDir);
     await graph.load();
     await graph.reconcileWithDisk(modsDir);
 
     clearScreen();
-    showBanner(activeInstance?.name, true);
 
     let entries: string[] = [];
     try {
@@ -40,6 +40,8 @@ export async function runInteractiveManager(activeInstance: SavedInstanceConfig 
 
     const modFiles = entries.filter((f) => f.endsWith('.jar') || f.endsWith('.jar.disabled'));
     if (modFiles.length === 0) {
+      clearScreen();
+      showBanner(currentInstance?.name, true);
       logger.warn('Tidak ada berkas mod di folder instance ini.');
       await ask('Tekan Enter untuk kembali...');
       return;
@@ -85,7 +87,7 @@ export async function runInteractiveManager(activeInstance: SavedInstanceConfig 
       `MANAJER MOD INSTANCE (${totalActive} Aktif / ${modFiles.length} Total Berkas)`,
       choicesWithStats,
       () => {
-        showBanner(activeInstance?.name, true);
+        showBanner(currentInstance?.name, true);
       }
     );
 
@@ -96,7 +98,7 @@ export async function runInteractiveManager(activeInstance: SavedInstanceConfig 
       picked = await askSearchMenu(
         'Ketik nama mod yang ingin dicari (geser dengan panah):',
         searchable,
-        () => showBanner(activeInstance?.name, true)
+        () => showBanner(currentInstance?.name, true)
       );
     }
 
@@ -105,58 +107,7 @@ export async function runInteractiveManager(activeInstance: SavedInstanceConfig 
       break;
     }
 
-    const isDisabled = picked.endsWith('.disabled');
-    const cleanName = picked.replace('.disabled', '');
-
-    const actionChoices: InteractiveChoice[] = [
-      {
-        name: isDisabled
-          ? '1. 🟢 Aktifkan Mod Ini (.jar.disabled -> .jar)'
-          : '1. 🔴 Nonaktifkan Mod Ini (.jar -> .jar.disabled)',
-        value: 'toggle',
-        hint: 'Instan tanpa unduh ulang',
-      },
-      {
-        name: '2. 🔄 Periksa Update untuk Mod Ini',
-        value: 'update_single',
-        hint: 'Cek versi Modrinth',
-      },
-      {
-        name: '3. 🗑️  Hapus Mod Ini (beserta pembersihan dependensi yatim)',
-        value: 'remove',
-        hint: 'Hapus berkas permanen',
-      },
-      { name: '──────────────────', value: 'sep' },
-      { name: '[Kembali ke Daftar Mod]', value: 'back' },
-    ];
-
-    const action = await askInteractiveMenu(
-      `AKSI UNTUK "${cleanName}"`,
-      actionChoices,
-      () => {
-        showBanner(activeInstance?.name, true);
-      }
-    );
-
-    if (action === 'toggle') {
-      clearScreen();
-      showBanner(activeInstance?.name, true);
-      await toggleCommand(picked, isDisabled, { dir: modsDir });
-      await ask('Tekan Enter untuk melanjutkan...');
-    } else if (action === 'remove') {
-      clearScreen();
-      showBanner(activeInstance?.name, true);
-      await removeCommand([picked], { dir: modsDir });
-      await ask('Tekan Enter untuk melanjutkan...');
-    } else if (action === 'update_single') {
-      clearScreen();
-      showBanner(activeInstance?.name, true);
-      await updateCommand({
-        dir: modsDir,
-        mcVersion: activeInstance?.gameVersion,
-        loader: activeInstance?.loader,
-      });
-      await ask('Tekan Enter untuk melanjutkan...');
-    }
+    // Arahkan ke rute detail mod lengkap yang baru
+    await runInstalledModDetailRoute(picked, currentInstance, modsDir);
   }
 }

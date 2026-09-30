@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { select, input, search, Separator } from '@inquirer/prompts';
 import { ExitPromptError } from '@inquirer/core';
+import { clearScreen } from './theme.js';
 
 // === Nordic Minimalist Clean Theme for Inquirer Navigation ===
 export const ui = {
@@ -60,13 +61,32 @@ export async function askInteractiveMenu(
   const pageSize = opts?.pageSize ?? 14;
 
   if (renderContext) {
-    console.clear();
+    clearScreen();
     renderContext();
     console.log('');
   }
 
   const inquirerChoices = choices.map((c) => {
-    if (c.value === 'sep' || c.name === '──────────────────' || c.name.includes('───')) {
+    if (c.value === 'sep') {
+      const isPlainLine =
+        !c.name ||
+        c.name === 'sep' ||
+        c.name === '──────────────────' ||
+        /^─+$/.test(c.name.trim());
+
+      if (isPlainLine) {
+        return new Separator(chalk.hex(ui.muted)('  ' + ui.separator.repeat(54)));
+      }
+
+      // Separator berlabel / section header
+      const label = c.name.replace(/[─\-]/g, '').trim().toUpperCase();
+      return new Separator(
+        chalk.hex(ui.accentAlt).bold(`\n  ▸ ${label}`) +
+          chalk.hex(ui.muted)(` ${ui.separator.repeat(Math.max(8, 46 - label.length))}`)
+      );
+    }
+
+    if (c.name === '──────────────────' || /^─+$/.test(c.name.trim())) {
       return new Separator(chalk.hex(ui.muted)('  ' + ui.separator.repeat(54)));
     }
 
@@ -126,7 +146,7 @@ export async function askSearchMenu(
   renderContext?: () => void
 ): Promise<string> {
   if (renderContext) {
-    console.clear();
+    clearScreen();
     renderContext();
     console.log('');
   }
