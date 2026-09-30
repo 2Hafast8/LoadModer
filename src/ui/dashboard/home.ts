@@ -8,6 +8,8 @@ import { runInteractiveManager } from './manager.js';
 import { updateCommand } from '../../commands/update.js';
 import { initCommand } from '../../commands/init.js';
 import { bisectCommand } from '../../commands/bisect.js';
+import { watchCommand } from '../../commands/watch.js';
+import { DependencyGraph } from '../../core/dependency/graph.js';
 import { formatBytes } from '../../utils/format.js';
 
 async function getInstanceStats(modsDir?: string) {
@@ -41,6 +43,15 @@ export async function launchHomeDashboard(): Promise<void> {
   while (isRunning) {
     await instanceConfig.load();
     const active = instanceConfig.getActiveInstance();
+
+    // Rekonsiliasi otomatis jika ada mod yang dihapus manual oleh pengguna dari disk
+    if (active?.modsDir) {
+      const instanceDir = active.rootDir ?? path.dirname(active.modsDir);
+      const graph = new DependencyGraph(instanceDir);
+      await graph.load();
+      await graph.reconcileWithDisk(active.modsDir);
+    }
+
     const stats = await getInstanceStats(active?.modsDir);
 
     const homeChoices: InteractiveChoice[] = [
@@ -49,6 +60,7 @@ export async function launchHomeDashboard(): Promise<void> {
       { name: '📦  Eksplorasi Modpack Rekomendasi', value: 'modpacks', hint: '.mrpack siap pakai' },
       { name: '🗃️   Kelola Mod Terpasang', value: 'manage', hint: `${stats.modsCount} berkas mod` },
       { name: '🔄  Periksa & Update Mod', value: 'update', hint: 'Deteksi versi baru' },
+      { name: '👁️   Pantau Folder Mods (Real-Time)', value: 'watch', hint: 'Auto-sync live monitor' },
       { name: '🩺  Diagnostik Crash & Bisect Tool', value: 'bisect', hint: 'Binary crash locator' },
       { name: '⚙️   Ganti Profil Instance Minecraft', value: 'switch_instance', hint: active?.name ?? 'Pilih' },
       { name: '❓  Pusat Bantuan & Panduan', value: 'faq', hint: 'Dokumentasi' },
@@ -107,6 +119,11 @@ export async function launchHomeDashboard(): Promise<void> {
           loader: active?.loader,
         });
         await ask('Tekan Enter untuk kembali ke dashboard...');
+        break;
+      }
+
+      case 'watch': {
+        await watchCommand({ dir: active?.modsDir });
         break;
       }
 

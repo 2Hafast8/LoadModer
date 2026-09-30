@@ -2,6 +2,7 @@ import path from 'node:path';
 import { readdir, rm } from 'node:fs/promises';
 import { modrinthClient } from '../api/client.js';
 import { instanceConfig } from '../core/instance/config.js';
+import { DependencyGraph } from '../core/dependency/graph.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
 import { hashFile } from '../utils/crypto.js';
 import { formatBytes } from '../utils/format.js';
@@ -35,7 +36,10 @@ export async function updateCommand(opts: UpdateOptions) {
   }
 
   const s = p.spinner();
-  s.start('Memindai mod lokal dan mencari pembaruan di Modrinth...');
+  const instanceDir = activeInst?.rootDir ?? path.dirname(modsDir);
+  const graph = new DependencyGraph(instanceDir);
+  await graph.load();
+  await graph.reconcileWithDisk(modsDir);
 
   const entries = await readdir(modsDir);
   const activeJars = entries.filter((f) => f.endsWith('.jar'));

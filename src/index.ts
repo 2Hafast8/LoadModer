@@ -10,6 +10,7 @@ import { removeCommand } from './commands/remove.js';
 import { toggleCommand } from './commands/toggle.js';
 import { bisectCommand } from './commands/bisect.js';
 import { configCommand } from './commands/config.js';
+import { watchCommand } from './commands/watch.js';
 import { launchHomeDashboard } from './ui/dashboard/home.js';
 import { pc } from './ui/prompts.js';
 
@@ -184,7 +185,18 @@ configCmd
     })
   );
 
-// 10. home
+// 10. watch
+program
+  .command('watch')
+  .description('Memantau folder mods secara real-time dan menyinkronkan data saat berkas diubah atau dihapus manual')
+  .option('-d, --dir <path>', 'Folder mods kustom yang ingin dipantau')
+  .action(
+    handleAction(async (opts) => {
+      await watchCommand(opts);
+    })
+  );
+
+// 11. home
 program
   .command('home')
   .description('Buka antarmuka interaktif dashboard LoadModer')

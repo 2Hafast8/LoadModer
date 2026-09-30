@@ -6,6 +6,7 @@ import { askInteractiveMenu, askSearchMenu, ask, type InteractiveChoice } from '
 import { toggleCommand } from '../../commands/toggle.js';
 import { removeCommand } from '../../commands/remove.js';
 import { updateCommand } from '../../commands/update.js';
+import { DependencyGraph } from '../../core/dependency/graph.js';
 import { formatBytes } from '../../utils/format.js';
 import type { SavedInstanceConfig } from '../../types/instance.js';
 
@@ -20,6 +21,11 @@ export async function runInteractiveManager(activeInstance: SavedInstanceConfig 
   let managing = true;
 
   while (managing) {
+    const instanceDir = activeInstance?.rootDir ?? path.dirname(modsDir);
+    const graph = new DependencyGraph(instanceDir);
+    await graph.load();
+    await graph.reconcileWithDisk(modsDir);
+
     clearScreen();
     showBanner(activeInstance?.name, true);
 

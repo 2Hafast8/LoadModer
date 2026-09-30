@@ -268,7 +268,15 @@ Wizard pemecahan masalah (*troubleshooting*) saat game mengalami crash mendadak 
 
 ---
 
-### I. `loadmoder export` & `loadmoder sync`
+### I. `loadmoder watch`
+Memantau folder `mods/` secara *real-time*. Jika pengguna menghapus, mengubah, atau menambahkan file mod secara manual melalui Windows File Explorer:
+* Sistem secara otomatis mendeteksi event berkas (`file-event`).
+* Secara instan melakukan rekonsiliasi lockfile (`reconcileWithDisk`), menghapus mod yang hilang dari `loadmoder.lock.json`, dan membersihkan dependensi yatim (*orphan*).
+* Menampilkan visual log aktivitas real-time dengan tema Nordic Clean.
+
+---
+
+### J. `loadmoder export` & `loadmoder sync`
 * `loadmoder export --format mrpack`: Mengemas folder mods dan configs lokal menjadi file `.mrpack` resmi yang bisa langsung diunggah ke Modrinth atau dibagikan ke teman.
 * `loadmoder export --format json`: Menghasilkan manifes teks ringan yang berisi daftar ID proyek dan hash file.
 * `loadmoder sync`: Mengunduh ulang seluruh mod persis seperti yang tertulis di `loadmoder.lock.json` pada komputer lain.

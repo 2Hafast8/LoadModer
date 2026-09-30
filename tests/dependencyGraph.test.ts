@@ -73,4 +73,42 @@ describe('DependencyGraph', () => {
     expect(removedMod).toBeDefined();
     expect(orphanedSlugs).toContain('fabric-api');
   });
+
+  it('harus merekonsiliasi data lockfile jika berkas mod dihapus secara manual dari disk', async () => {
+    const fs = await import('node:fs/promises');
+    const modsDir = path.join(tempDir, 'mods');
+    await fs.mkdir(modsDir, { recursive: true });
+
+    // Registrasi 2 mod di graph
+    graph.registerMod('sodium', {
+      projectId: 'AANobbMI',
+      versionId: 'ver1',
+      versionNumber: '0.6.0',
+      filename: 'sodium-0.6.0.jar',
+      sha512: 'hash1',
+      isRoot: true,
+      dependencies: ['fabric-api'],
+    });
+
+    graph.registerMod('fabric-api', {
+      projectId: 'P7dR8mSH',
+      versionId: 'ver2',
+      versionNumber: '0.102.0',
+      filename: 'fabric-api-0.102.0.jar',
+      sha512: 'hash2',
+      isRoot: false,
+      dependencies: [],
+    });
+
+    await graph.save();
+
+    // Hanya buat berkas fabric-api di disk, sodium sengaja tidak dibuat (mensimulasikan pengguna menghapus sodium)
+    await fs.writeFile(path.join(modsDir, 'fabric-api-0.102.0.jar'), 'dummy');
+
+    const result = await graph.reconcileWithDisk(modsDir);
+
+    expect(result.unregistered).toContain('sodium');
+    expect(result.orphanedSlugs).toContain('fabric-api');
+    expect(graph.getMod('sodium')).toBeUndefined();
+  });
 });

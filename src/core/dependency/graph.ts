@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import writeFileAtomic from 'write-file-atomic';
 import type { LockfileData, LockModEntry } from '../../types/lockfile.js';
 
@@ -100,5 +100,41 @@ export class DependencyGraph {
       }
     }
     return conflicts;
+  }
+
+  /**
+   * Rekonsiliasi data lockfile dengan file fisik yang ada di folder mods.
+   * Jika ada mod yang dihapus secara manual dari disk, mod tersebut otomatis
+   * di-unregister dari lockfile dan dependensi yatim (orphan) akan terdeteksi.
+   */
+  async reconcileWithDisk(modsDir: string): Promise<{ unregistered: string[]; orphanedSlugs: string[] }> {
+    try {
+      const files = await readdir(modsDir);
+      const activeFilenames = new Set(files);
+
+      const unregistered: string[] = [];
+      const allOrphaned: string[] = [];
+
+      for (const [slug, entry] of Object.entries(this.data.mods)) {
+        const isPresent =
+          activeFilenames.has(entry.filename) ||
+          activeFilenames.has(`${entry.filename}.disabled`) ||
+          activeFilenames.has(entry.filename.replace('.disabled', ''));
+
+        if (!isPresent) {
+          const { orphanedSlugs } = this.removeMod(slug);
+          unregistered.push(slug);
+          allOrphaned.push(...orphanedSlugs);
+        }
+      }
+
+      if (unregistered.length > 0) {
+        await this.save();
+      }
+
+      return { unregistered, orphanedSlugs: allOrphaned };
+    } catch {
+      return { unregistered: [], orphanedSlugs: [] };
+    }
   }
 }

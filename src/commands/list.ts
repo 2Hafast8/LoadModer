@@ -45,6 +45,7 @@ export async function listCommand(opts: ListOptions) {
   const instanceDir = activeInst?.rootDir ?? path.dirname(modsDir);
   const graph = new DependencyGraph(instanceDir);
   await graph.load();
+  await graph.reconcileWithDisk(modsDir);
 
   const fileDetails = await Promise.all(
     modFiles.map(async (filename) => {
