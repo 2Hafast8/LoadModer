@@ -63,7 +63,7 @@ stateDiagram-v2
 
 ---
 
-## 4. Implementasi Modul Bisect (`src/core/bisectEngine.ts`)
+## 4. Implementasi Modul Bisect (`src/core/troubleshoot/bisect.ts`)
 
 ```typescript
 import path from 'node:path';

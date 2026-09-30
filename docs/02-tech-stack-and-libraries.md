@@ -1,6 +1,6 @@
 # 02 — Kurasi Tech Stack & Pustaka (The Golden Stack)
 
-Dokumen ini membedah alasan teknis, komparasi performa, dan kurasi pustaka (libraries) yang dipilih untuk membangun platform **LoadModer**.
+Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, komparasi performa, dan kurasi pustaka (*libraries*) yang dipilih untuk membangun platform **LoadModer**.
 
 ---
 
@@ -12,89 +12,71 @@ Dokumen ini membedah alasan teknis, komparasi performa, dan kurasi pustaka (libr
 ├───────────────────────┬─────────────────────────────────────┤
 │ Bahasa & Runtime      │ TypeScript 5.5+ & Node.js 20+ (ESM) │
 │ CLI Command Router    │ commander (v12+)                    │
-│ TUI Dashboard & Nav   │ Raw Mode Keyboard Engine (↑/↓/Enter)│
+│ TUI Dashboard & Nav   │ @inquirer/prompts (Raw Mode ANSI)   │
+│ Wizard & Setup Flow   │ @clack/prompts                      │
 │ Banner & Visual UI    │ figlet + gradient-string + chalk    │
 │ Kotak & Pesan Header  │ boxen (round border)                │
-│ Spinner & Feedback    │ ora + cli-progress (multi-bar)      │
+│ Spinner & Progress    │ ora + cli-progress (multi-bar)      │
 │ Kontrol Konkurensi    │ p-limit                             │
 │ Streaming ZIP Engine  │ unzipper (streaming memory-safe)    │
 │ Validasi Skema        │ zod                                 │
 │ Normalisasi Path      │ pathe                               │
 │ State Lockfile        │ write-file-atomic                   │
-│ Bundler & Kompilasi   │ tsup + @yao-pkg/pkg (atau Bun)      │
+│ Pengujian Otomatis    │ vitest (36 tests)                   │
+│ Bundler & Kompilasi   │ tsup (esbuild engine)               │
 └───────────────────────┴─────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Komparasi Mendalam & Rationale Setiap Pustaka
+## 2. Komparasi Mendalam & Rasional Pemilihan Pustaka
 
-### A. CLI Router: `commander` vs `yargs` vs `citty`
-* **Pilihan**: `commander`
-* **Mengapa bukan `yargs`?** `yargs` memiliki dependensi transitif yang besar, sehingga memperlambat waktu *cold start* CLI hingga 150–200ms.
-* **Mengapa `commander`?**
+### A. CLI Router: `commander`
+* **Alasan Pemilihan**:
   1. Sangat stabil, dokumentasi matang, dan tipe TypeScript bawaan yang sangat presisi.
-  2. Mendukung sub-perintah bersarang (*nested subcommands*) dengan pemisahan berkas yang bersih.
-  3. Memiliki parser opsi fleksibel: boolean flags, variadic arguments (`<mods...>`), negated flags (`--no-deps`), dan default values.
-  4. Auto-generate halaman `--help` yang terstruktur dan mudah dibaca.
+  2. Waktu *cold start* yang sangat cepat (< 50ms), jauh lebih ringan dibanding framework CLI besar seperti `yargs`.
+  3. Mendukung sub-perintah bersarang (*nested subcommands*) dengan pemisahan berkas yang modular.
+  4. Penanganan argumen variadic (`<targets...>`), opsi negated (`--no-deps`), dan default values yang rapi.
+  5. Menghasilkan output `--help` yang terstruktur secara otomatis.
 
-### B. Interaktivitas & Navigasi Panah: Sinergi `@clack/prompts` & `@inquirer/prompts`
-* **Pilihan**: Sinergi Hibrida (`@clack/prompts` untuk wizard inisialisasi + `@inquirer/prompts` untuk navigasi dashboard menu & filter instan)
-* **Rasional Desain UX & Performa**:
-  * **`@inquirer/prompts`** digunakan untuk menu navigasi utama dashboard (`askInteractiveMenu`) dan pencarian mod instan (`askSearchMenu`). Menghilangkan *screen flickering* berkat algoritma *ANSI diff rendering* internal, mendukung kontrol panah (`↑`/`↓`), tombol Vim (`j`/`k`), lompatan nomor (`1-9`), serta built-in pagination (`pageSize`) tanpa perlu slicing manual.
-  * **`@clack/prompts`** digunakan untuk alur wizard instalasi dan inisialisasi instance (`init`, `confirm`, `spinner`) karena gaya visual *rail layout* vertikal yang elegan dan minimalis.
+### B. Interaktivitas Terminal: Sinergi `@inquirer/prompts` & `@clack/prompts`
+* **Rasional Desain Hibrida**:
+  * **`@inquirer/prompts`**: Digunakan untuk navigasi menu utama dashboard (`askInteractiveMenu`) dan pencarian mod instan (`askSearchMenu`). Didukung algoritma *ANSI diff rendering* internal yang meniadakan *screen flickering*, mendukung kontrol panah (`↑`/`↓`), tombol Vim (`j`/`k`), lompatan nomor (`1-9`), serta fitur pagination built-in (`pageSize`).
+  * **`@clack/prompts`**: Digunakan untuk alur wizard inisialisasi (`init`), dialog konfirmasi (`confirm`), dan spinner aksi bertingkat karena tata letak visual rel vertikal (*rail layout*) yang rapi dan minimalis.
 
-
-### C. Pewarnaan & Formatting: `picocolors` vs `chalk`
-* **Pilihan**: `picocolors`
-* **Analisis Performa**:
-  * `chalk` adalah pustaka luar biasa, namun memiliki bobot modul yang lebih besar dan runtime overhead dalam membangun string format ANSI.
-  * `picocolors` dibuat oleh Alexey Raspopov (pencipta Nanoid). Ukurannya kurang dari **7 KB** (berbanding ~100 KB ekosistem chalk), **zero dependencies**, dan **3 hingga 4 kali lebih cepat** dalam tes benchmark pewarnaan terminal.
-  * Untuk CLI yang sering mencetak ribuan baris log progres, penghematan CPU dari `picocolors` terasa sangat nyata.
+### C. Pewarnaan & Formatting: `picocolors` & `chalk`
+* **Rasional Penggunaan**:
+  * `picocolors` digunakan pada loop pengulangan tinggi dan log streaming karena bobotnya yang sangat kecil (< 7 KB) dan performa perenderan ANSI 3–4x lebih cepat tanpa dependensi tambahan.
+  * `chalk` dan `gradient-string` dimanfaatkan khusus untuk merender banner ASCII logo neon pada header dashboard awal.
 
 ### D. Progress Bar Unduhan Paralel: `cli-progress` vs `ora`
-* **Pilihan**: Kombinasi `cli-progress` (untuk unduhan banyak file) + `@clack/prompts spinner` (untuk operasi single-task).
-* **Fitur Utama `cli-progress`**:
-  * Mendukung instansiasi **MultiBar**. Ketika mengunduh modpack dengan 50 mod secara paralel (3-5 unduhan aktif sekaligus), `cli-progress` merender bar independen untuk tiap worker tanpa saling menimpa tampilan.
-  * Format template fleksibel: menampilkan kecepatan unduh (MB/s), ETA sisa waktu, ukuran file yang diterima vs total, dan nama file.
-  * Ringan dan tidak membebani event loop Node.js.
+* **Rasional Kombinasi**:
+  * `cli-progress` digunakan untuk unduhan multi-berkas dengan instansiasi **MultiBar**. Tiap file yang sedang diunduh secara paralel memiliki progress bar terpisah dengan indikator kecepatan transfer (MB/s), ETA sisa waktu, dan ukuran berkas.
+  * `ora` digunakan untuk indikator pemuatan tunggal (*single-task spinner*) seperti saat membaca metadata API atau mengekstrak indeks modpack.
 
 ### E. Concurrency Limiter: `p-limit`
-* **Pilihan**: `p-limit` (oleh Sindre Sorhus)
 * **Kebutuhan Teknis**:
-  * Jika sebuah modpack berisi 80 mod dan semuanya langsung dipanggil dengan `Promise.all(urls.map(download))`, akan terjadi lonjakan 80 koneksi HTTP simultan. Hal ini memicu:
-    1. Error `ECONNRESET` atau `ETIMEDOUT` dari jaringan lokal.
-    2. Modrinth Cloudflare memblokir IP pengguna karena *burst rate limit*.
-    3. Konsumsi soket TCP dan memori RAM membengkak.
-  * Dengan `const limit = pLimit(4)`, seluruh 80 unduhan dimasukkan ke dalam antrean, namun hanya tepat **4 unduhan** yang berjalan bersamaan. Begitu satu selesai, unduhan berikutnya langsung diproses secara otomatis.
+  * Ketika modpack menginstruksikan pengunduhan puluhan file sekaligus, mengeksekusi seluruh permintaan HTTP secara bersamaan berisiko memicu `ECONNRESET`, pemutusan koneksi TCP, atau pemblokiran IP oleh Cloudflare Modrinth (*burst rate limit*).
+  * Dengan `pLimit(4)`, antrean unduhan dibatasi tepat 4 koneksi simultan, menjaga stabilitas throughput jaringan dan konsumsi memori sistem.
 
-### F. ZIP Streaming Engine: `unzipper` vs `adm-zip`
-* **Pilihan**: `unzipper` (atau `yauzl`)
-* **Mengapa bukan `adm-zip`?** `adm-zip` membaca seluruh file ZIP ke dalam memori RAM (Buffer). Jika pengguna mengunduh modpack berukuran 300MB, Node.js akan mengalokasikan ratusan megabyte RAM hanya untuk membaca arsip tersebut.
-* **Keunggulan `unzipper`**:
-  * Sepenuhnya berbasis **Node.js Stream**.
-  * Dapat membaca entri file secara streaming. Untuk mengambil file `modrinth.index.json` dari dalam file `.mrpack`, `unzipper` hanya memproses header file zip tanpa perlu mengekstrak seluruh modpack ke disk atau RAM.
+### F. ZIP Streaming Engine: `unzipper`
+* **Keunggulan Teknis**:
+  * Berbeda dari `adm-zip` yang membaca keseluruhan arsip ZIP ke dalam RAM, `unzipper` memproses berkas sebagai **Node.js Stream**.
+  * File metadata seperti `modrinth.index.json` di dalam arsip `.mrpack` berukuran besar dapat dibaca langsung tanpa perlu mengekstrak seluruh arsip ke disk.
 
 ### G. Validasi Skema Data: `zod`
-* **Pilihan**: `zod`
 * **Keamanan Data**:
-  * Modrinth API v2, `modrinth.index.json`, dan file konfigurasi lokal `loadmoder.lock.json` berisiko memiliki inkonsistensi struktur (misalnya versi API baru atau field opsional bernilai `null`).
-  * `zod` memvalidasi objek JSON saat runtime dan sekaligus mengekspor tipe TypeScript statis (`z.infer<typeof Schema>`). Menghilangkan kemungkinan runtime crash seperti `Cannot read property 'sha512' of undefined`.
+  * Struktur respons API Modrinth, manifest `.mrpack`, dan file konfigurasi lokal divalidasi saat runtime.
+  * Tipe data statis TypeScript (`z.infer<typeof Schema>`) diekspor langsung dari skema, mengeliminasi kesalahan fatal runtime seperti `TypeError: Cannot read properties of undefined`.
 
-### H. Build & Single-Binary Executable: `tsup` & `@yao-pkg/pkg`
-* **Target Distribusi**:
-  * Kompilasi source code TypeScript menggunakan `tsup` (berbasis `esbuild`). Waktu build kurang dari 1 detik.
-  * Menggunakan `@yao-pkg/pkg` (atau `bun build --compile`) untuk menggabungkan Node.js runtime dan bundle JS menjadi satu file mandiri:
-    * `loadmoder.exe` (Windows)
-    * `loadmoder-linux` (Linux x64)
-    * `loadmoder-macos` (macOS arm64/x64)
-  * Pemain Minecraft cukup mengunduh file `.exe` dan memasukkannya ke direktori PATH atau menjalankannya langsung di CMD tanpa perlu menginstal Node.js/npm.
+### H. Test Runner: `vitest`
+* **Kecepatan & Integrasi**:
+  * Eksekusi pengujian TypeScript instan tanpa tahap kompilasi terpisah.
+  * Kompatibilitas penuh dengan sintaks ESM modern dan mocking bawaan (`vi.spyOn`).
 
 ---
 
 ## 3. Spesifikasi `package.json`
-
-Berikut adalah deklarasi dependensi produksi dan dependensi pengembangan yang telah teruji kompatibilitasnya:
 
 ```json
 {
@@ -116,14 +98,15 @@ Berikut adalah deklarasi dependensi produksi dan dependensi pengembangan yang te
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
-    "boxen": "^8.0.1",
-    "chalk": "^5.4.1",
+    "@inquirer/prompts": "^8.7.2",
+    "boxen": "^9.0.0",
+    "chalk": "^6.0.1",
     "cli-progress": "^3.12.0",
     "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
-    "figlet": "^1.8.0",
+    "figlet": "^1.12.0",
     "gradient-string": "^3.0.0",
-    "ora": "^8.2.0",
+    "ora": "^9.4.1",
     "p-limit": "^5.0.0",
     "pathe": "^1.1.2",
     "picocolors": "^1.0.1",
@@ -148,9 +131,9 @@ Berikut adalah deklarasi dependensi produksi dan dependensi pengembangan yang te
 
 ---
 
-## 4. Konfigurasi `tsconfig.json` Optimal
+## 4. Konfigurasi `tsconfig.json`
 
-Dikonfigurasi khusus untuk performa modul ES (NodeNext) dan resolusi tipe yang ketat (*strict mode*):
+Konfigurasi kompilasi yang mencakup validasi tipe ketat untuk seluruh folder kode produksi (`src/`) dan rangkaian pengujian (`tests/`):
 
 ```json
 {
@@ -159,7 +142,6 @@ Dikonfigurasi khusus untuk performa modul ES (NodeNext) dan resolusi tipe yang k
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -168,6 +150,9 @@ Dikonfigurasi khusus untuk performa modul ES (NodeNext) dan resolusi tipe yang k
     "declaration": true,
     "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ]
 }
 ```

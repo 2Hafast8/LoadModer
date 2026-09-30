@@ -1,6 +1,9 @@
 # Panduan Lengkap Integrasi Modrinth API dan Implementasi CLI Mod Manager Minecraft (TypeScript & Node.js)
 
-Dokumen ini adalah panduan komprehensif mengenai **Modrinth API (Labrinth)**: aturan arsitektur, otentikasi, rate limit, struktur endpoint, dan migrasi versi API. Bagian utamanya adalah langkah demi langkah membangun **aplikasi CLI (Command Line Interface)** berbasis **Node.js & TypeScript** yang mencari, memasang, memperbarui, dan menghapus mod **langsung di folder `mods` Minecraft**.
+> [!NOTE]
+> Dokumen ini adalah referensi spesifikasi teknis integrasi Modrinth API (Labrinth v2) yang mendasari platform **LoadModer v2.0**. Prototipe awal utilitas CLI yang diuraikan di sini telah berevolusi menjadi arsitektur modular LoadModer (`lm`) dengan integrasi multi-launcher, mesin modpack, dependency resolver otomatis, dan antarmuka TUI interaktif.
+
+Dokumen ini adalah panduan komprehensif mengenai **Modrinth API (Labrinth)**: aturan arsitektur, otentikasi, rate limit, struktur endpoint, dan migrasi versi API. Bagian utamanya adalah langkah demi langkah membangun aplikasi CLI berbasis **Node.js & TypeScript** yang mencari, memasang, memperbarui, dan menghapus mod langsung di folder Minecraft.
 
 **Fitur CLI yang dibangun di panduan ini:**
 

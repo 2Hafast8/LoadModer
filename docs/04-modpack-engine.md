@@ -129,7 +129,7 @@ flowchart TD
 
 ---
 
-## 4. Implementasi Teknis Mesin Modpack (`src/core/modpackEngine.ts`)
+## 4. Implementasi Teknis Mesin Modpack (`src/core/modpack/unpacker.ts`)
 
 Berikut adalah kode produksi mesin modpack yang hemat memori, aman, dan mendukung pembatalan otomatis jika terjadi error:
 
