@@ -1,13 +1,13 @@
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { mkdir, rename, rm } from 'node:fs/promises';
-import { Readable } from 'node:stream';
+import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import unzipper from 'unzipper';
 import pLimit from 'p-limit';
 import { MrpackIndexSchema, type MrpackFileEntry, type MrpackIndex } from '../../types/mrpack.js';
 import type { ModrinthClient } from '../../api/client.js';
-import { hashFile } from '../../utils/crypto.js';
 
 export interface ModpackInstallOptions {
   instanceDir: string;
@@ -19,9 +19,9 @@ export interface ModpackInstallOptions {
 export class ModpackUnpacker {
   constructor(private readonly api: ModrinthClient) {}
 
-  async inspect(mrpackFilePath: string): Promise<MrpackIndex> {
-    const zip = await unzipper.Open.file(mrpackFilePath);
-    const indexEntry = zip.files.find((f) => f.path === 'modrinth.index.json');
+  async inspect(mrpackFilePath: string, existingZip?: any): Promise<MrpackIndex> {
+    const zip = existingZip ?? (await unzipper.Open.file(mrpackFilePath));
+    const indexEntry = zip.files.find((f: any) => f.path === 'modrinth.index.json');
     if (!indexEntry) {
       throw new Error('Berkas tidak valid: "modrinth.index.json" tidak ditemukan di dalam .mrpack');
     }
@@ -32,8 +32,8 @@ export class ModpackUnpacker {
   }
 
   async install(mrpackFilePath: string, opts: ModpackInstallOptions): Promise<MrpackIndex> {
-    const index = await this.inspect(mrpackFilePath);
     const zip = await unzipper.Open.file(mrpackFilePath);
+    const index = await this.inspect(mrpackFilePath, zip);
 
     const rootResolved = path.resolve(opts.instanceDir);
 
@@ -119,10 +119,18 @@ export class ModpackUnpacker {
       throw new Error(`Gagal mengunduh file ${file.path}: ${lastError?.message ?? 'Semua mirror unduhan gagal'}`);
     }
 
-    try {
-      await pipeline(Readable.fromWeb(res.body as any), createWriteStream(tempDest));
+    const hasher = createHash('sha512');
+    const hashStream = new Transform({
+      transform(chunk: Buffer, _enc, cb) {
+        hasher.update(chunk);
+        cb(null, chunk);
+      },
+    });
 
-      const actualSha512 = await hashFile(tempDest, 'sha512');
+    try {
+      await pipeline(Readable.fromWeb(res.body as any), hashStream, createWriteStream(tempDest));
+
+      const actualSha512 = hasher.digest('hex');
       if (actualSha512.toLowerCase() !== file.hashes.sha512.toLowerCase()) {
         throw new Error(`Checksum SHA-512 tidak cocok untuk ${file.path}. File dibatalkan.`);
       }

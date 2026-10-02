@@ -9,6 +9,7 @@ import { theme } from '../ui/theme.js';
 import { p, pc } from '../ui/prompts.js';
 import { hashFile } from '../utils/crypto.js';
 import { formatBytes } from '../utils/format.js';
+import pLimit from 'p-limit';
 
 interface ListOptions {
   dir?: string;
@@ -47,14 +48,17 @@ export async function listCommand(opts: ListOptions) {
   await graph.load();
   await graph.reconcileWithDisk(modsDir);
 
+  const limit = pLimit(8);
   const fileDetails = await Promise.all(
-    modFiles.map(async (filename) => {
-      const filePath = path.join(modsDir, filename);
-      const fileStat = await stat(filePath);
-      const sha1 = await hashFile(filePath, 'sha1');
-      const isDisabled = filename.endsWith('.disabled');
-      return { filename, filePath, size: fileStat.size, sha1, isDisabled };
-    })
+    modFiles.map((filename) =>
+      limit(async () => {
+        const filePath = path.join(modsDir, filename);
+        const fileStat = await stat(filePath);
+        const sha1 = await hashFile(filePath, 'sha1');
+        const isDisabled = filename.endsWith('.disabled');
+        return { filename, filePath, size: fileStat.size, sha1, isDisabled };
+      })
+    )
   );
 
   const knownMap = await modrinthClient.getVersionsByHashes(fileDetails.map((f) => f.sha1));

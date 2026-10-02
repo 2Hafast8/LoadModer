@@ -6,6 +6,7 @@ import { DependencyGraph } from '../core/dependency/graph.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
 import { hashFile } from '../utils/crypto.js';
 import { formatBytes } from '../utils/format.js';
+import pLimit from 'p-limit';
 import type { VersionType } from '../types/modrinth.js';
 
 interface UpdateOptions {
@@ -55,12 +56,16 @@ export async function updateCommand(opts: UpdateOptions) {
     return;
   }
 
-  const fileHashes: { filename: string; sha1: string; filePath: string }[] = [];
-  for (const jar of activeJars) {
-    const filePath = path.join(modsDir, jar);
-    const sha1 = await hashFile(filePath, 'sha1');
-    fileHashes.push({ filename: jar, sha1, filePath });
-  }
+  const limit = pLimit(8);
+  const fileHashes = await Promise.all(
+    activeJars.map((jar) =>
+      limit(async () => {
+        const filePath = path.join(modsDir, jar);
+        const sha1 = await hashFile(filePath, 'sha1');
+        return { filename: jar, sha1, filePath };
+      })
+    )
+  );
 
   const versionTypes: VersionType[] = opts.prerelease ? ['release', 'beta', 'alpha'] : ['release'];
   const latestMap = await modrinthClient.getLatestByHashes(

@@ -96,6 +96,20 @@ export async function getMinecraftReleaseVersions(options?: {
     return inMemoryVersions;
   }
 
+  if (!options?.forceRefresh) {
+    const diskData = await loadFromDiskCache();
+    if (
+      diskData &&
+      diskData.versions &&
+      diskData.versions.length > 0 &&
+      now - (diskData.updatedAt || 0) < CACHE_TTL_MS
+    ) {
+      inMemoryVersions = diskData.versions;
+      lastFetchTime = diskData.updatedAt || now;
+      return diskData.versions;
+    }
+  }
+
   try {
     const tags = await modrinthClient.getGameVersions();
     const releases = tags

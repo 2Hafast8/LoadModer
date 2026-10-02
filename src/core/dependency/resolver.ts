@@ -218,6 +218,9 @@ export async function resolveAndInstallDependencies(
   if (project?.id) visited.add(project.id.toLowerCase());
   if (project?.slug) visited.add(project.slug.toLowerCase());
 
+  const diskFiles = await readdir(modsDir).catch(() => [] as string[]);
+  const existingFiles = new Set<string>(diskFiles);
+
   while (queue.length > 0) {
     const targetIdOrSlug = queue.shift()!;
     const cleanKey = targetIdOrSlug.toLowerCase();
@@ -285,14 +288,13 @@ export async function resolveAndInstallDependencies(
         continue;
       }
 
-      const existingFiles = await readdir(modsDir).catch(() => [] as string[]);
-      const exactFilePresent = existingFiles.some((f) => f === safeFilename);
+      const exactFilePresent = existingFiles.has(safeFilename);
 
       const oldModEntry = graph.getMod(depProj.slug);
       const escapedSlug = depProj.slug.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const versionRegex = new RegExp(`^${escapedSlug}[-_][0-9v]`, "i");
 
-      const existingSameMod = existingFiles.find(
+      const existingSameMod = Array.from(existingFiles).find(
         (f) =>
           f !== safeFilename &&
           ((oldModEntry && f === oldModEntry.filename) || versionRegex.test(f)) &&
@@ -330,6 +332,7 @@ export async function resolveAndInstallDependencies(
         if (existingSameMod) {
           try {
             await rm(path.join(modsDir, existingSameMod), {force: true});
+            existingFiles.delete(existingSameMod);
             log("dim", `  Menghapus versi library usang: ${existingSameMod}`);
           } catch {}
         }
@@ -349,6 +352,8 @@ export async function resolveAndInstallDependencies(
             sha512: depFile.hashes.sha512,
             size: depFile.size,
           });
+
+          existingFiles.add(safeFilename);
 
           graph.registerMod(depProj.slug, {
             projectId: depProj.id,

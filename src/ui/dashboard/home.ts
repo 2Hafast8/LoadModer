@@ -13,26 +13,43 @@ import {DependencyGraph} from "../../core/dependency/graph.js";
 import {ModsWatcher} from "../../core/watcher/modsWatcher.js";
 import {formatBytes} from "../../utils/format.js";
 
-async function getInstanceStats(modsDir?: string) {
+interface CachedInstanceStats {
+  dir: string;
+  timestamp: number;
+  data: {modsCount: number; activeCount: number; storageUsage: string};
+}
+let statsCache: CachedInstanceStats | null = null;
+
+async function getInstanceStats(modsDir?: string, forceRefresh = false) {
   if (!modsDir) return {modsCount: 0, activeCount: 0, storageUsage: "0 B"};
+
+  const now = Date.now();
+  if (!forceRefresh && statsCache && statsCache.dir === modsDir && now - statsCache.timestamp < 3000) {
+    return statsCache.data;
+  }
+
   try {
     const files = await readdir(modsDir);
     const modFiles = files.filter((f) => f.endsWith(".jar") || f.endsWith(".jar.disabled"));
     const activeCount = modFiles.filter((f) => !f.endsWith(".disabled")).length;
 
+    const statsResults = await Promise.all(
+      modFiles.map((f) => stat(path.join(modsDir, f)).catch(() => null)),
+    );
+
     let totalBytes = 0;
-    for (const f of modFiles) {
-      try {
-        const s = await stat(path.join(modsDir, f));
-        totalBytes += s.size;
-      } catch {}
+    for (const s of statsResults) {
+      if (s) totalBytes += s.size;
     }
 
-    return {
+    const data = {
       modsCount: modFiles.length,
       activeCount,
       storageUsage: formatBytes(totalBytes),
     };
+
+    statsCache = {dir: modsDir, timestamp: now, data};
+    return data;
   } catch {
     return {modsCount: 0, activeCount: 0, storageUsage: "0 B"};
   }
@@ -42,6 +59,7 @@ export async function launchHomeDashboard(): Promise<void> {
   let isRunning = true;
   let activeWatcher: ModsWatcher | null = null;
   let lastWatchedModsDir = "";
+  let lastReconcileTime = 0;
 
   const cleanupWatcher = () => {
     if (activeWatcher) {
@@ -54,12 +72,16 @@ export async function launchHomeDashboard(): Promise<void> {
     while (isRunning) {
       await instanceConfig.load();
       const active = instanceConfig.getActiveInstance();
+      const now = Date.now();
 
       if (active?.modsDir) {
         const instanceDir = active.rootDir ?? path.dirname(active.modsDir);
-        const graph = new DependencyGraph(instanceDir);
-        await graph.load();
-        await graph.reconcileWithDisk(active.modsDir);
+        if (active.modsDir !== lastWatchedModsDir || now - lastReconcileTime > 3000) {
+          const graph = new DependencyGraph(instanceDir);
+          await graph.load();
+          await graph.reconcileWithDisk(active.modsDir);
+          lastReconcileTime = now;
+        }
 
         if (active.modsDir !== lastWatchedModsDir) {
           cleanupWatcher();

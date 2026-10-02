@@ -4,8 +4,8 @@ import {mkdir, rename, rm} from "node:fs/promises";
 import {Readable, Transform} from "node:stream";
 import {pipeline} from "node:stream/promises";
 import type {ReadableStream as WebReadableStream} from "node:stream/web";
+import {createHash} from "node:crypto";
 import {API_BASE_URL, USER_AGENT} from "../constants.js";
-import {hashFile} from "../utils/crypto.js";
 import {apiCache} from "./cache.js";
 import type {
   FilterOptions,
@@ -251,10 +251,14 @@ export class ModrinthClient {
     const total = Number(res.headers.get("content-length")) || opts.size || 0;
     const tmp = `${dest}.part`;
     let received = 0;
+    const hasher = opts.sha512 ? createHash("sha512") : null;
 
     const counter = new Transform({
       transform(chunk: Buffer, _enc, cb) {
         received += chunk.length;
+        if (hasher) {
+          hasher.update(chunk);
+        }
         opts.onProgress?.(received, total);
         cb(null, chunk);
       },
@@ -267,8 +271,8 @@ export class ModrinthClient {
         createWriteStream(tmp),
       );
 
-      if (opts.sha512) {
-        const actualSha512 = await hashFile(tmp, "sha512");
+      if (opts.sha512 && hasher) {
+        const actualSha512 = hasher.digest("hex");
         if (actualSha512.toLowerCase() !== opts.sha512.toLowerCase()) {
           throw new Error("Checksum SHA-512 tidak cocok, berkas dibatalkan (korup).");
         }

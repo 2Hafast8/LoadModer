@@ -1,19 +1,6 @@
 #!/usr/bin/env node
 import {Command} from "commander";
 import {APP_NAME, APP_VERSION} from "./constants.js";
-import {initCommand} from "./commands/init.js";
-import {searchCommand} from "./commands/search.js";
-import {installCommand} from "./commands/install.js";
-import {listCommand} from "./commands/list.js";
-import {updateCommand} from "./commands/update.js";
-import {removeCommand} from "./commands/remove.js";
-import {toggleCommand} from "./commands/toggle.js";
-import {bisectCommand} from "./commands/bisect.js";
-import {configCommand} from "./commands/config.js";
-import {watchCommand} from "./commands/watch.js";
-import {profileSwitchCommand, profileListCommand} from "./commands/profile.js";
-import {launchHomeDashboard} from "./ui/dashboard/home.js";
-import {pc} from "./ui/prompts.js";
 
 const program = new Command();
 
@@ -27,7 +14,7 @@ function handleAction<T extends unknown[]>(fn: (...args: T) => Promise<void>) {
     try {
       await fn(...args);
     } catch (err) {
-      console.error(pc.red(`\n❌ Kesalahan: ${(err as Error).message}`));
+      console.error(`\x1b[31m\n❌ Kesalahan: ${(err as Error).message}\x1b[0m`);
       process.exitCode = 1;
     }
   };
@@ -36,7 +23,12 @@ function handleAction<T extends unknown[]>(fn: (...args: T) => Promise<void>) {
 program
   .command("init")
   .description("Wizard interaktif untuk mendeteksi launcher & memilih instance target")
-  .action(handleAction(initCommand));
+  .action(
+    handleAction(async () => {
+      const {initCommand} = await import("./commands/init.js");
+      await initCommand();
+    }),
+  );
 
 program
   .command("search")
@@ -59,6 +51,7 @@ program
   .option("--json", "Tampilkan hasil dalam format JSON murni")
   .action(
     handleAction(async (query: string, opts) => {
+      const {searchCommand} = await import("./commands/search.js");
       await searchCommand(query, opts);
     }),
   );
@@ -77,6 +70,7 @@ program
   .option("-y, --yes", "Otomatis setujui semua prompt")
   .action(
     handleAction(async (targets: string[], opts) => {
+      const {installCommand} = await import("./commands/install.js");
       await installCommand(targets, opts);
     }),
   );
@@ -88,6 +82,7 @@ program
   .option("--json", "Keluarkan output dalam format JSON murni")
   .action(
     handleAction(async (opts) => {
+      const {listCommand} = await import("./commands/list.js");
       await listCommand(opts);
     }),
   );
@@ -102,6 +97,7 @@ program
   .option("-y, --yes", "Otomatis lakukan pembaruan tanpa konfirmasi")
   .action(
     handleAction(async (opts) => {
+      const {updateCommand} = await import("./commands/update.js");
       await updateCommand(opts);
     }),
   );
@@ -116,6 +112,7 @@ program
   .option("-y, --yes", "Otomatis setujui konfirmasi penghapusan")
   .action(
     handleAction(async (targets: string[], opts) => {
+      const {removeCommand} = await import("./commands/remove.js");
       await removeCommand(targets, opts);
     }),
   );
@@ -127,6 +124,7 @@ program
   .option("-d, --dir <path>", "Folder mods kustom")
   .action(
     handleAction(async (mod: string, opts) => {
+      const {toggleCommand} = await import("./commands/toggle.js");
       await toggleCommand(mod, true, opts);
     }),
   );
@@ -138,6 +136,7 @@ program
   .option("-d, --dir <path>", "Folder mods kustom")
   .action(
     handleAction(async (mod: string, opts) => {
+      const {toggleCommand} = await import("./commands/toggle.js");
       await toggleCommand(mod, false, opts);
     }),
   );
@@ -149,6 +148,7 @@ program
   .option("-d, --dir <path>", "Folder mods kustom")
   .action(
     handleAction(async (action: string, opts) => {
+      const {bisectCommand} = await import("./commands/bisect.js");
       await bisectCommand(action, opts);
     }),
   );
@@ -160,6 +160,7 @@ configCmd
   .description("Tampilkan konfigurasi aktif saat ini")
   .action(
     handleAction(async () => {
+      const {configCommand} = await import("./commands/config.js");
       await configCommand("show");
     }),
   );
@@ -170,6 +171,7 @@ configCmd
   .argument("<instanceId>", "ID instance")
   .action(
     handleAction(async (instanceId: string) => {
+      const {configCommand} = await import("./commands/config.js");
       await configCommand("use", instanceId);
     }),
   );
@@ -181,6 +183,7 @@ configCmd
   .argument("<value>", "Nilai pengaturan")
   .action(
     handleAction(async (key: string, value: string) => {
+      const {configCommand} = await import("./commands/config.js");
       await configCommand("set", key, value);
     }),
   );
@@ -193,6 +196,7 @@ program
   .option("-d, --dir <path>", "Folder mods kustom yang ingin dipantau")
   .action(
     handleAction(async (opts) => {
+      const {watchCommand} = await import("./commands/watch.js");
       await watchCommand(opts);
     }),
   );
@@ -204,7 +208,12 @@ const profileCmd = program
 profileCmd
   .command("list")
   .description("Menampilkan daftar snapshot profil tersimpan")
-  .action(handleAction(profileListCommand));
+  .action(
+    handleAction(async () => {
+      const {profileListCommand} = await import("./commands/profile.js");
+      await profileListCommand();
+    }),
+  );
 
 profileCmd
   .command("switch")
@@ -213,6 +222,7 @@ profileCmd
   .option("-v, --mc-version <version>", "Versi Minecraft target (misal: 1.21.1)")
   .action(
     handleAction(async (opts) => {
+      const {profileSwitchCommand} = await import("./commands/profile.js");
       await profileSwitchCommand(opts.loader, opts.mcVersion);
     }),
   );
@@ -220,9 +230,15 @@ profileCmd
 program
   .command("home")
   .description("Buka antarmuka interaktif dashboard LoadModer")
-  .action(handleAction(launchHomeDashboard));
+  .action(
+    handleAction(async () => {
+      const {launchHomeDashboard} = await import("./ui/dashboard/home.js");
+      await launchHomeDashboard();
+    }),
+  );
 
 if (process.argv.length <= 2) {
+  const {launchHomeDashboard} = await import("./ui/dashboard/home.js");
   await launchHomeDashboard();
 } else {
   await program.parseAsync(process.argv);
