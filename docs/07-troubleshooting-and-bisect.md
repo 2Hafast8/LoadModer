@@ -65,9 +65,11 @@ stateDiagram-v2
 
 ## 4. Implementasi Modul Bisect (`src/core/troubleshoot/bisect.ts`)
 
+Kelas `BisectRunner` mengelola state biner di file `.loadmoder_bisect.json` dan memanipulasi penamaan file `.jar` / `.jar.disabled`:
+
 ```typescript
 import path from 'node:path';
-import { readdir, rename, readFile } from 'node:fs/promises';
+import { readdir, rename, readFile, rm } from 'node:fs/promises';
 import writeFileAtomic from 'write-file-atomic';
 
 interface BisectState {
@@ -76,7 +78,7 @@ interface BisectState {
   step: number;
 }
 
-export class BisectEngine {
+export class BisectRunner {
   private readonly stateFile: string;
 
   constructor(private readonly modsDir: string) {
@@ -94,7 +96,6 @@ export class BisectEngine {
     const midpoint = Math.ceil(activeMods.length / 2);
     const toDisable = activeMods.slice(0, midpoint);
 
-    // Nonaktifkan 50% kandidat pertama
     for (const file of toDisable) {
       await rename(path.join(this.modsDir, file), path.join(this.modsDir, `${file}.disabled`));
     }
@@ -109,7 +110,7 @@ export class BisectEngine {
     return { totalMods: activeMods.length, testingCount: toDisable.length };
   }
 
-  async report(status: 'good' | 'bad'): Promise<{ finished: boolean; culprit?: string; remaining: number }> {
+  async report(status: 'good' | 'bad'): Promise<{ finished: boolean; culprit?: string; remaining: number; step: number }> {
     let state: BisectState;
     try {
       state = JSON.parse(await readFile(this.stateFile, 'utf8'));
@@ -120,20 +121,17 @@ export class BisectEngine {
     let candidates: string[];
 
     if (status === 'good') {
-      // Jika game berhasil jalan, berarti penyebab crash ada di kelompok yang sedang dimatikan
       candidates = state.currentTestGroup;
     } else {
-      // Jika masih crash, penyebabnya ada di kelompok yang saat ini masih menyala
       candidates = state.activeCandidates.filter((f) => !state.currentTestGroup.includes(f));
     }
 
     if (candidates.length <= 1) {
       const culprit = candidates[0];
       await this.reset();
-      return { finished: true, culprit, remaining: 1 };
+      return { finished: true, culprit, remaining: 1, step: state.step };
     }
 
-    // Siapkan putaran uji berikutnya (bagi dua lagi)
     await this.resetFiles();
     const midpoint = Math.ceil(candidates.length / 2);
     const nextDisable = candidates.slice(0, midpoint);
@@ -147,33 +145,47 @@ export class BisectEngine {
     state.step++;
     await writeFileAtomic(this.stateFile, JSON.stringify(state, null, 2), 'utf8');
 
-    return { finished: false, remaining: candidates.length };
+    return { finished: false, remaining: candidates.length, step: state.step };
   }
 
   async reset(): Promise<void> {
     await this.resetFiles();
     try {
-      const { rm } = await import('node:fs/promises');
       await rm(this.stateFile, { force: true });
     } catch {}
   }
 
-  private async resetFiles(): Promise<void> {
+  async toggleMod(modQuery: string, enable: boolean): Promise<string> {
     const files = await readdir(this.modsDir);
-    for (const f of files) {
-      if (f.endsWith('.jar.disabled')) {
-        await rename(path.join(this.modsDir, f), path.join(this.modsDir, f.replace(/\.disabled$/, '')));
-      }
+    const targetSuffix = enable ? '.jar.disabled' : '.jar';
+    const replaceSuffix = enable ? '.jar' : '.jar.disabled';
+
+    const match = files.find(
+      (f) => f.toLowerCase().includes(modQuery.toLowerCase()) && f.endsWith(targetSuffix)
+    );
+
+    if (!match) {
+      throw new Error(`Berkas "${modQuery}" dengan status ${enable ? 'nonaktif' : 'aktif'} tidak ditemukan.`);
     }
+
+    const oldPath = path.join(this.modsDir, match);
+    const newName = match.replace(new RegExp(`\\${targetSuffix}$`), replaceSuffix);
+    const newPath = path.join(this.modsDir, newName);
+
+    await rename(oldPath, newPath);
+    return newName;
   }
 }
 ```
 
 ---
 
-## 5. Pemindaian Otomatis Crash Log (`src/core/logScanner.ts`)
+## 5. Rencana Pemindaian Log Crash (Roadmap)
 
-Selain bisect manual, LoadModer dapat memindai berkas `logs/latest.log` atau `crash-reports/crash-*.txt` terbaru untuk mendeteksi penyebab umum crash secara instan:
-* **Missing Dependency**: Pola pesan `Mod 'xyz' requires 'fabric-api'`. LoadModer langsung menawarkan: *"Apakah Anda ingin memasang fabric-api sekarang? [Y/n]"*.
+> [!NOTE]
+> Fitur parser crash log otomatis berikut direncanakan untuk rilis mendatang guna melengkapi `BisectRunner`.
+
+Pola umum yang akan dipindai dari `logs/latest.log` atau `crash-reports/crash-*.txt`:
+* **Missing Dependency**: Pola `Mod '<id>' requires '<dep-id>'`. LoadModer dapat menyarankan resolusi otomatis via Modrinth API.
 * **Mixin Conflict**: Pola `org.spongepowered.asm.mixin.transformer.throwables.MixinTransformerError`.
-* **Outdated Java**: Pesan `has been compiled by a more recent version of the Java Runtime (class file version 65.0)`. Memberi tahu pemain untuk menggunakan Java 21.
+* **Incompatible Java Runtime**: Pola `has been compiled by a more recent version of the Java Runtime (class file version XX)`. Memberikan rekomendasi versi JRE yang sesuai.

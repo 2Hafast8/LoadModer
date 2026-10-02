@@ -68,20 +68,20 @@ Satu perintah untuk semua tipe konten Modrinth dengan perutean direktori otomati
 
 ### Pilar 5: Dynamic Minecraft Version Discovery & Auto-Updates
 * Modul `src/core/minecraft/versions.ts` mengambil daftar versi resmi Minecraft secara dinamis langsung dari Modrinth API (`GET /v2/tag/game_version`).
-* Memfilter versi rilis $\ge$ 1.16, mengurutkan secara semantik, dan menyimpan cache lokal dengan TTL 24 jam.
+* Memfilter versi rilis $\ge$ 1.16, mengurutkan secara semantik, dan menyimpan cache lokal dengan TTL 1 jam.
 * Mendukung pembaruan otomatis tanpa perlu hardcode versi baru di masa mendatang.
 
 ### Pilar 6: Profile Snapshot & Version Isolation Manager
-* Modul `src/core/profile/snapshotManager.ts` mengisolasi berkas mod per profil dan versi game ke dalam `.loadmoder/profiles/<id>/mods/`.
+* Modul `src/core/profile/snapshotManager.ts` mengisolasi berkas mod per profil dan versi game ke dalam `<instance>/.loadmoder/snapshots/`.
 * Menghilangkan risiko kontaminasi file mod antar versi Minecraft saat pemain berganti konfigurasi via `lm profile switch`.
 
 ### Pilar 7: Real-Time Directory Watcher & State Reconciliation
-* Modul `src/commands/watch.ts` memantau folder `mods/` secara real-time via `chokidar`.
+* Modul `src/core/watcher/modsWatcher.ts` dan perintah `lm watch` memantau folder `mods/` secara real-time menggunakan `node:fs.watch` bawaan dengan debouncing 300 ms.
 * Mendeteksi penambahan, penghapusan, atau pergantian file secara manual di luar CLI, lalu memperbarui status lockfile secara otomatis.
 
 ### Pilar 8: Crash Isolation & Diagnostic Tools (Bisect & Toggle)
 * **Mod Toggle (`enable` / `disable`)**: Mengubah status mod (`.jar` $\leftrightarrow$ `.jar.disabled`) secara instan tanpa menghapus file.
-* **Automated Mod Bisect (`src/core/troubleshoot/bisect.ts`)**: Mengisolasi mod perusak/penyebab crash dalam $O(\log_2 N)$ langkah uji menggunakan algoritma pencarian biner.
+* **Automated Mod Bisect (`src/core/troubleshoot/bisect.ts`)**: `BisectRunner` mengisolasi mod penyebab crash dalam $O(\log_2 N)$ langkah uji menggunakan algoritma pencarian biner.
 
 ---
 
@@ -158,8 +158,8 @@ Menginspeksi dependensi required dari API dan regex deskripsi, memverifikasi fil
 ### D. Snapshot Manager (`src/core/profile/snapshotManager.ts`)
 Menyimpan dan merestorasi file mod per profil dan versi game secara bersih saat berpindah versi.
 
-### E. Crash Bisect Engine (`src/core/troubleshoot/bisect.ts`)
-Membagi kelompok mod aktif menjadi dua bagian dan mengisolasi mod penyebab crash dalam hitungan langkah.
+### E. Crash Bisect Runner (`src/core/troubleshoot/bisect.ts`)
+`BisectRunner` membagi kelompok mod aktif menjadi dua bagian dan mengisolasi mod penyebab crash dalam hitungan langkah biner.
 
 ---
 

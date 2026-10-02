@@ -1,6 +1,6 @@
 # 02 — Kurasi Tech Stack & Pustaka (The Golden Stack)
 
-Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, komparasi performa, dan kurasi pustaka (*libraries*) yang dipilih untuk membangun platform **LoadModer**.
+Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pustaka (*libraries*) yang dipilih untuk membangun platform **LoadModer** (`lm`).
 
 ---
 
@@ -22,6 +22,7 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, komparasi perfor
 │ Validasi Skema        │ zod                                 │
 │ Normalisasi Path      │ pathe                               │
 │ State Lockfile        │ write-file-atomic                   │
+│ File Watcher          │ node:fs native watch + debounce     │
 │ Pengujian Otomatis    │ vitest (36 tests)                   │
 │ Bundler & Kompilasi   │ tsup (esbuild engine)               │
 └───────────────────────┴─────────────────────────────────────┘
@@ -29,47 +30,52 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, komparasi perfor
 
 ---
 
-## 2. Komparasi Mendalam & Rasional Pemilihan Pustaka
+## 2. Rasional Pemilihan Pustaka
 
 ### A. CLI Router: `commander`
 * **Alasan Pemilihan**:
-  1. Sangat stabil, dokumentasi matang, dan tipe TypeScript bawaan yang sangat presisi.
-  2. Waktu *cold start* yang sangat cepat (< 50ms), jauh lebih ringan dibanding framework CLI besar seperti `yargs`.
+  1. Sangat stabil, dokumentasi matang, dan tipe TypeScript bawaan yang presisi.
+  2. Waktu *cold start* sangat cepat (< 50ms), jauh lebih efisien dibanding framework CLI berat seperti `yargs`.
   3. Mendukung sub-perintah bersarang (*nested subcommands*) dengan pemisahan berkas yang modular.
   4. Penanganan argumen variadic (`<targets...>`), opsi negated (`--no-deps`), dan default values yang rapi.
-  5. Menghasilkan output `--help` yang terstruktur secara otomatis.
+  5. Menghasilkan output `--help` terstruktur secara otomatis.
 
 ### B. Interaktivitas Terminal: Sinergi `@inquirer/prompts` & `@clack/prompts`
 * **Rasional Desain Hibrida**:
-  * **`@inquirer/prompts`**: Digunakan untuk navigasi menu utama dashboard (`askInteractiveMenu`) dan pencarian mod instan (`askSearchMenu`). Didukung algoritma *ANSI diff rendering* internal yang meniadakan *screen flickering*, mendukung kontrol panah (`↑`/`↓`), tombol Vim (`j`/`k`), lompatan nomor (`1-9`), serta fitur pagination built-in (`pageSize`).
-  * **`@clack/prompts`**: Digunakan untuk alur wizard inisialisasi (`init`), dialog konfirmasi (`confirm`), dan spinner aksi bertingkat karena tata letak visual rel vertikal (*rail layout*) yang rapi dan minimalis.
+  * **`@inquirer/prompts`**: Digunakan untuk navigasi menu utama dashboard (`askInteractiveMenu`) dan pencarian mod instan (`askSearchMenu`). Didukung algoritma *ANSI diff rendering* internal yang meniadakan *screen flickering*, mendukung kontrol panah (`↑`/`↓`), tombol Vim (`j`/`k`), dan fitur pagination bawaan (`pageSize`).
+  * **`@clack/prompts`**: Digunakan untuk alur wizard inisialisasi (`init`), dialog konfirmasi (`confirm`), dan visual rel vertikal (*rail layout*) yang rapi dan minimalis.
 
 ### C. Pewarnaan & Formatting: `picocolors` & `chalk`
 * **Rasional Penggunaan**:
   * `picocolors` digunakan pada loop pengulangan tinggi dan log streaming karena bobotnya yang sangat kecil (< 7 KB) dan performa perenderan ANSI 3–4x lebih cepat tanpa dependensi tambahan.
-  * `chalk` dan `gradient-string` dimanfaatkan khusus untuk merender banner ASCII logo neon pada header dashboard awal.
+  * `chalk` dan `gradient-string` dimanfaatkan untuk merender banner ASCII logo pada header dashboard awal.
 
 ### D. Progress Bar Unduhan Paralel: `cli-progress` vs `ora`
 * **Rasional Kombinasi**:
-  * `cli-progress` digunakan untuk unduhan multi-berkas dengan instansiasi **MultiBar**. Tiap file yang sedang diunduh secara paralel memiliki progress bar terpisah dengan indikator kecepatan transfer (MB/s), ETA sisa waktu, dan ukuran berkas.
-  * `ora` digunakan untuk indikator pemuatan tunggal (*single-task spinner*) seperti saat membaca metadata API atau mengekstrak indeks modpack.
+  * `cli-progress` digunakan untuk unduhan multi-berkas dengan instansiasi **MultiBar**. Tiap file yang sedang diunduh memiliki progress bar terpisah dengan indikator byte transfer dan ukuran berkas.
+  * `ora` digunakan untuk indikator pemuatan tunggal (*single-task spinner*) saat membaca metadata API atau mengekstrak indeks modpack.
 
 ### E. Concurrency Limiter: `p-limit`
 * **Kebutuhan Teknis**:
   * Ketika modpack menginstruksikan pengunduhan puluhan file sekaligus, mengeksekusi seluruh permintaan HTTP secara bersamaan berisiko memicu `ECONNRESET`, pemutusan koneksi TCP, atau pemblokiran IP oleh Cloudflare Modrinth (*burst rate limit*).
-  * Dengan `pLimit(4)`, antrean unduhan dibatasi tepat 4 koneksi simultan, menjaga stabilitas throughput jaringan dan konsumsi memori sistem.
+  * Dengan `pLimit(4)`, antrean unduhan dibatasi tepat 4 koneksi simultan, menjaga throughput jaringan dan konsumsi memori sistem tetap stabil.
 
 ### F. ZIP Streaming Engine: `unzipper`
 * **Keunggulan Teknis**:
-  * Berbeda dari `adm-zip` yang membaca keseluruhan arsip ZIP ke dalam RAM, `unzipper` memproses berkas sebagai **Node.js Stream**.
+  * Berbeda dari library seperti `adm-zip` yang membaca keseluruhan arsip ZIP ke dalam RAM, `unzipper` memproses berkas sebagai **Node.js Stream**.
   * File metadata seperti `modrinth.index.json` di dalam arsip `.mrpack` berukuran besar dapat dibaca langsung tanpa perlu mengekstrak seluruh arsip ke disk.
 
 ### G. Validasi Skema Data: `zod`
 * **Keamanan Data**:
   * Struktur respons API Modrinth, manifest `.mrpack`, dan file konfigurasi lokal divalidasi saat runtime.
-  * Tipe data statis TypeScript (`z.infer<typeof Schema>`) diekspor langsung dari skema, mengeliminasi kesalahan fatal runtime seperti `TypeError: Cannot read properties of undefined`.
+  * Mencegah serangan path traversal pada file `.mrpack` melalui validasi ketat path file tujuan.
 
-### H. Test Runner: `vitest`
+### H. File Watcher: Node.js Native `fs.watch`
+* **Keunggulan Teknis**:
+  * Menggunakan modul bawaan `node:fs` sehingga tidak menambah beban dependensi eksternal yang besar (seperti `chokidar`).
+  * Dilengkapi mekanisme debounce 300ms untuk menangani operasi batch filesystem saat pemain menghapus atau menambah banyak mod sekaligus.
+
+### I. Test Runner: `vitest`
 * **Kecepatan & Integrasi**:
   * Eksekusi pengujian TypeScript instan tanpa tahap kompilasi terpisah.
   * Kompatibilitas penuh dengan sintaks ESM modern dan mocking bawaan (`vi.spyOn`).
@@ -132,8 +138,6 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, komparasi perfor
 ---
 
 ## 4. Konfigurasi `tsconfig.json`
-
-Konfigurasi kompilasi yang mencakup validasi tipe ketat untuk seluruh folder kode produksi (`src/`) dan rangkaian pengujian (`tests/`):
 
 ```json
 {

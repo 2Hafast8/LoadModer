@@ -1,26 +1,29 @@
 # 03 — Spesifikasi Perintah & UX CLI LoadModer
 
-Dokumen ini mendefinisikan hierarki perintah lengkap, opsi/flag global, standar interaksi visual, serta panduan antarmuka (UX) untuk CLI & TUI **LoadModer**.
+Dokumen ini mendefinisikan hierarki perintah lengkap, opsi flag, alur navigasi TUI, dan panduan antarmuka terminal untuk **LoadModer** (`lm`).
 
 ---
 
-## 1. Opsi & Flag Global
+## 1. Opsi & Flag CLI
 
-Flag berikut tersedia untuk mengontrol perilaku perintah LoadModer:
+Flag berikut tersedia pada perintah-perintah yang relevan di LoadModer:
 
 | Flag | Singkat | Deskripsi | Default |
 | :--- | :---: | :--- | :--- |
-| `--dir <path>` | `-d` | Path folder instance Minecraft atau folder `mods` kustom | Instance aktif / Bawaan OS |
-| `--profile <name>` | `-p` | Memilih instance/profil yang tersimpan | Profil aktif |
-| `--mc-version <ver>` | `-v` | Menentukan versi Minecraft target (misal: `1.21.1`) | Dari profil aktif |
-| `--loader <loader>` | `-l` | Menentukan mod loader target (`fabric`, `forge`, `neoforge`, `quilt`) | Dari profil aktif |
+| `--dir <path>` | `-d` | Path folder mods kustom | Folder mods instance aktif |
+| `--mc-version <ver>` | `-v` | Menentukan versi Minecraft target (misal: `1.21.1`) | Versi instance aktif |
+| `--loader <loader>` | `-l` | Menentukan mod loader target (`fabric`, `forge`, `neoforge`, `quilt`) | Loader instance aktif |
 | `--type <type>` | `-t` | Tipe konten: `mod`, `modpack`, `shader`, `resourcepack` | `mod` |
-| `--category <cat>` | `-c` | Kategori Modrinth (misal: `optimization`, `technology`) | Semua |
+| `--category <cat>` | `-c` | Filter kategori Modrinth (misal: `optimization`, `technology`) | Semua kategori |
 | `--env <target>` | `-e` | Target lingkungan instalasi (`client` \| `server`) | `client` |
 | `--no-deps` | - | Melewati instalasi dependensi library otomatis | `false` |
 | `--dry-run` | - | Simulasi operasi tanpa menulis atau mengubah file di disk | `false` |
 | `--yes` | `-y` | Menyetujui semua prompt konfirmasi secara otomatis | `false` |
-| `--json` | - | Mengeluarkan output dalam format JSON murni untuk scripting | `false` |
+| `--json` | - | Mengeluarkan output dalam format JSON murni | `false` |
+
+> **Catatan Penggantian Instance / Profil:**  
+> Untuk beralih ke instance launcher lain, gunakan perintah `lm config use <id>` atau `lm init`.  
+> Untuk beralih versi Minecraft atau mod loader pada instance yang sama, gunakan sub-perintah `lm profile switch -v <ver> -l <loader>`.
 
 ---
 
@@ -41,7 +44,7 @@ loadmoder (alias: lm)
 ├── bisect <action>          # Investigasi biner mod penyebab crash (start|good|bad|reset)
 ├── watch                    # Memantau folder mods secara real-time untuk sinkronisasi
 ├── profile <action>         # Kelola snapshot profil versi game (list | switch)
-└── config <action>          # Pengaturan global (show | use | set)
+└── config <action>          # Pengaturan konfigurasi (show | use | set)
 ```
 
 ---
@@ -49,116 +52,110 @@ loadmoder (alias: lm)
 ## 3. Spesifikasi Detail Perintah
 
 ### 3.1 `lm` / `lm home` (Interactive TUI Dashboard)
-Membuka antarmuka navigasi keyboard berbasis `@inquirer/prompts` dan `@clack/prompts`:
+Membuka antarmuka navigasi keyboard berbasis `@inquirer/prompts`:
 
 ```text
-  ██╗      ██████╗  █████╗ ██████╗ ███╗   ███╗ ██████╗ ██████╗ ███████╗██████╗ 
-  ██║     ██╔═══██╗██╔══██╗██╔══██╗████╗ ████║██╔═══██╗██╔══██╗██╔════╝██╔══██╗
-  ██║     ██║   ██║███████║██║  ██║██╔████╔██║██║   ██║██║  ██║█████╗  ██████╔╝
-  ██║     ██║   ██║██╔══██║██║  ██║██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██╔══██╗
-  ███████╗╚██████╔╝██║  ██║██████╔╝██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗██║  ██║
-  ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
-  v2.0.0  •  Minecraft Mod & Modpack Manager CLI  •  Modrinth API v2
+  LOADMODER v2.0.0 • Minecraft Mod & Modpack Manager • Nordic Clean TUI
 
-  Instance Aktif: [1.21.1 / Fabric] (3 mods terpasang)
+  Instance Aktif : [Prism] Fabulously Optimized (1.21.1 / fabric)
+  Mod Terpasang  : 14 Mod (14 Aktif) • Ukuran: 28.4 MB
 
-  ┌─────────────────────────────────────────────────────────────┐
-  │                    FILTER PENCARIAN AKTIF                   │
-  ├───────────────────┬─────────────────────────────────────────┤
-  │ Versi Minecraft   │ 1.21.1                                  │
-  │ Mod Loader        │ fabric                                  │
-  │ Tipe Proyek       │ mod                                     │
-  │ Kategori          │ Semua                                   │
-  │ Environment       │ client                                  │
-  └───────────────────┴─────────────────────────────────────────┘
-
-🎮 MENU NAVIGASI:
-  ❯ 🔍 Jelajahi & Cari Mod / Modpack
-    🌟 Mod Terpopuler
-    📦 Jelajahi Modpack Rekomendasi
-    ⚙️  Atur Filter Pencarian
-    📁 Kelola Mod Terpasang (Status & Toggle)
-    🔄 Periksa Pembaruan Mod
-    🎮 Beralih Profil / Versi Minecraft
-    🩺 Diagnostik Crash (Bisect Engine)
-    ❓ Bantuan & Dokumentasi
-    ────────────────────────────────────────
-    🚪 Keluar dari LoadModer
+  ? PILIH MENU DASHBOARD:
+  ❯ 🔍  Cari & Eksplorasi Konten Modrinth
+    ⭐  Mod Esensial & Populer
+    📦  Jelajahi Modpack Populer
+    ✨  Jelajahi Shader Pack
+    🎨  Jelajahi Resource Pack
+    ──────────────────────────────────────────────────────
+    🗃️   Kelola Mod Terpasang (Status & Toggle)
+    🔄  Periksa & Update Mod
+    ⚙️   Kelola Profil & Versi Game (Snapshot & Switch)
+    ──────────────────────────────────────────────────────
+    🩺  Diagnostik Crash & Bisect Tool
+    ❓  Pusat Bantuan & Panduan
+    ──────────────────────────────────────────────────────
+    [Keluar dari LoadModer]
 ```
 
+Kontrol navigasi:
+- `↑` / `↓` atau `j` / `k` : Menggeser pilihan
+- `Enter` : Memilih menu
+- `Ctrl+C` : Keluar aplikasi
+
 ### 3.2 `lm search <query>`
-Mencari mod, modpack, shader, atau resource pack di Modrinth dengan filter presisi:
+Mencari konten di Modrinth dengan filter presisi:
 ```bash
-# Pencarian mod dengan filter versi dan loader
+# Mencari mod optimasi untuk Fabric 1.21.1
 lm search sodium -v 1.21.1 -l fabric
 
-# Pencarian shader pack
+# Mencari shader pack
 lm search complementary -t shader
 
-# Pencarian modpack dengan format JSON
+# Mencari modpack dan mencetak format JSON
 lm search "fabulously optimized" -t modpack --json
 ```
 
 ### 3.3 `lm install <targets...>`
-Memasang satu atau lebih target mod, file `.mrpack`, atau URL Modrinth:
+Memasang mod, modpack (`.mrpack`), atau URL proyek Modrinth:
 ```bash
 # Memasang mod dengan resolusi dependensi otomatis
 lm install sodium iris fabric-api
 
-# Memasang modpack Modrinth
+# Memasang modpack dari file lokal atau slug
 lm install fabulously-optimized.mrpack
 
-# Memasang tanpa dependensi otomatis
+# Simulasi pemasangan tanpa menulis ke disk
+lm install sodium --dry-run
+
+# Melewati pengunduhan library dependensi
 lm install custom-mod --no-deps
 ```
-*Catatan Alur*: Jika mod membutuhkan library tambahan (misalnya Fabric API atau Cloth Config), resolver otomatis mendeteksi, memeriksa folder `mods/`, dan mengunduh versi yang kompatibel.
 
 ### 3.4 `lm update`
-Memeriksa status versi seluruh mod yang terpasang di instance aktif dan melakukan pembaruan massal:
+Memeriksa versi mod lokal terhadap rilis terbaru di Modrinth:
 ```bash
 # Memperbarui semua mod dengan konfirmasi otomatis
 lm update -y
 
-# Menyertakan rilis beta/alpha
+# Menyertakan versi beta dan alpha
 lm update --prerelease
 ```
 
 ### 3.5 `lm remove <targets...>`
-Menghapus mod terpasang dengan opsi pembersihan dependensi yatim (*orphan pruning*):
+Menghapus mod dan dependensi yang tidak lagi digunakan:
 ```bash
-# Hapus mod dan bersihkan library yang tidak lagi dirujuk mod lain
+# Menghapus mod iris dan membersihkan library yatim yang tidak lagi dirujuk mod lain
 lm remove iris --prune -y
 ```
 
 ### 3.6 `lm profile`
-Mengelola snapshot profil versi game dan mod loader secara terisolasi:
+Mengisolasi dan beralih antar kombinasi versi game:
 ```bash
 # Menampilkan daftar snapshot profil tersimpan
 lm profile list
 
-# Beralih ke versi Minecraft 1.20.1 Forge
+# Beralih ke versi Minecraft 1.20.1 Forge (mod lama diarsipkan otomatis)
 lm profile switch -v 1.20.1 -l forge
 ```
-*Catatan*: Saat berpindah profil, isi folder `mods/` saat ini disimpan ke snapshot profil aktif, lalu file mod milik profil target dipulihkan secara otomatis.
 
 ### 3.7 `lm bisect <action>`
-Melacak mod penyebab crash menggunakan algoritma pencarian biner:
+Melacak mod penyebab crash menggunakan algoritma pencarian biner ($O(\log_2 N)$):
 ```bash
-# Memulai sesi bisect (setengah mod akan dinonaktifkan sementara)
+# Memulai sesi bisect (setengah mod dinonaktifkan sementara)
 lm bisect start
 
-# Laporkan jika game berhasil berjalan tanpa crash
+# Laporkan jika game berhasil menyala tanpa crash
 lm bisect good
 
 # Laporkan jika game masih crash
 lm bisect bad
 
-# Mengembalikan seluruh file mod ke kondisi semula
+# Kembalikan semua mod ke kondisi semula sebelum bisect
 lm bisect reset
 ```
 
 ### 3.8 `lm watch`
-Memantau folder `mods/` secara real-time dan menyinkronkan data saat file diubah, ditambah, atau dihapus secara manual di luar CLI:
+Memantau folder `mods/` secara real-time dan menyinkronkan status lockfile saat ada perubahan manual:
 ```bash
 lm watch
 ```

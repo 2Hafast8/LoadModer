@@ -31,13 +31,15 @@ LoadModer/
 │   │   │   ├── config.ts      # Konfigurasi persistent (~/.loadmoder/config.json)
 │   │   │   └── detector.ts    # Pemindai Prism, MultiMC, Modrinth, CurseForge, Vanilla
 │   │   ├── minecraft/
-│   │   │   └── versions.ts    # Dynamic Minecraft versions API (>= 1.16, TTL cache 24h)
+│   │   │   └── versions.ts    # Dynamic Minecraft versions API (>= 1.16, TTL cache 1 jam)
 │   │   ├── modpack/
 │   │   │   └── unpacker.ts    # Ekstraktor streaming .mrpack, overrides, dan env filter
 │   │   ├── profile/
 │   │   │   └── snapshotManager.ts # Isolasi mod per profil & versi game
-│   │   └── troubleshoot/
-│   │       └── bisect.ts      # Algoritma pencarian biner isolasi crash O(log2 N)
+│   │   ├── troubleshoot/
+│   │   │   └── bisect.ts      # Algoritma pencarian biner isolasi crash O(log2 N)
+│   │   └── watcher/
+│   │       └── modsWatcher.ts # Pemantau perubahan file mods via native fs.watch
 │   ├── api/                   # Komunikasi HTTP & Modrinth API v2
 │   │   ├── client.ts          # Client fetch dengan retry rate-limit, timeout & streaming
 │   │   └── cache.ts           # In-memory TTL cache hemat kuota API
@@ -51,7 +53,7 @@ LoadModer/
 │   │   ├── progress.ts        # Instansiasi MultiBar cli-progress
 │   │   ├── prompts.ts         # Pembungkus prompt @clack & @inquirer
 │   │   ├── tables.ts          # Formatter tabel cli-table3
-│   │   └── theme.ts           # Tema neon cyberpunk, ASCII shadow banner, logger
+│   │   └── theme.ts           # Palet Nordic Clean TUI, ASCII banner, formatting utilitas
 │   ├── types/                 # Skema Zod & tipe data TypeScript
 │   │   ├── instance.ts
 │   │   ├── lockfile.ts
@@ -157,3 +159,25 @@ npx @yao-pkg/pkg dist/index.js --targets node20-win-x64 --output dist/loadmoder.
 # Contoh kompilasi binary mandiri untuk Linux
 npx @yao-pkg/pkg dist/index.js --targets node20-linux-x64 --output dist/loadmoder-linux
 ```
+
+---
+
+## 5. Variabel Lingkungan (Environment Variables)
+
+Aplikasi membaca variabel lingkungan berikut saat runtime:
+
+| Variabel | Deskripsi | Nilai Default |
+| :--- | :--- | :--- |
+| `LOADMODER_HOME` | Lokasi direktori data dan konfigurasi global LoadModer | `~/.loadmoder/` |
+| `LOADMODER_CONTACT` | Informasi kontak pengembang untuk header `User-Agent` Modrinth API | *(Kosong)* |
+| `MODRINTH_API_URL` | Base endpoint untuk Modrinth API v2 | `https://api.modrinth.com/v2` |
+
+Contoh penggunaan:
+```bash
+# Mengarahkan konfigurasi ke folder portabel
+export LOADMODER_HOME=/opt/loadmoder-data
+
+# Menyertakan identitas kontak untuk Modrinth rate-limit tracking
+export LOADMODER_CONTACT="admin@example.com"
+```
+

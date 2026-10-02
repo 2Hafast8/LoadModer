@@ -1,35 +1,35 @@
 # 01 — Arsitektur & Visi Sistem LoadModer
 
-Dokumen ini menjelaskan arsitektur tingkat tinggi, prinsip desain, dan visi sistem dari **LoadModer** sebagai platform manajemen mod dan modpack berbasis Command Line Interface (CLI) dan Terminal User Interface (TUI).
+Dokumen ini menjelaskan arsitektur perangkat lunak, batas modular, alur data, dan mekanisme komunikasi API pada **LoadModer** (`lm`).
 
 ---
 
-## 1. Visi: "NPM & Cargo untuk Ekosistem Minecraft"
+## 1. Visi & Masalah yang Diselesaikan
 
-Pengelolaan modifikasi Minecraft selama ini terpecah di antara:
-1. **GUI Launcher Pihak Ketiga** yang berat dan bergantung penuh pada antarmuka grafis.
-2. **Pengelolaan Manual** (drag-and-drop file `.jar` ke folder `%APPDATA%\.minecraft\mods`) yang rawan konflik, sulit diperbarui, dan meninggalkan berkas library yatim (*orphan dependencies*).
-3. **Lingkungan Server Headless / VPS** yang menyulitkan administrator server mengunduh dan menyinkronkan mod tanpa antarmuka visual.
+Pengelolaan mod Minecraft konvensional memiliki beberapa masalah praktis:
+1. **Launcher GUI Berat**: Membutuhkan resource sistem tinggi dan tidak dapat dijalankan di terminal headless atau server VPS.
+2. **Pemasangan Manual**: Menyalin file `.jar` secara manual ke folder `mods/` rentan kesalahan versi, tidak mendeteksi library dependensi wajib, dan meninggalkan file usang tak terpakai saat mod dihapus.
+3. **Konflik Multi-Versi**: Berpindah versi Minecraft dalam instance yang sama sering mencampurkan file `.jar` dari versi berbeda yang menyebabkan game crash saat startup.
 
-**LoadModer** menjembatani kesenjangan tersebut dengan mengadopsi standar package manager modern (seperti `cargo` di Rust atau `pnpm` di Node.js):
-* **Cepat & Efisien**: Startup instan, overhead memori rendah, dan eksekusi berbasis Node.js 20+ native fetch.
-* **Otomatis & Terintegrasi**: Mendeteksi instance launcher secara mandiri tanpa input path manual.
-* **Resolusi Dependensi Cerdas**: Mengunduh modul library yang diwajibkan secara otomatis dan memverifikasinya terhadap mod loader serta versi Minecraft aktif.
-* **Isolasi State & Profil**: Menggunakan snapshot profil untuk mencegah file mod bercampur saat berpindah versi Minecraft atau mod loader.
-* **Reproducible**: Menggunakan file kunci (`loadmoder.lock.json`) untuk memastikan daftar dan silsilah mod tercatat secara konsisten.
+**LoadModer** menyelesaikan masalah ini dengan pendekatan package manager modern:
+* **Eksekusi Cepat**: Berbasis Node.js 20+ native fetch tanpa runtime berat.
+* **Pendeteksi Otomatis**: Memindai direktori launcher Minecraft di komputer pengguna.
+* **Resolusi Dependensi**: Mendeteksi dan mengunduh library yang diwajibkan secara otomatis sesuai loader dan versi Minecraft aktif.
+* **Isolasi State & Profil**: Mengarsipkan file mod per kombinasi versi game dan loader dalam snapshot lokal (`.loadmoder/snapshots/`).
+* **Deterministik**: Mencatat relasi modul pada lockfile (`loadmoder.lock.json`) untuk mencegah duplikasi dan membersihkan dependensi yatim (*orphan pruning*).
 
 ---
 
 ## 2. Arsitektur Berlapis (Layered Architecture)
 
-LoadModer dibangun dengan prinsip arsitektur modular yang memisahkan tanggung jawab sistem secara tegas:
+Sistem dibagi menjadi empat lapisan dengan pemisahan tanggung jawab yang tegas:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   PRESENTATION LAYER (CLI & DUAL UX)                   │
 │  Interactive TUI Dashboard (Home) │ Commander Router (CLI Commands)    │
-│  Keyboard Arrow Engine (Raw Mode) │ Figlet & Neon Theme Banner         │
-│  Boxen Rounded Cards & Metadata   │ Cli-Table3 Rounded Border Tables   │
+│  Keyboard Navigation (@inquirer)  │ Figlet & Nordic Clean Theme        │
+│  Boxen Cards & Metadata           │ Cli-Table3 Border Tables           │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
@@ -48,47 +48,45 @@ LoadModer dibangun dengan prinsip arsitektur modular yang memisahkan tanggung ja
 ┌───────────────────▼───────────────────────────────▼────────────────────┐
 │                  INFRASTRUCTURE & ADAPTER LAYER                        │
 │   Modrinth API Client (v2) │ Parallel Download Pool │ Streaming Crypto│
-│   (Undici / Fetch + Retry) │ (p-limit & Range HTTP) │ (Node:Crypto)   │
+│   (Node:Fetch + RateLimit) │ (p-limit Concurrency)  │ (Node:Crypto)   │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### A. Presentation Layer (Dual-Mode CLI & TUI)
-* **Interactive Dashboard TUI (`lm` / `lm home`)**: Menampilkan antarmuka interaktif dengan kontrol keyboard (`↑`/`↓` atau `j`/`k`), tabel ringkasan filter aktif vertikal, dan browser konten terpadu.
-* **Direct Command Router (`commander`)**: Menangani pemanggilan perintah langsung via terminal (`lm install`, `lm search`, `lm profile`, `lm bisect`).
-* **Visual Components**: Kotak berbingkai bulat (`boxen`), tabel ANSI (`cli-table3`), dan status progres (`ora` + `cli-progress`).
+* **Interactive Dashboard TUI (`lm` / `lm home`)**: Antarmuka berbasis menu interaktif `@inquirer/prompts` dengan kontrol panah (`↑`/`↓`) atau vim-keys (`j`/`k`).
+* **Direct Command Router (`commander`)**: Parser CLI langsung (`lm install`, `lm search`, `lm profile`, `lm bisect`).
+* **Komponen Visual**: Header banner Nordic Clean (`src/ui/theme.ts`), kartu ringkasan (`boxen`), dan tabel status (`cli-table3`).
 
 ### B. Application & Orchestration Layer
-* Mengoordinasikan alur bisnis sistem:
-  1. Mendeteksi apakah target pemasangan adalah mod tunggal atau modpack (`.mrpack`).
-  2. Memverifikasi kompatibilitas terhadap instance atau profil aktif.
-  3. Mengaktifkan *Automatic Dependency Resolver* untuk menelusuri library wajib.
-  4. Menyimpan status perubahan ke dalam `loadmoder.lock.json` dan snapshot profil lokal.
+* Mengoordinasikan alur operasi:
+  1. Menentukan jenis target (mod biasa, modpack `.mrpack`, shader, atau resource pack).
+  2. Memverifikasi kompatibilitas terhadap profil aktif pengguna.
+  3. Memanggil *Automatic Dependency Resolver* untuk library prasyarat.
+  4. Menyimpan perubahan ke `loadmoder.lock.json` dan snapshot profil.
 
 ### C. Core Domain Engines
 * **Dynamic Minecraft Versions Engine** (`src/core/minecraft/versions.ts`):
-  Mengambil daftar versi resmi Minecraft secara dinamis dari endpoint tag Modrinth API, memfilter versi $\ge$ 1.16, dan menyimpannya dalam cache lokal berdurasi 24 jam dengan pembaruan otomatis saat versi baru dirilis.
+  Mengambil daftar versi rilis resmi Minecraft ($\ge$ 1.16) langsung dari endpoint Modrinth API, mengurutkan secara semantik, dan menyimpannya dalam cache lokal (TTL 1 jam) dengan fallback offline.
 * **Automatic Dependency Resolver** (`src/core/dependency/resolver.ts`):
-  Mendeteksi library yang dibutuhkan oleh mod baik melalui metadata resmi API Modrinth maupun analisis teks deskripsi proyek (regex parsing), lalu mengunduh versi yang tepat untuk loader dan versi game yang aktif.
+  Mendeteksi library yang dibutuhkan melalui metadata resmi API Modrinth dan parsing deskripsi mod, lalu mengunduh versi yang cocok untuk loader dan versi game aktif.
 * **Modpack Engine** (`src/core/modpack/unpacker.ts`):
-  Mengekstrak berkas `.mrpack`, membaca manifest `modrinth.index.json`, menerapkan file `overrides/`, dan memfilter komponen berdasarkan target environment (`client` / `server`).
+  Membaca dan mengekstrak berkas `.mrpack`, memvalidasi manifest `modrinth.index.json` via Zod, memproses folder `overrides/`, dan memfilter komponen sesuai target `client` atau `server`.
 * **Profile Snapshot Manager** (`src/core/profile/snapshotManager.ts`):
-  Menyimpan dan memulihkan kondisi file folder `mods` secara terisolasi saat pengguna beralih versi Minecraft atau mod loader, mencegah hilangnya mod atau terjadinya konflik antar versi.
+  Mengarsipkan dan memulihkan berkas mod ke folder snapshot saat pengguna berganti konfigurasi via `lm profile switch`.
 * **Dependency DAG & Lockfile Manager** (`src/core/dependency/graph.ts`):
-  Membangun graf dependensi terarah (DAG), menghitung *reference count* tiap library, dan melakukan pembersihan otomatis (*orphan pruning*) saat mod utama dihapus.
+  Mencatat Directed Acyclic Graph (DAG) di `loadmoder.lock.json`, menghitung relasi referensi (`dependedBy`), dan membersihkan dependensi yang tidak lagi terpakai saat mod induk dihapus via `lm remove --prune`.
 
 ### D. Infrastructure & Adapter Layer
 * **Modrinth API Client** (`src/api/client.ts`):
-  Berkomunikasi dengan Labrinth API v2 (`https://api.modrinth.com/v2`), mematuhi aturan rate-limit (300 req/menit), menyertakan header `User-Agent` resmi, serta menangani kode HTTP `429` dengan mekanisme *exponential backoff retry*.
+  Klien HTTP resmi Modrinth API v2 (`https://api.modrinth.com/v2`), mematuhi kuota rate limit (300 req/menit), menyertakan header `User-Agent` terstruktur, dan menangani HTTP `429` via retry backoff.
 * **Parallel Download Pool**:
-  Mengatur antrean unduhan dengan pembatas konkurensi (`p-limit`) untuk mengoptimalkan penggunaan bandwidth tanpa memicu penalti rate limit.
+  Mengatur antrean unduhan multi-berkas dengan pembatas konkurensi `p-limit` (default: 4 koneksi simultan).
 * **Streaming I/O & Crypto** (`src/utils/crypto.ts`):
-  Menghitung hash SHA-1 dan SHA-512 secara streaming saat file diunduh untuk menjaga konsumsi memori tetap rendah.
+  Menghitung hash SHA-1 dan SHA-512 secara streaming saat file dialirkan ke disk.
 
 ---
 
-## 3. Alur Data Sistem (End-to-End Data Flow)
-
-Berikut adalah urutan alur ketika pengguna menginstal sebuah mod:
+## 3. Alur Data Pemasangan Mod (Data Flow)
 
 ```mermaid
 sequenceDiagram
@@ -118,7 +116,7 @@ sequenceDiagram
         Resolver-->>Orch: Daftar library yang harus diunduh (misal: fabric-api)
     end
 
-    Orch->>CLI: Tampilkan ringkasan unduhan & mulai Progress Bar
+    Orch->>CLI: Tampilkan ringkasan unduhan
     par Unduh Paralel (p-limit)
         Orch->>CDN: Unduh file sodium ke sodium.jar.part
         CDN-->>FS: Tulis chunk ke disk
@@ -130,8 +128,8 @@ sequenceDiagram
     Orch->>Lock: Perbarui loadmoder.lock.json (catat root & dependensi)
     Lock-->>FS: Tulis lockfile baru
     Orch->>Prof: Perbarui snapshot profil aktif
-    Orch->>CLI: Selesai!
-    CLI-->>User: Tampilkan konfirmasi sukses & info dependensi terpasang
+    Orch->>CLI: Selesai
+    CLI-->>User: Tampilkan konfirmasi sukses
 ```
 
 ---
@@ -139,22 +137,23 @@ sequenceDiagram
 ## 4. Keamanan, Integritas Berkas, dan Manajemen API
 
 ### A. Kebijakan Header User-Agent
-Setiap permintaan HTTP menyertakan header `User-Agent` yang unik sesuai spesifikasi Modrinth API:
+Setiap permintaan HTTP menyertakan header `User-Agent` terstruktur:
 ```text
 User-Agent: hafiznovelrianto/loadmoder/2.0.0 (contact@example.com)
 ```
+Informasi kontak dapat ditentukan pengguna melalui variabel lingkungan `LOADMODER_CONTACT`.
 
-### B. Rate-Limit Handling (Exponential Backoff)
-Modrinth menerapkan batas standar **300 permintaan per menit per alamat IP**.
+### B. Penanganan Rate-Limit
+Modrinth membatasi permintaan hingga 300 req/menit per IP:
 1. Klien membaca header `X-Ratelimit-Remaining` dan `X-Ratelimit-Reset`.
-2. Jika respons HTTP `429 Too Many Requests` diterima, klien menunggu selama durasi yang ditentukan oleh `X-Ratelimit-Reset` ditambah buffer 250ms, lalu mengulang otomatis hingga maksimal 3 kali percobaan.
-3. Operasi massal selalu diprioritaskan menggunakan endpoint batch:
-   - `POST /v2/version_files` (mendeteksi ratusan file sekaligus).
-   - `POST /v2/version_files/update` (memeriksa pembaruan seluruh mod dalam 1 HTTP request).
-   - `GET /v2/projects?ids=[...]` (mengambil metadata banyak proyek secara kolektif).
+2. Jika menerima HTTP `429 Too Many Requests`, klien membaca waktu tunggu dari header `X-Ratelimit-Reset` (+ buffer 250ms), lalu mengulang permintaan hingga maksimal 3 kali.
+3. Operasi pembaruan massal memanfaatkan endpoint batch:
+   - `POST /v2/version_files`: Mengecek ratusan hash file lokal dalam 1 request.
+   - `POST /v2/version_files/update`: Mengecek pembaruan seluruh mod sekaligus.
+   - `GET /v2/projects?ids=[...]`: Mengambil metadata banyak mod dalam 1 request.
 
-### C. Integritas Unduhan (Zero-Corruption Guarantee)
-* Berkas sementara ditulis dengan ekstensi `.part`.
-* Checksum SHA-512 diverifikasi secara streaming langsung dari stream data unduhan.
-* Jika checksum tidak cocok, file `.part` langsung dihapus dan dilaporkan sebagai error.
-* File hanya di-*rename* menjadi `.jar` setelah lolos verifikasi integritas 100%.
+### C. Integritas Unduhan
+* Berkas sementara diunduh dengan ekstensi `.part`.
+* Checksum SHA-512 diverifikasi secara streaming setelah unduhan selesai.
+* Jika checksum tidak cocok, berkas `.part` langsung dihapus dan operasi dibatalkan.
+* Berkas hanya di-*rename* menjadi `.jar` setelah checksum diverifikasi valid.
