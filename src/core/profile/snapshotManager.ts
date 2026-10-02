@@ -24,8 +24,8 @@ export class ProfileSnapshotManager {
    * Menghasilkan ID unik yang aman untuk snapshot (misal: "fabric-26.2" atau "neoforge-1.21.1").
    */
   buildSnapshotId(loader: string, gameVersion: string): string {
-    const cleanLoader = loader.trim().toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '_');
-    const cleanVersion = gameVersion.trim().toLowerCase().replace(/[^a-zA-Z0-9.-]/g, '_');
+    const cleanLoader = loader.trim().toLowerCase().replace(/\.{2,}/g, '_').replace(/[^a-zA-Z0-9.-]/g, '_');
+    const cleanVersion = gameVersion.trim().toLowerCase().replace(/\.{2,}/g, '_').replace(/[^a-zA-Z0-9.-]/g, '_');
     return `${cleanLoader}-${cleanVersion}`;
   }
 
@@ -60,12 +60,10 @@ export class ProfileSnapshotManager {
     const archiveJarDir = path.join(baseDir, snapshotId, 'jars');
     await mkdir(archiveJarDir, { recursive: true });
 
-    // Baca lockfile saat ini
     const instanceDir = freshInstance.rootDir ?? path.dirname(freshInstance.modsDir);
     const graph = new DependencyGraph(instanceDir, currentVersion, currentLoader);
     await graph.load();
 
-    // Baca seluruh file di folder mods
     let files: string[] = [];
     try {
       files = await readdir(freshInstance.modsDir);
@@ -301,20 +299,17 @@ export class ProfileSnapshotManager {
     let savedCount = 0;
     let prevSnapshot: ProfileSnapshot | undefined;
 
-    // 1. Simpan snapshot profil saat ini jika ada versi atau file mod
     if (currentLoader && currentVersion) {
       const saveRes = await this.saveCurrentSnapshot(instanceKey, instance);
       savedCount = saveRes.savedCount;
       prevSnapshot = saveRes.snapshot;
     }
 
-    // 2. Perbarui konfigurasi instance aktif
     instance.loader = newLoader;
     instance.gameVersion = newVersion;
     instanceConfig.saveInstance(instanceKey, instance, true);
     await instanceConfig.save();
 
-    // 3. Pulihkan snapshot untuk versi target jika ada
     const restoreRes = await this.restoreSnapshot(instanceKey, instance, newLoader, newVersion);
 
     return {
@@ -356,8 +351,14 @@ export class ProfileSnapshotManager {
    */
   async deleteSnapshot(instance: SavedInstanceConfig, snapshotId: string): Promise<boolean> {
     const baseDir = this.getSnapshotBaseDir(instance);
-    const jsonPath = path.join(baseDir, `${snapshotId}.json`);
-    const archiveJarDir = path.join(baseDir, snapshotId);
+    const rootBaseDir = path.resolve(baseDir);
+    const cleanId = snapshotId.replace(/\.{2,}/g, '_').replace(/[^a-zA-Z0-9.-]/g, '_');
+    const jsonPath = path.resolve(baseDir, `${cleanId}.json`);
+    const archiveJarDir = path.resolve(baseDir, cleanId);
+
+    if (!jsonPath.startsWith(rootBaseDir + path.sep) || !archiveJarDir.startsWith(rootBaseDir + path.sep)) {
+      return false;
+    }
 
     try {
       await unlink(jsonPath);

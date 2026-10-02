@@ -1,7 +1,6 @@
 import path from 'node:path';
 import { readdir, rm } from 'node:fs/promises';
 import { modrinthClient } from '../../api/client.js';
-import { p, pc } from '../../ui/prompts.js';
 import { formatBytes } from '../../utils/format.js';
 import type { ModVersion, ModProject } from '../../types/modrinth.js';
 import type { DependencyGraph } from './graph.js';
@@ -46,6 +45,7 @@ export interface DependencyResolutionOptions {
   loader: string;
   graph: DependencyGraph;
   dryRun?: boolean;
+  onLog?: (level: 'info' | 'step' | 'warn' | 'dim' | 'success', message: string) => void;
 }
 
 export interface DependencyInstallResult {
@@ -64,13 +64,11 @@ export function extractDependenciesFromText(text: string): string[] {
   const foundSlugs = new Set<string>();
   const lowerText = text.toLowerCase();
 
-  // 1. Deteksi tautan Modrinth: modrinth.com/mod/<slug>
   const urlRegex = /(?:https?:\/\/)?(?:www\.)?modrinth\.com\/mod\/([a-zA-Z0-9\-_]+)/gi;
   let urlMatch: RegExpExecArray | null;
   while ((urlMatch = urlRegex.exec(text)) !== null) {
     const slug = urlMatch[1]?.toLowerCase();
     if (slug) {
-      // Cek apakah tautan ini berada dekat dengan kata kunci persyaratan
       const matchIndex = urlMatch.index;
       const start = Math.max(0, matchIndex - 120);
       const end = Math.min(text.length, matchIndex + urlMatch[0].length + 120);
@@ -90,7 +88,6 @@ export function extractDependenciesFromText(text: string): string[] {
     }
   }
 
-  // 2. Deteksi frasa teks eksplisit: "Requires <Library>" / "Dependencies: <Library>"
   const requirementPhraseRegex =
     /(?:requires?|dependencies|dependency|depends on|needs?|butuh|membutuhkan|wajib)[\s:*-]+(?:the\s+)?\[?([a-zA-Z0-9\-_ ]{2,35})/gi;
   let phraseMatch: RegExpExecArray | null;
@@ -133,7 +130,6 @@ export async function getRequiredLibraries(
   const candidates: RequiredLibraryCandidate[] = [];
   const registeredIdentifiers = new Set<string>();
 
-  // 1. Sumber Resmi: Modrinth Version Dependencies (required)
   if (version?.dependencies && Array.isArray(version.dependencies)) {
     for (const dep of version.dependencies) {
       if (dep.dependency_type === 'required') {
@@ -149,12 +145,10 @@ export async function getRequiredLibraries(
     }
   }
 
-  // 2. Sumber Heuristik: Deskripsi & Body Mod
   const combinedDesc = `${project?.description || ''}\n${project?.body || ''}`;
   const textSlugs = extractDependenciesFromText(combinedDesc);
 
   for (const slug of textSlugs) {
-    // Jangan tambahkan slug diri sendiri
     if (project && (project.slug === slug || project.id === slug)) continue;
 
     if (!registeredIdentifiers.has(slug.toLowerCase())) {
@@ -226,21 +220,20 @@ export async function resolveAndInstallDependencies(
   };
 
   const { mainModSlug, mainVersion, project, modsDir, gameVersion, loader, graph, dryRun } = opts;
+  const log = opts.onLog ?? (() => {});
 
-  // 1. Dapatkan kandidat dependensi wajib
   const initialCandidates = await getRequiredLibraries(mainVersion, project);
 
-  // Jika tidak ada library tambahan yang dibutuhkan:
   if (initialCandidates.length === 0) {
-    p.log.message(pc.dim('  ℹ️  Mod ini mandiri (tidak memerlukan library tambahan).'));
+    log('dim', '  ℹ️  Mod ini mandiri (tidak memerlukan library tambahan).');
     return result;
   }
 
-  p.log.step(
-    `Memeriksa mod library yang dibutuhkan untuk ${pc.bold(mainModSlug)} (${initialCandidates.length} terdeteksi)...`
+  log(
+    'step',
+    `Memeriksa mod library yang dibutuhkan untuk ${mainModSlug} (${initialCandidates.length} terdeteksi)...`
   );
 
-  // 2. Gunakan antrean (queue) untuk resolusi transitif dan set untuk menghindari siklus
   const queue: string[] = initialCandidates.map((c) => c.identifier);
   const visited = new Set<string>();
 
@@ -279,10 +272,9 @@ export async function resolveAndInstallDependencies(
         });
 
         if (versions.length === 0) {
-          p.log.warn(
-            pc.yellow(
-              `⚠️  Tidak ditemukan rilis library "${depProj.title}" untuk ${loader.toUpperCase()} ${gameVersion}.`
-            )
+          log(
+            'warn',
+            `⚠️  Tidak ditemukan rilis library "${depProj.title}" untuk ${loader.toUpperCase()} ${gameVersion}.`
           );
           result.errors.push({
             name: depProj.title,
@@ -300,17 +292,34 @@ export async function resolveAndInstallDependencies(
         continue;
       }
 
+      const safeFilename = path.basename(depFile.filename);
+      const rootModsDir = path.resolve(modsDir);
+      const destPath = path.resolve(modsDir, safeFilename);
+      if (!destPath.startsWith(rootModsDir + path.sep) && destPath !== rootModsDir) {
+        result.errors.push({ name: depProj.title, error: `Nama berkas tidak aman (path traversal): ${depFile.filename}` });
+        continue;
+      }
+
+      if (!depFile.hashes?.sha512) {
+        result.errors.push({ name: depProj.title, error: `Berkas ${depFile.filename} tidak memiliki hash integritas SHA-512` });
+        continue;
+      }
+
       // Cek apakah library sudah terpasang di folder mods
       const existingFiles = await readdir(modsDir).catch(() => [] as string[]);
-      const exactFilePresent = existingFiles.some((f) => f === depFile.filename);
+      const exactFilePresent = existingFiles.some((f) => f === safeFilename);
 
       // Cek apakah ada file jar lama dari mod library yang sama
+      const oldModEntry = graph.getMod(depProj.slug);
+      const escapedSlug = depProj.slug.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const versionRegex = new RegExp(`^${escapedSlug}[-_][0-9v]`, 'i');
+
       const existingSameMod = existingFiles.find(
         (f) =>
-          f.toLowerCase().startsWith(depProj.slug.toLowerCase()) &&
+          f !== safeFilename &&
+          ((oldModEntry && f === oldModEntry.filename) || versionRegex.test(f)) &&
           f.endsWith('.jar') &&
-          !f.endsWith('.disabled') &&
-          f !== depFile.filename
+          !f.endsWith('.disabled')
       );
 
       const reqDepsOfThis = (depBestVersion.dependencies || [])
@@ -319,12 +328,10 @@ export async function resolveAndInstallDependencies(
 
       if (exactFilePresent) {
         // Versi yang cocok sudah terpasang
-        p.log.message(
-          pc.green(`  ✔  Library [${depProj.title}] sudah terpasang (${pc.dim(depFile.filename)}) - dilewati.`)
-        );
+        log('success', `  ✔  Library [${depProj.title}] sudah terpasang (${safeFilename}) - dilewati.`);
         result.skippedAlreadyInstalled.push({
           name: depProj.title,
-          filename: depFile.filename,
+          filename: safeFilename,
         });
 
         // Daftarkan di dependency graph agar relasi tetap tercatat
@@ -332,7 +339,7 @@ export async function resolveAndInstallDependencies(
           projectId: depProj.id,
           versionId: depBestVersion.id,
           versionNumber: depBestVersion.version_number,
-          filename: depFile.filename,
+          filename: safeFilename,
           sha512: depFile.hashes.sha512,
           isRoot: false,
           dependencies: reqDepsOfThis,
@@ -342,18 +349,18 @@ export async function resolveAndInstallDependencies(
         if (existingSameMod) {
           try {
             await rm(path.join(modsDir, existingSameMod), { force: true });
-            p.log.message(pc.dim(`  Menghapus versi library usang: ${existingSameMod}`));
+            log('dim', `  Menghapus versi library usang: ${existingSameMod}`);
           } catch {}
         }
 
         if (dryRun) {
-          p.log.info(`  [dry-run] Akan memasang library: ${depFile.filename} (${formatBytes(depFile.size)})`);
+          log('info', `  [dry-run] Akan memasang library: ${safeFilename} (${formatBytes(depFile.size)})`);
         } else {
-          p.log.info(
-            `  ⬇️  Memasang library: ${pc.cyan(depProj.title)} (${pc.bold(depBestVersion.version_number)}) untuk ${pc.green(`${loader.toUpperCase()} ${gameVersion}`)}...`
+          log(
+            'info',
+            `  ⬇️  Memasang library: ${depProj.title} (${depBestVersion.version_number}) untuk ${loader.toUpperCase()} ${gameVersion}...`
           );
 
-          const destPath = path.join(modsDir, depFile.filename);
           await modrinthClient.download(depFile.url, destPath, {
             sha512: depFile.hashes.sha512,
             size: depFile.size,
@@ -363,7 +370,7 @@ export async function resolveAndInstallDependencies(
             projectId: depProj.id,
             versionId: depBestVersion.id,
             versionNumber: depBestVersion.version_number,
-            filename: depFile.filename,
+            filename: safeFilename,
             sha512: depFile.hashes.sha512,
             isRoot: false,
             dependencies: reqDepsOfThis,
@@ -371,7 +378,7 @@ export async function resolveAndInstallDependencies(
 
           result.installed.push({
             name: depProj.title,
-            filename: depFile.filename,
+            filename: safeFilename,
             version: depBestVersion.version_number,
           });
         }
@@ -391,7 +398,7 @@ export async function resolveAndInstallDependencies(
         name: targetIdOrSlug,
         error: err.message || 'Gagal memproses library',
       });
-      p.log.warn(`  ⚠️  Gagal memproses dependensi library "${targetIdOrSlug}": ${err.message}`);
+      log('warn', `  ⚠️  Gagal memproses dependensi library "${targetIdOrSlug}": ${err.message}`);
     }
   }
 

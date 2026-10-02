@@ -35,31 +35,34 @@ export class ModpackUnpacker {
     const index = await this.inspect(mrpackFilePath);
     const zip = await unzipper.Open.file(mrpackFilePath);
 
-    // 1. Ekstraksi Overrides
+    const rootResolved = path.resolve(opts.instanceDir);
+
     for (const entry of zip.files) {
+      let relPath: string | null = null;
       if (entry.path.startsWith('overrides/')) {
-        const relPath = entry.path.replace(/^overrides\//, '');
-        if (!relPath) continue;
-        await this.extractZipEntry(entry, path.join(opts.instanceDir, relPath));
+        relPath = entry.path.replace(/^overrides\//, '');
       } else if (opts.targetEnv === 'client' && entry.path.startsWith('client-overrides/')) {
-        const relPath = entry.path.replace(/^client-overrides\//, '');
-        if (!relPath) continue;
-        await this.extractZipEntry(entry, path.join(opts.instanceDir, relPath));
+        relPath = entry.path.replace(/^client-overrides\//, '');
       } else if (opts.targetEnv === 'server' && entry.path.startsWith('server-overrides/')) {
-        const relPath = entry.path.replace(/^server-overrides\//, '');
-        if (!relPath) continue;
-        await this.extractZipEntry(entry, path.join(opts.instanceDir, relPath));
+        relPath = entry.path.replace(/^server-overrides\//, '');
       }
+
+      if (!relPath) continue;
+
+      const safeDest = path.resolve(opts.instanceDir, relPath);
+      if (!safeDest.startsWith(rootResolved + path.sep) && safeDest !== rootResolved) {
+        throw new Error(`Path traversal terdeteksi dalam arsip .mrpack: ${entry.path}`);
+      }
+
+      await this.extractZipEntry(entry, safeDest);
     }
 
-    // 2. Filter Berkas
     const filesToDownload = index.files.filter((file) => {
       if (opts.targetEnv === 'server' && file.env?.server === 'unsupported') return false;
       if (opts.targetEnv === 'client' && file.env?.client === 'unsupported') return false;
       return true;
     });
 
-    // 3. Unduh Paralel
     const limit = pLimit(opts.concurrency ?? 4);
     let completedCount = 0;
 
@@ -85,19 +88,35 @@ export class ModpackUnpacker {
   }
 
   private async downloadModFile(file: MrpackFileEntry, instanceDir: string): Promise<void> {
-    const finalDest = path.join(instanceDir, file.path);
+    const rootResolved = path.resolve(instanceDir);
+    const finalDest = path.resolve(instanceDir, file.path);
+    if (!finalDest.startsWith(rootResolved + path.sep) && finalDest !== rootResolved) {
+      throw new Error(`Path traversal terdeteksi pada berkas modpack: ${file.path}`);
+    }
+
     const tempDest = `${finalDest}.part`;
     await mkdir(path.dirname(finalDest), { recursive: true });
 
-    const downloadUrl = file.downloads[0];
-    if (!downloadUrl) throw new Error(`Tidak ada URL unduhan untuk berkas: ${file.path}`);
+    let lastError: Error | null = null;
+    let res: Response | null = null;
 
-    const res = await fetch(downloadUrl, {
-      headers: { 'User-Agent': this.api.userAgent },
-      signal: AbortSignal.timeout(60000),
-    });
-    if (!res.ok || !res.body) {
-      throw new Error(`Gagal mengunduh file ${file.path}: HTTP ${res.status}`);
+    for (const downloadUrl of file.downloads) {
+      try {
+        const attemptRes = await fetch(downloadUrl, {
+          headers: { 'User-Agent': this.api.userAgent },
+          signal: AbortSignal.timeout(60000),
+        });
+        if (attemptRes.ok && attemptRes.body) {
+          res = attemptRes;
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    if (!res || !res.body) {
+      throw new Error(`Gagal mengunduh file ${file.path}: ${lastError?.message ?? 'Semua mirror unduhan gagal'}`);
     }
 
     try {

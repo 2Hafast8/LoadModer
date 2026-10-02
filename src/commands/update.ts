@@ -112,7 +112,17 @@ export async function updateCommand(opts: UpdateOptions) {
 
   for (const up of updates) {
     p.log.step(`Memperbarui ${pc.bold(up.nextFile.filename)}...`);
-    const newDest = path.join(modsDir, up.nextFile.filename);
+    if (!up.nextFile.hashes?.sha512) {
+      p.log.error(`Berkas ${up.nextFile.filename} tidak memiliki hash integritas SHA-512 dari Modrinth.`);
+      continue;
+    }
+
+    const safeFilename = path.basename(up.nextFile.filename);
+    const rootModsDir = path.resolve(modsDir);
+    const newDest = path.resolve(modsDir, safeFilename);
+    if (!newDest.startsWith(rootModsDir + path.sep) && newDest !== rootModsDir) {
+      throw new Error(`Nama berkas tidak aman (path traversal): ${up.nextFile.filename}`);
+    }
 
     await modrinthClient.download(up.nextFile.url, newDest, {
       sha512: up.nextFile.hashes.sha512,
@@ -123,6 +133,30 @@ export async function updateCommand(opts: UpdateOptions) {
       await rm(up.currentPath, { force: true });
       p.log.message(pc.dim(`Versi lama dihapus: ${up.current}`));
     }
+
+    const existingLockEntry = Object.entries(graph.data.mods).find(
+      ([, m]) => m.filename === up.current || m.projectId === up.nextVersion.project_id
+    );
+
+    const slug = existingLockEntry ? existingLockEntry[0] : up.nextVersion.project_id;
+    const isRoot = existingLockEntry ? existingLockEntry[1].isRoot : true;
+    const reqDeps = (up.nextVersion.dependencies || [])
+      .filter((d: any) => d.dependency_type === 'required' && Boolean(d.project_id))
+      .map((d: any) => d.project_id);
+
+    graph.registerMod(slug, {
+      projectId: up.nextVersion.project_id,
+      versionId: up.nextVersion.id,
+      versionNumber: up.nextVersion.version_number,
+      filename: safeFilename,
+      sha512: up.nextFile.hashes.sha512,
+      isRoot,
+      dependencies: reqDeps,
+    });
+  }
+
+  if (updates.length > 0) {
+    await graph.save();
   }
 
   p.outro(pc.green(`Berhasil memperbarui ${updates.length} mod!`));
