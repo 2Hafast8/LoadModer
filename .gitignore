@@ -36,3 +36,7 @@ lerna-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Internal Audit Documentation
+docs/audits/
+
