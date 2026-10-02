@@ -1,21 +1,21 @@
 import chalk from "chalk";
 import {select, input, search, Separator} from "@inquirer/prompts";
 import {ExitPromptError} from "@inquirer/core";
-import {clearScreen} from "./theme.js";
+import {clearScreen, theme} from "./theme.js";
 
-export const ui = {
-  primary: "#38bdf8", // Frost Ice Blue (Aksen utama / kursor)
-  accent: "#38bdf8", // Alias primary
-  accentAlt: "#818cf8", // Soft Lavender (Tombol aksi navigasi)
-  success: "#34d399", // Mint Green (Status aktif & konfirmasi)
-  text: "#f1f5f9", // Slate Light (Teks standar)
-  textMuted: "#94a3b8", // Slate Gray (Teks sekunder / deskripsi)
-  muted: "#64748b", // Deep Slate (Redup / garis pemisah)
-  activeBg: "#1e293b", // Slate 800 (Highlight baris terpilih)
-  border: "#334155", // Slate 700 (Border)
-  pointer: "❯", // Modern minimal pointer
-  separator: "─",
-};
+export const ui = new Proxy(
+  {
+    separator: "─",
+  } as Record<string, string>,
+  {
+    get(target, prop: string) {
+      if (prop === "accent") return theme.primary;
+      if (prop === "accentAlt") return theme.secondary;
+      if (prop in target) return target[prop];
+      return (theme as any)[prop];
+    },
+  },
+);
 
 export interface InteractiveChoice {
   name: string;
@@ -28,6 +28,7 @@ export interface InteractiveMenuOptions {
   loop?: boolean;
   pageSize?: number;
   customFooter?: string;
+  allowBackOnCancel?: boolean;
 }
 
 export function renderFooter(customHint?: string): string {
@@ -43,7 +44,7 @@ export function renderFooter(customHint?: string): string {
     chalk.hex(ui.textMuted)(" Pilih") +
     chalk.hex(ui.muted)("  •  ") +
     chalk.hex(ui.accentAlt)("Ctrl+C") +
-    chalk.hex(ui.textMuted)(" Keluar")
+    chalk.hex(ui.textMuted)(" Batal/Kembali")
   );
 }
 
@@ -56,6 +57,7 @@ export async function askInteractiveMenu(
   const opts = typeof options === "string" ? {customFooter: options} : options;
   const loop = opts?.loop ?? false;
   const pageSize = opts?.pageSize ?? 14;
+  const allowBackOnCancel = opts?.allowBackOnCancel ?? true;
 
   if (renderContext) {
     clearScreen();
@@ -127,6 +129,9 @@ export async function askInteractiveMenu(
     });
   } catch (err: any) {
     if (err?.name === "ExitPromptError" || err instanceof ExitPromptError) {
+      if (allowBackOnCancel) {
+        return "back";
+      }
       console.log(chalk.hex(ui.muted)("\nOperasi dibatalkan.\n"));
       process.exit(130);
     }
@@ -138,7 +143,10 @@ export async function askSearchMenu(
   message: string,
   choices: InteractiveChoice[],
   renderContext?: () => void,
+  options?: {allowBackOnCancel?: boolean},
 ): Promise<string> {
+  const allowBackOnCancel = options?.allowBackOnCancel ?? true;
+
   if (renderContext) {
     clearScreen();
     renderContext();
@@ -192,6 +200,9 @@ export async function askSearchMenu(
     });
   } catch (err: any) {
     if (err?.name === "ExitPromptError" || err instanceof ExitPromptError) {
+      if (allowBackOnCancel) {
+        return "back";
+      }
       console.log(chalk.hex(ui.muted)("\nOperasi dibatalkan.\n"));
       process.exit(130);
     }
@@ -199,7 +210,13 @@ export async function askSearchMenu(
   }
 }
 
-export async function ask(query: string, defaultValue?: string): Promise<string> {
+export async function ask(
+  query: string,
+  defaultValue?: string,
+  options?: {allowBackOnCancel?: boolean},
+): Promise<string> {
+  const allowBackOnCancel = options?.allowBackOnCancel ?? true;
+
   try {
     return await input({
       message: chalk.hex(ui.text)(query),
@@ -218,6 +235,9 @@ export async function ask(query: string, defaultValue?: string): Promise<string>
     });
   } catch (err: any) {
     if (err?.name === "ExitPromptError" || err instanceof ExitPromptError) {
+      if (allowBackOnCancel) {
+        return defaultValue ?? "";
+      }
       console.log(chalk.hex(ui.muted)("\nOperasi dibatalkan.\n"));
       process.exit(130);
     }

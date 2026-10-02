@@ -5,7 +5,21 @@ import figlet from 'figlet';
 import Table from 'cli-table3';
 import { formatNumber } from '../utils/format.js';
 
-export const theme = {
+export function isLightTerminal(): boolean {
+  if (process.env.LOADMODER_THEME === 'light') return true;
+  if (process.env.LOADMODER_THEME === 'dark') return false;
+  const colorfgbg = process.env.COLORFGBG;
+  if (colorfgbg) {
+    const parts = colorfgbg.split(';');
+    const bg = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(bg) && (bg === 7 || bg === 15 || bg > 8)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const darkTheme = {
   primary: '#38bdf8',     // Frost Ice Blue (Fokus utama / aksi)
   secondary: '#818cf8',   // Soft Lavender Indigo (Aksen judul & kategori)
   success: '#34d399',     // Nordic Mint Green (Status aktif & terpasang)
@@ -14,11 +28,35 @@ export const theme = {
   info: '#67e8f9',        // Polar Cyan (Informasi detail & metadata)
   text: '#f1f5f9',        // Light Slate Text (Teks utama)
   textMuted: '#94a3b8',   // Slate Gray (Teks sekunder)
-  muted: '#64748b',       // Deep Slate (Redup / separator)
+  muted: '#94a3b8',       // Slate 400 (8.19:1 contrast, elevated from #64748b)
   border: '#334155',      // Slate 700 (Border halus)
   activeBg: '#1e293b',    // Slate 800 (Highlight baris terpilih)
   pointer: '❯',           // Modern minimal pointer
 };
+
+const lightTheme = {
+  primary: '#0369a1',     // Sky 700 (5.93:1 contrast on white)
+  secondary: '#4338ca',   // Indigo 700 (7.90:1 contrast on white)
+  success: '#047857',     // Emerald 700 (5.48:1 contrast on white)
+  warning: '#92400e',     // Amber 800 (7.07:1 contrast on white)
+  error: '#b91c1c',       // Red 700 (6.47:1 contrast on white)
+  info: '#0e7490',        // Cyan 700 (5.36:1 contrast on white)
+  text: '#0f172a',        // Slate 900 (17.85:1 contrast on white)
+  textMuted: '#334155',   // Slate 700 (10.35:1 contrast on white)
+  muted: '#475569',       // Slate 600 (7.58:1 contrast on white)
+  border: '#64748b',      // Slate 500 (4.76:1 contrast on white)
+  activeBg: '#e2e8f0',    // Slate 200 (Highlight baris terpilih)
+  pointer: '❯',           // Modern minimal pointer
+};
+
+export type ThemeTokens = typeof darkTheme;
+
+export const theme: ThemeTokens = new Proxy(darkTheme, {
+  get(target, prop: keyof ThemeTokens) {
+    const active = isLightTerminal() ? lightTheme : darkTheme;
+    return active[prop] ?? target[prop];
+  },
+});
 
 export const tableChars = {
   top: '─',
@@ -39,8 +77,7 @@ export const tableChars = {
 };
 
 export const clearScreen = () => {
-  process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
-  console.clear();
+  process.stdout.write('\x1B[2J\x1B[H');
 };
 
 export const showBanner = (
@@ -49,7 +86,8 @@ export const showBanner = (
   showInstanceBox = false,
   extraInfo?: string
 ) => {
-  if (compact) {
+  const isAccessible = Boolean(process.env.ACCESSIBLE || process.env.NO_COLOR || process.env.CI);
+  if (compact || isAccessible) {
     const extra = extraInfo ? chalk.hex(theme.muted)(` • ${extraInfo}`) : '';
     console.log(
       chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
@@ -62,7 +100,10 @@ export const showBanner = (
   }
 
   const cols = process.stdout.columns || 80;
-  const nordicGradient = gradient(['#38bdf8', '#818cf8']);
+  const isLight = isLightTerminal();
+  const bannerGradient = isLight
+    ? gradient(['#0369a1', '#4338ca'])
+    : gradient(['#38bdf8', '#818cf8']);
 
   if (cols < 60) {
     console.log(
@@ -77,7 +118,7 @@ export const showBanner = (
         font,
         horizontalLayout: 'fitted',
       });
-      console.log(nordicGradient.multiline(banner));
+      console.log(bannerGradient.multiline(banner));
     } catch {
       console.log(
         chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +

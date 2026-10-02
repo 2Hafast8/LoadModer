@@ -146,12 +146,14 @@ export async function runInteractiveBrowser(
     const renderHeader = () => {
       showBanner(currentInstance?.name, true);
 
+      const termCols = process.stdout.columns || 80;
+      const filterCol2 = Math.max(28, Math.min(54, termCols - 29));
       const filterTable = new Table({
         head: [
           chalk.hex(theme.secondary).bold("Parameter Filter"),
           chalk.hex(theme.secondary).bold("Pengaturan Aktif"),
         ],
-        colWidths: [22, 54],
+        colWidths: [22, filterCol2],
         wordWrap: true,
         chars: tableChars,
         style: {head: [], border: [theme.border]},
@@ -357,7 +359,7 @@ export async function runInteractiveBrowser(
         () => showBanner(activeInstance?.name, true),
       );
 
-      if (!action || action === "done" || action === "sep") {
+      if (!action || action === "done" || action === "sep" || action === "back") {
         configuring = false;
         break;
       }

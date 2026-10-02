@@ -1,20 +1,20 @@
-import path from 'node:path';
-import { readFile, readdir } from 'node:fs/promises';
-import writeFileAtomic from 'write-file-atomic';
-import type { LockfileData, LockModEntry } from '../../types/lockfile.js';
+import path from "node:path";
+import {readFile, readdir} from "node:fs/promises";
+import writeFileAtomic from "write-file-atomic";
+import type {LockfileData, LockModEntry} from "../../types/lockfile.js";
 
 export class DependencyGraph {
   public lockfilePath: string;
   public data: LockfileData;
 
-  constructor(instanceDir: string, gameVersion = '', loader = '') {
-    this.lockfilePath = path.join(instanceDir, 'loadmoder.lock.json');
+  constructor(instanceDir: string, gameVersion = "", loader = "") {
+    this.lockfilePath = path.join(instanceDir, "loadmoder.lock.json");
     this.data = {
-      $schema: 'https://loadmoder.dev/schema/v1/lock.json',
+      $schema: "https://loadmoder.dev/schema/v1/lock.json",
       version: 1,
       gameVersion,
       loader,
-      environment: 'client',
+      environment: "client",
       updatedAt: new Date().toISOString(),
       mods: {},
     };
@@ -22,11 +22,11 @@ export class DependencyGraph {
 
   async load(): Promise<void> {
     try {
-      const content = await readFile(this.lockfilePath, 'utf8');
+      const content = await readFile(this.lockfilePath, "utf8");
       this.data = JSON.parse(content);
       if (!this.data.mods) this.data.mods = {};
     } catch (err: any) {
-      if (err?.code === 'ENOENT') {
+      if (err?.code === "ENOENT") {
         return;
       }
       try {
@@ -38,17 +38,17 @@ export class DependencyGraph {
 
   async save(): Promise<void> {
     this.data.updatedAt = new Date().toISOString();
-    await writeFileAtomic(this.lockfilePath, JSON.stringify(this.data, null, 2) + '\n', 'utf8');
+    await writeFileAtomic(this.lockfilePath, JSON.stringify(this.data, null, 2) + "\n", "utf8");
   }
 
-  findMod(idOrSlug: string): { slug: string; entry: LockModEntry } | undefined {
+  findMod(idOrSlug: string): {slug: string; entry: LockModEntry} | undefined {
     const clean = idOrSlug.toLowerCase();
     if (this.data.mods[clean]) {
-      return { slug: clean, entry: this.data.mods[clean] };
+      return {slug: clean, entry: this.data.mods[clean]};
     }
     for (const [slug, entry] of Object.entries(this.data.mods)) {
       if (entry.projectId.toLowerCase() === clean) {
-        return { slug, entry };
+        return {slug, entry};
       }
     }
     return undefined;
@@ -58,7 +58,7 @@ export class DependencyGraph {
     return this.findMod(slug)?.entry;
   }
 
-  registerMod(slug: string, entry: Omit<LockModEntry, 'dependedBy' | 'installedAt'>): void {
+  registerMod(slug: string, entry: Omit<LockModEntry, "dependedBy" | "installedAt">): void {
     const key = slug.toLowerCase();
     const existing = this.data.mods[key];
     const projectIdClean = entry.projectId.toLowerCase();
@@ -88,9 +88,9 @@ export class DependencyGraph {
     }
   }
 
-  removeMod(slugOrId: string): { removedMod: LockModEntry | null; orphanedSlugs: string[] } {
+  removeMod(slugOrId: string): {removedMod: LockModEntry | null; orphanedSlugs: string[]} {
     const match = this.findMod(slugOrId);
-    if (!match) return { removedMod: null, orphanedSlugs: [] };
+    if (!match) return {removedMod: null, orphanedSlugs: []};
 
     const key = match.slug;
     const target = match.entry;
@@ -107,7 +107,7 @@ export class DependencyGraph {
       }
     }
 
-    return { removedMod: target, orphanedSlugs };
+    return {removedMod: target, orphanedSlugs};
   }
 
   checkIncompatibilities(incompatibleProjectIds: string[]): string[] {
@@ -120,12 +120,9 @@ export class DependencyGraph {
     return conflicts;
   }
 
-  /**
-   * Rekonsiliasi data lockfile dengan file fisik yang ada di folder mods.
-   * Jika ada mod yang dihapus secara manual dari disk, mod tersebut otomatis
-   * di-unregister dari lockfile dan dependensi yatim (orphan) akan terdeteksi.
-   */
-  async reconcileWithDisk(modsDir: string): Promise<{ unregistered: string[]; orphanedSlugs: string[] }> {
+  async reconcileWithDisk(
+    modsDir: string,
+  ): Promise<{unregistered: string[]; orphanedSlugs: string[]}> {
     try {
       const files = await readdir(modsDir);
       const activeFilenames = new Set(files);
@@ -137,10 +134,10 @@ export class DependencyGraph {
         const isPresent =
           activeFilenames.has(entry.filename) ||
           activeFilenames.has(`${entry.filename}.disabled`) ||
-          activeFilenames.has(entry.filename.replace('.disabled', ''));
+          activeFilenames.has(entry.filename.replace(".disabled", ""));
 
         if (!isPresent) {
-          const { orphanedSlugs } = this.removeMod(slug);
+          const {orphanedSlugs} = this.removeMod(slug);
           unregistered.push(slug);
           allOrphaned.push(...orphanedSlugs);
         }
@@ -150,9 +147,9 @@ export class DependencyGraph {
         await this.save();
       }
 
-      return { unregistered, orphanedSlugs: allOrphaned };
+      return {unregistered, orphanedSlugs: allOrphaned};
     } catch {
-      return { unregistered: [], orphanedSlugs: [] };
+      return {unregistered: [], orphanedSlugs: []};
     }
   }
 }

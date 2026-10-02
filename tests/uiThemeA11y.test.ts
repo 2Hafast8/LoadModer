@@ -1,0 +1,151 @@
+import {describe, it, expect, beforeEach, afterEach, vi} from "vitest";
+import {isLightTerminal, theme, clearScreen, showBanner} from "../src/ui/theme.js";
+import {ui, renderFooter} from "../src/ui/interactive.js";
+import {createModsTable, createSearchTable} from "../src/ui/tables.js";
+
+describe("UI/UX & Accessibility (Theme & Responsive)", () => {
+  const originalEnv = {...process.env};
+
+  beforeEach(() => {
+    process.env = {...originalEnv};
+    delete process.env.LOADMODER_THEME;
+    delete process.env.COLORFGBG;
+    delete process.env.ACCESSIBLE;
+    delete process.env.NO_COLOR;
+    delete process.env.CI;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  describe("Terminal Background & Theme Detection", () => {
+    it("defaults to dark theme when no environment variable is set", () => {
+      expect(isLightTerminal()).toBe(false);
+      expect(theme.text).toBe("#f1f5f9");
+      expect(theme.muted).toBe("#94a3b8");
+    });
+
+    it("activates light theme when LOADMODER_THEME=light", () => {
+      process.env.LOADMODER_THEME = "light";
+      expect(isLightTerminal()).toBe(true);
+      expect(theme.text).toBe("#0f172a");
+      expect(theme.primary).toBe("#0369a1");
+    });
+
+    it("respects LOADMODER_THEME=dark over light COLORFGBG", () => {
+      process.env.LOADMODER_THEME = "dark";
+      process.env.COLORFGBG = "0;15";
+      expect(isLightTerminal()).toBe(false);
+      expect(theme.text).toBe("#f1f5f9");
+    });
+
+    it("detects light background from COLORFGBG=0;15", () => {
+      process.env.COLORFGBG = "0;15";
+      expect(isLightTerminal()).toBe(true);
+      expect(theme.text).toBe("#0f172a");
+    });
+
+    it("detects dark background from COLORFGBG=15;0", () => {
+      process.env.COLORFGBG = "15;0";
+      expect(isLightTerminal()).toBe(false);
+      expect(theme.text).toBe("#f1f5f9");
+    });
+  });
+
+  describe("WCAG 2.2 Relative Luminance & Contrast Compliance", () => {
+    function hexToRgb(hex: string): [number, number, number] {
+      const clean = hex.replace("#", "");
+      return [
+        parseInt(clean.slice(0, 2), 16),
+        parseInt(clean.slice(2, 4), 16),
+        parseInt(clean.slice(4, 6), 16),
+      ];
+    }
+
+    function relativeLuminance(rgb: [number, number, number]): number {
+      const [r, g, b] = rgb.map((c) => {
+        const val = c / 255;
+        return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    function contrastRatio(hex1: string, hex2: string): number {
+      const l1 = relativeLuminance(hexToRgb(hex1));
+      const l2 = relativeLuminance(hexToRgb(hex2));
+      const lighter = Math.max(l1, l2);
+      const darker = Math.min(l1, l2);
+      return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    it("ensures dark theme muted text satisfies WCAG AA >= 4.5:1 on black", () => {
+      process.env.LOADMODER_THEME = "dark";
+      const ratio = contrastRatio(theme.muted, "#000000");
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it("ensures light theme text tokens satisfy WCAG AA >= 4.5:1 on white", () => {
+      process.env.LOADMODER_THEME = "light";
+      const bg = "#ffffff";
+      expect(contrastRatio(theme.text, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.textMuted, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.muted, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.primary, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.secondary, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.success, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.warning, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.error, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.info, bg)).toBeGreaterThanOrEqual(4.5);
+    });
+  });
+
+  describe("Interactive UI Proxy Synchronization", () => {
+    it("proxies ui tokens to active theme dynamically", () => {
+      process.env.LOADMODER_THEME = "dark";
+      expect(ui.accent).toBe(theme.primary);
+      expect(ui.text).toBe("#f1f5f9");
+
+      process.env.LOADMODER_THEME = "light";
+      expect(ui.accent).toBe(theme.primary);
+      expect(ui.text).toBe("#0f172a");
+    });
+
+    it("renders footer containing cancel navigation hints", () => {
+      const footer = renderFooter();
+      expect(footer).toContain("Batal/Kembali");
+    });
+  });
+
+  describe("Scrollback & Banner Accessibility", () => {
+    it("preserves terminal scrollback buffer in clearScreen", () => {
+      const stdoutSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+      clearScreen();
+      expect(stdoutSpy).toHaveBeenCalledWith("\x1B[2J\x1B[H");
+      expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining("\x1B[3J"));
+    });
+
+    it("suppresses multi-line ASCII banner when ACCESSIBLE=true", () => {
+      process.env.ACCESSIBLE = "true";
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      showBanner("test-instance", false);
+      expect(consoleSpy).toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+      expect(output).toContain("LOADMODER");
+      expect(output).toContain("v2.0.0");
+    });
+  });
+
+  describe("Responsive Tables", () => {
+    it("constructs mods table without throwing", () => {
+      const table = createModsTable();
+      expect(table).toBeDefined();
+    });
+
+    it("constructs search table without throwing", () => {
+      const table = createSearchTable();
+      expect(table).toBeDefined();
+    });
+  });
+});

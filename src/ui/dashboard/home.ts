@@ -108,17 +108,24 @@ export async function launchHomeDashboard(): Promise<void> {
         {name: "[Keluar dari LoadModer]", value: "exit"},
       ];
 
-      const selected = await askInteractiveMenu("DASHBOARD UTAMA", homeChoices, () => {
-        showBanner(active?.name, false, false);
-        renderInstanceHeader({
-          instanceName: active?.name,
-          gameVersion: active?.gameVersion,
-          loader: active?.loader,
-          modsCount: stats.modsCount,
-          activeCount: stats.activeCount,
-          storageUsage: stats.storageUsage,
-        });
-      });
+      const selected = await askInteractiveMenu(
+        "DASHBOARD UTAMA",
+        homeChoices,
+        () => {
+          showBanner(active?.name, false, false);
+          renderInstanceHeader({
+            instanceName: active?.name,
+            gameVersion: active?.gameVersion,
+            loader: active?.loader,
+            modsCount: stats.modsCount,
+            activeCount: stats.activeCount,
+            storageUsage: stats.storageUsage,
+          });
+        },
+        {
+          allowBackOnCancel: false,
+        },
+      );
 
       switch (selected) {
         case "search": {
@@ -191,7 +198,7 @@ export async function launchHomeDashboard(): Promise<void> {
 
           if (bisectChoice && bisectChoice !== "back" && bisectChoice !== "sep") {
             await bisectCommand(bisectChoice, {dir: active?.modsDir, skipBanner: true});
-            await ask("Tekan Enter untuk melanjutkan...");
+            await ask("Tekan Enter untuk kembali ke dashboard...");
           }
           break;
         }

@@ -1,5 +1,5 @@
-import type { ModVersion } from '../../types/modrinth.js';
-import { isMinecraftVersionAtLeast1_16, compareMinecraftVersionsDesc } from './versions.js';
+import type {ModVersion} from "../../types/modrinth.js";
+import {isMinecraftVersionAtLeast1_16, compareMinecraftVersionsDesc} from "./versions.js";
 
 export interface ModCompatibilityInfo {
   isCompatible: boolean;
@@ -11,13 +11,10 @@ export interface ModCompatibilityInfo {
   availableGameVersions: string[];
 }
 
-/**
- * Calculates mod version compatibility against the active Minecraft version and mod loader.
- */
 export function computeModCompatibility(
   versions: ModVersion[],
   userLoader: string,
-  userGameVersion: string
+  userGameVersion: string,
 ): ModCompatibilityInfo {
   const allLoaders = Array.from(new Set(versions.flatMap((v) => v.loaders)));
   const allGameVersions = Array.from(new Set(versions.flatMap((v) => v.game_versions)))
@@ -34,11 +31,11 @@ export function computeModCompatibility(
         const cl = l.toLowerCase();
         return (
           cl === cleanUserLoader ||
-          cl === 'minecraft' ||
-          cl === 'vanilla' ||
-          cl === 'iris' ||
-          cl === 'optifine' ||
-          cl === 'canvas'
+          cl === "minecraft" ||
+          cl === "vanilla" ||
+          cl === "iris" ||
+          cl === "optifine" ||
+          cl === "canvas"
         );
       });
     const hasGameVer = v.game_versions.some((gv) => gv.toLowerCase() === cleanUserVer);
@@ -47,7 +44,7 @@ export function computeModCompatibility(
 
   const isCompatible = compatibleVersions.length > 0;
   const bestCompatibleVersion =
-    compatibleVersions.find((v) => v.version_type === 'release') ?? compatibleVersions[0];
+    compatibleVersions.find((v) => v.version_type === "release") ?? compatibleVersions[0];
 
   return {
     isCompatible,

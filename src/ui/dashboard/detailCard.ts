@@ -55,8 +55,10 @@ export interface ComprehensiveModDetail {
 }
 
 export function renderComprehensiveModDetailCard(detail: ComprehensiveModDetail): void {
+  const termCols = process.stdout.columns || 80;
+  const col2Width = Math.max(28, Math.min(62, termCols - 25));
   const metaTable = new Table({
-    colWidths: [18, 62],
+    colWidths: [18, col2Width],
     wordWrap: true,
     chars: tableChars,
     style: {head: [], border: [theme.border]},
