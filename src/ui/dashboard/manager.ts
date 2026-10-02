@@ -107,7 +107,6 @@ export async function runInteractiveManager(activeInstance: SavedInstanceConfig 
       break;
     }
 
-    // Arahkan ke rute detail mod lengkap yang baru
     await runInstalledModDetailRoute(picked, currentInstance, modsDir);
   }
 }

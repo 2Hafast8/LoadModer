@@ -1,5 +1,4 @@
 import { instanceConfig } from '../core/instance/config.js';
-import { profileSnapshotManager } from '../core/profile/snapshotManager.js';
 import { p, pc, showBanner } from '../ui/prompts.js';
 
 export async function configCommand(action: 'show' | 'set' | 'use', key?: string, value?: string) {
@@ -13,7 +12,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
       p.note(
         `Instance Aktif     : ${pc.bold(active?.name ?? 'Belum ada')} (${active?.launcher ?? '-'})\n` +
           `Folder Mods        : ${pc.dim(active?.modsDir ?? '-')}\n` +
-          `Minecraft Version  : ${active?.gameVersion ?? '-'}\n` +
+          `Versi Minecraft    : ${active?.gameVersion ?? '-'}\n` +
           `Mod Loader         : ${active?.loader ?? '-'}\n` +
           `Lingkungan Target  : ${cfg.defaultEnvironment ?? 'client'}\n` +
           `Total Instance     : ${Object.keys(cfg.instances).length}`,
@@ -26,6 +25,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
     case 'use': {
       if (!key) {
         p.log.error('Masukkan ID instance yang ingin digunakan. Contoh: lm config use prism-1.21');
+        process.exitCode = 1;
         return;
       }
       try {
@@ -34,6 +34,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
         p.outro(pc.green(`Instance aktif berhasil dialihkan ke: ${key}`));
       } catch (err) {
         p.log.error((err as Error).message);
+        process.exitCode = 1;
       }
       break;
     }
@@ -41,47 +42,24 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
     case 'set': {
       if (!key || value === undefined) {
         p.log.error('Gunakan: lm config set <key> <value>');
+        process.exitCode = 1;
         return;
       }
 
       if (key === 'defaultGameVersion' || key === 'mc-version') {
         instanceConfig.set('defaultGameVersion', value);
-        const activeKey = cfg.activeInstance;
-        const active = instanceConfig.getActiveInstance();
-        if (activeKey && active) {
-          const s = p.spinner();
-          s.start(`Mengalihkan versi game instance "${active.name}" ke ${value}...`);
-          try {
-            const res = await profileSnapshotManager.switchProfile(activeKey, active.loader || 'fabric', value);
-            s.stop(pc.green(`Versi dialihkan ke ${value}! (${res.savedCount} mod diarsipkan, ${res.restoredCount} mod dipulihkan)`));
-          } catch (err: any) {
-            s.stop(pc.red('Gagal mengalihkan profil!'));
-            p.log.error(err.message);
-          }
-        }
       } else if (key === 'defaultLoader' || key === 'loader') {
         instanceConfig.set('defaultLoader', value);
-        const activeKey = cfg.activeInstance;
-        const active = instanceConfig.getActiveInstance();
-        if (activeKey && active) {
-          const s = p.spinner();
-          s.start(`Mengalihkan mod loader instance "${active.name}" ke ${value}...`);
-          try {
-            const res = await profileSnapshotManager.switchProfile(activeKey, value, active.gameVersion || '1.21.1');
-            s.stop(pc.green(`Loader dialihkan ke ${value}! (${res.savedCount} mod diarsipkan, ${res.restoredCount} mod dipulihkan)`));
-          } catch (err: any) {
-            s.stop(pc.red('Gagal mengalihkan loader!'));
-            p.log.error(err.message);
-          }
-        }
       } else if (key === 'defaultEnvironment' || key === 'env') {
         if (value !== 'client' && value !== 'server') {
           p.log.error('Environment harus "client" atau "server".');
+          process.exitCode = 1;
           return;
         }
         instanceConfig.set('defaultEnvironment', value);
       } else {
         p.log.error(`Key "${key}" tidak valid.`);
+        process.exitCode = 1;
         return;
       }
 
@@ -92,6 +70,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
 
     default: {
       p.log.error(`Aksi "${action}" tidak dikenal. Gunakan: show | set | use`);
+      process.exitCode = 1;
       break;
     }
   }

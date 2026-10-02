@@ -1,6 +1,6 @@
 # Katalog & Panduan Keahlian Agen (Agent Skills) — LoadModer
 
-Dokumen ini berisi indeks lengkap seluruh **Agent Skills** yang terpasang di dalam direktori [`.agent/skills/`](file:///c:/Users/LENOVO/LoadModer/.agent/skills). Setiap keahlian memberikan instruksi khusus, standar kualitas, serta pola arsitektur untuk memandu agen AI dalam mengembangkan, mereview, dan memelihara proyek **LoadModer**.
+Dokumen ini berisi indeks lengkap seluruh **Agent Skills** yang terpasang di dalam direktori [`.agent/skills/`](../.agent/skills). Setiap keahlian memberikan instruksi khusus, standar kualitas, serta pola arsitektur untuk memandu agen AI dalam mengembangkan, mereview, dan memelihara proyek **LoadModer**.
 
 ---
 
@@ -39,27 +39,27 @@ Dokumen ini berisi indeks lengkap seluruh **Agent Skills** yang terpasang di dal
 
 Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terkesan dibuat-buat atau mengandung "AI slop" (kode basi, bertele-tele, komentar dekoratif yang tidak perlu).
 
-### 1. [`antislop`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/antislop/SKILL.md)
+### 1. [`antislop`](../.agent/skills/antislop/SKILL.md)
 * **Deskripsi**: Filter utama untuk menghentikan kode dan antarmuka generik buatan AI.
 * **Kapan Digunakan**: Selalu aktif saat membangun fitur atau antarmuka baru.
 * **Penerapan di LoadModer**: Mencegah pembuatan komponen visual yang berlebihan, memastikan CLI to-the-point, dan menghilangkan teks basa-basi pada pesan error atau konfirmasi.
 
-### 2. [`antislop-code`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/antislop-code/SKILL.md)
+### 2. [`antislop-code`](../.agent/skills/antislop-code/SKILL.md)
 * **Deskripsi**: Higienitas komentar kode — menghapus komentar generik yang menjelaskan hal yang sudah jelas, mempertahankan komentar bernilai tinggi (alasan desain/algoritma).
 * **Kapan Digunakan**: Saat menulis atau mengedit file TypeScript (`.ts`).
 * **Penerapan di LoadModer**: Melarang komentar seperti `// increment counter` atau `// return response`. Hanya mendokumentasikan alasan non-trivial seperti *"alasan menunggu X-Ratelimit-Reset + 250ms buffer"*.
 
-### 3. [`antislop-copywriting`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/antislop-copywriting/SKILL.md)
+### 3. [`antislop-copywriting`](../.agent/skills/antislop-copywriting/SKILL.md)
 * **Deskripsi**: Panduan penulisan teks, pesan peringatan, headline dokumentasi, dan Call-to-Action yang alami dan profesional.
 * **Kapan Digunakan**: Menulis pesan log terminal, dokumentasi di `docs/`, dan deskripsi opsi `--help`.
 * **Penerapan di LoadModer**: Pesan error terminal ringkas, langsung pada solusi: *"Gunakan -v 1.21.1 atau jalankan loadmoder init"*, bukan kalimat pasif berbelit-belit.
 
-### 4. [`antislop-human`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/antislop-human/SKILL.md)
+### 4. [`antislop-human`](../.agent/skills/antislop-human/SKILL.md)
 * **Deskripsi**: Aksesibilitas, kontras warna, navigasi keyboard, dan penanganan kondisi nyata manusia.
 * **Kapan Digunakan**: Saat merancang interaksi terminal CLI.
 * **Penerapan di LoadModer**: Memastikan warna teks terminal di `picocolors` tetap terbaca pada tema terminal gelap (*dark mode*) maupun terang (*light mode*).
 
-### 5. [`antislop-ui`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/antislop-ui/SKILL.md)
+### 5. [`antislop-ui`](../.agent/skills/antislop-ui/SKILL.md)
 * **Deskripsi**: Tata letak antarmuka, komponen, dekorasi terukur, dan hierarki visual.
 * **Kapan Digunakan**: Merancang visual tabel data dan banner terminal.
 * **Penerapan di LoadModer**: Menjaga agar tampilan progres unduhan dan ringkasan instalasi tidak memenuhi layar dengan karakter dekoratif yang tidak penting.
@@ -68,22 +68,22 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 
 ## 2. Arsitektur & Desain Sistem
 
-### 6. [`system-design`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/system-design/SKILL.md)
+### 6. [`system-design`](../.agent/skills/system-design/SKILL.md)
 * **Deskripsi**: Desain sistem, batasan layanan (*service boundaries*), pemodelan data, dan arsitektur konkurensi.
 * **Kapan Digunakan**: Merancang subsistem baru (misal: mesin modpack, cache offline).
 * **Penerapan di LoadModer**: Merancang interaksi antara Modrinth API Client, Concurrency Pool, dan sistem penyimpanan Lockfile.
 
-### 7. [`software-architecture`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/software-architecture/SKILL.md)
+### 7. [`software-architecture`](../.agent/skills/software-architecture/SKILL.md)
 * **Deskripsi**: Panduan arsitektur perangkat lunak berbasis Clean Architecture dan Domain-Driven Design (DDD).
 * **Kapan Digunakan**: Menentukan struktur direktori `src/core/`, `src/commands/`, dan `src/api/`.
 * **Penerapan di LoadModer**: Memastikan domain logika (Modpack, Dependency Graph) tidak bergantung langsung pada implementasi CLI UI (`commander` / `@clack/prompts`), sehingga logika dapat diuji secara independen tanpa simulasi terminal.
 
-### 8. [`backend-patterns`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/backend-patterns/SKILL.md)
+### 8. [`backend-patterns`](../.agent/skills/backend-patterns/SKILL.md)
 * **Deskripsi**: Pola arsitektur server-side, desain API, streaming I/O, dan optimasi data di Node.js.
 * **Kapan Digunakan**: Membangun pipeline download file dan ekstraksi arsip ZIP.
 * **Penerapan di LoadModer**: Menggunakan streaming pipeline (`Readable.fromWeb` $\rightarrow$ `Transform` $\rightarrow$ `WriteStream`) untuk menghitung hash SHA-512 sambil mengunduh tanpa membebani memori RAM.
 
-### 9. [`c4-code`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/c4-code/SKILL.md)
+### 9. [`c4-code`](../.agent/skills/c4-code/SKILL.md)
 * **Deskripsi**: Spesialis dokumentasi tingkat C4 (Code Level) untuk menganalisis tanda tangan fungsi, tipe argumen, dan dependensi modul.
 * **Kapan Digunakan**: Menulis spesifikasi teknis fungsi-fungsi internal di `docs/`.
 
@@ -91,17 +91,17 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 
 ## 3. Bahasa & Scaffolding
 
-### 10. [`javascript-pro`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/javascript-pro/SKILL.md)
+### 10. [`javascript-pro`](../.agent/skills/javascript-pro/SKILL.md)
 * **Deskripsi**: Penguasaan mendalam JavaScript/TypeScript modern (ES6+, async/await, Event Loop, Node.js streams).
 * **Kapan Digunakan**: Optimasi asinkron, penanganan `AbortController`, dan stream buffering.
 * **Penerapan di LoadModer**: Menangani pembatalan sinyal `Ctrl+C` (`SIGINT`) secara anggun agar proses rename file sementara `.part` tidak meninggalkan berkas sampah.
 
-### 11. [`javascript-typescript-typescript-scaffold`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/javascript-typescript-typescript-scaffold/SKILL.md)
+### 11. [`javascript-typescript-typescript-scaffold`](../.agent/skills/javascript-typescript-typescript-scaffold/SKILL.md)
 * **Deskripsi**: Spesialis scaffolding proyek TypeScript Node.js berstandar produksi dengan tooling modern (`pnpm`/`npm`, `tsup`, `vitest`).
 * **Kapan Digunakan**: Setup inisialisasi repositori, konfigurasi `tsconfig.json`, dan script `package.json`.
 * **Penerapan di LoadModer**: Mengonfigurasi `tsup.config.ts` untuk mem-bundel seluruh kode menjadi satu file JavaScript mandiri dengan eksekusi instan.
 
-### 12. [`clean-code`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/clean-code/SKILL.md)
+### 12. [`clean-code`](../.agent/skills/clean-code/SKILL.md)
 * **Deskripsi**: Standar kode pragmatis — ringkas, langsung, tanpa rekayasa berlebihan (*no over-engineering*).
 * **Kapan Digunakan**: Setiap penulisan fungsi dan class baru.
 * **Penerapan di LoadModer**: Memilih fungsi murni dan class sederhana daripada pola abstract factory yang rumit jika tidak dibutuhkan.
@@ -110,21 +110,21 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 
 ## 4. Kualitas, Keamanan & Performa
 
-### 13. [`performance-optimization`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/performance-optimization/SKILL.md)
+### 13. [`performance-optimization`](../.agent/skills/performance-optimization/SKILL.md)
 * **Deskripsi**: Optimasi performa aplikasi, pengukuran profil memori (profiling), dan eliminasi bottleneck I/O.
 * **Kapan Digunakan**: Mengoptimalkan kecepatan download dan waktu pemindaian folder mods.
 * **Penerapan di LoadModer**: Membatasi konkurensi dengan `p-limit` agar tidak memicu throttling CPU dan menjaga konsumsi heap memori Node.js di bawah 40MB.
 
-### 14. [`backend-security-coder`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/backend-security-coder/SKILL.md)
+### 14. [`backend-security-coder`](../.agent/skills/backend-security-coder/SKILL.md)
 * **Deskripsi**: Pakar keamanan backend, validasi input, sanitasi path, dan keamanan API.
 * **Kapan Digunakan**: Memproses file modpack yang diunduh dari internet.
 * **Penerapan di LoadModer**: **Sanitasi Path Traversal**. Mencegah modpack berbahaya mengekstrak file keluar dari folder game (misal path `../../Windows/System32`). Menggunakan Zod untuk memvalidasi setiap path di `modrinth.index.json`.
 
-### 15. [`code-review`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/code-review/SKILL.md)
+### 15. [`code-review`](../.agent/skills/code-review/SKILL.md)
 * **Deskripsi**: Melakukan review kode sepanjang dua sumbu: Standar repositori dan Kesesuaian Spesifikasi (*Spec*).
 * **Kapan Digunakan**: Sebelum menggabungkan fitur baru atau melakukan commit penting.
 
-### 16. [`git-workflow`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/git-workflow/SKILL.md)
+### 16. [`git-workflow`](../.agent/skills/git-workflow/SKILL.md)
 * **Deskripsi**: Praktik terbaik Git, strategi percabangan (*branching*), konvensi Conventional Commits (`feat:`, `fix:`, `docs:`), dan resolusi konflik.
 * **Kapan Digunakan**: Manajemen repositori dan rilis versi otomatis.
 
@@ -132,11 +132,11 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 
 ## 5. Desain Antarmuka & UX
 
-### 17. [`ui-styling`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/ui-styling/SKILL.md)
+### 17. [`ui-styling`](../.agent/skills/ui-styling/SKILL.md)
 * **Deskripsi**: Penciptaan antarmuka visual yang indah, konsisten, dan mudah diakses.
 * **Penerapan di LoadModer**: Penerapan warna status yang konsisten: Hijau untuk sukses (`✔`), Biru/Cyan untuk aksi aktif (`ℹ️`), Kuning untuk peringatan kompatibilitas (`⚠️`), dan Merah untuk kegagalan (`❌`).
 
-### 18. [`ui-ux-pro-max`](file:///c:/Users/LENOVO/LoadModer/.agent/skills/ui-ux-pro-max/SKILL.md)
+### 18. [`ui-ux-pro-max`](../.agent/skills/ui-ux-pro-max/SKILL.md)
 * **Deskripsi**: Intelijen desain UI/UX komprehensif (gaya, palet warna, tipografi, dan hierarki informasi).
 * **Penerapan di LoadModer**: Menjamin hierarki informasi pada terminal: judul besar di atas (`intro()`), baris progres di tengah, dan catatan ringkasan aksi di bagian bawah (`outro()`).
 

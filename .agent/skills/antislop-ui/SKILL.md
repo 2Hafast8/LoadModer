@@ -179,6 +179,18 @@ allowed-tools: Read Write Edit Glob Grep
 - **Why:** the capsule-plus-glow-plus-dot combination is a self-referential badge that says "made by AI, about being made by AI". It adds noise, not information.
 - **Fix:** badges only when functionally needed, with the need written down, and never the full combination (R-09). A real status label is fine; a decorative "AI Powered" pill is not.
 
+### Eyebrow Badge Above the Headline
+
+- **Tell:** a small pill sitting directly above the H1, often with a dot and a thin border, holding a category label ("Aplikasi Tagihan UKM", "The platform for teams") that the headline beneath it already says.
+- **Why:** the badge duplicates the headline, so it adds a line of reading without adding a fact. It lands in the same spot on every generated page, which is why it reads as a template rather than a decision. When it carries a dot as well, it borrows status-indicator language for a label that marks no state.
+- **Fix:** cut it and let the headline do the work. If the label carries information the headline does not, fold it into the headline or the subheadline, where it reads as content instead of ornament. A badge above the fold needs a written reason like any other badge (R-09), and a dot inside it needs a real state to mark (R-31).
+
+### Decorative Status Dot
+
+- **Tell:** a small colored dot beside a heading, eyebrow, nav item, or label, usually glowing and pulsing on a loop, that marks nothing. It borrows the visual language of a live or recording indicator for a page where nothing is live.
+- **Why:** the dot is an attention grab with nothing behind it: a glow plus an endless pulse is a double bid for the eye over a fact that does not exist. It reads as AI because generated pages reach for system-status vocabulary as decoration, and the same dot lands in the same place on every one of them.
+- **Fix:** a dot must mark a real state (active, live, recording, warning). If it does, keep one dot, drop the glow, and drop the endless pulse (R-19). If it marks nothing, remove it: a heading needs no indicator to be a heading (R-31).
+
 ### Generic AI Typography
 
 - **Tell:** large monospace headings, or uppercase labels with extreme letter-spacing ("HOW IT WORKS", "FEATURES").
@@ -287,9 +299,11 @@ Run these alongside the core Delivery Gate when the task is UI work. All answers
 - [ ] Is the copy free of decorative emoji scattered through headings, bullets, and buttons? (R-04)
 - [ ] Do section compositions vary according to the declared RHYTHM dial instead of repeating one template? (R-05)
 - [ ] Is the layout free of the default AI shapes: bento-grid mosaic, fake terminal window, three pricing columns, and left-edge color stripes with no meaning? (R-05, R-01)
+- [ ] Is the space above the H1 clear of a pill badge holding a label the headline already says? (R-09)
 - [ ] Does every navigation item and interactive element have a real destination or behavior, or a visible "Coming soon" label? (R-24, R-26)
 - [ ] Does motion follow the declared MOTION dial and serve a written purpose, with no endless loops? (R-19)
 - [ ] Is glass, glow, shadow, and radius used at their dose caps, not as a page-wide default? (R-10, R-11, R-12, R-13)
+- [ ] Is every colored dot and status light marking a real state, with no decorative glow or endless pulse? (R-13, R-19, R-31)
 - [ ] On an app screen, is the layout built around the decision the user makes there, rather than the sidebar plus stat row plus chart plus table default? (C-3, R-20)
 - [ ] Is every number, delta, feed entry, and table row real or a labelled placeholder, with no invented metrics? (R-17, R-18, R-38)
 - [ ] Do empty form fields and table cells stay empty or carry honest placeholders (Your Name, email@example.com) instead of fake-looking data (John Doe, johndoe@example.com)? (R-23, R-38)

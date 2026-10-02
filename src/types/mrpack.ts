@@ -16,9 +16,40 @@ export const MrpackFileEntrySchema = z.object({
   }),
   hashes: MrpackFileHashSchema,
   env: MrpackFileEnvironmentSchema.optional(),
-  downloads: z.array(z.string().url()).min(1),
+  downloads: z
+    .array(
+      z.string().url().refine(isSafeDownloadUrl, {
+        message: 'URL unduhan harus berupa HTTPS dan tidak boleh mengarah ke alamat lokal atau privat',
+      })
+    )
+    .min(1),
   fileSize: z.number().nonnegative(),
 });
+
+function isSafeDownloadUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host === '::1' ||
+      host === '169.254.169.254' ||
+      host.endsWith('.localhost') ||
+      host.endsWith('.local') ||
+      host.startsWith('10.') ||
+      host.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function pathIsAbsolute(p: string): boolean {
   return p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p);

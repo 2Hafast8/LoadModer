@@ -9,12 +9,12 @@ Dokumen ini adalah panduan komprehensif mengenai **Modrinth API (Labrinth)**: at
 
 | Perintah | Fungsi |
 | :--- | :--- |
-| `mcmod search <kata kunci>` | Mencari mod di Modrinth dengan filter versi Minecraft & loader |
-| `mcmod install <mod...>` | Mencari lalu memasang mod langsung ke folder mods, termasuk **dependensi wajib** |
-| `mcmod list` | Menampilkan mod yang terpasang (dikenali otomatis lewat hash file) |
-| `mcmod update` | Memperbarui semua mod terpasang ke versi terbaru yang kompatibel |
-| `mcmod remove <nama>` | Menghapus mod terpasang |
-| `mcmod config ...` | Menyimpan folder mods, versi Minecraft, dan loader bawaan |
+| `loadmoder search <kata kunci>` | Mencari mod di Modrinth dengan filter versi Minecraft & loader |
+| `loadmoder install <mod...>` | Mencari lalu memasang mod langsung ke folder mods, termasuk **dependensi wajib** |
+| `loadmoder list` | Menampilkan mod yang terpasang (dikenali otomatis lewat hash file) |
+| `loadmoder update` | Memperbarui semua mod terpasang ke versi terbaru yang kompatibel |
+| `loadmoder remove <nama>` | Menghapus mod terpasang |
+| `loadmoder config ...` | Menyimpan folder mods, versi Minecraft, dan loader bawaan |
 
 **Prasyarat**: Node.js **20 atau lebih baru** (memakai `fetch` bawaan), npm, dan koneksi internet.
 
@@ -189,7 +189,7 @@ Minotaur adalah plugin Gradle resmi Modrinth untuk mempublikasikan mod; versi ma
 
 ## 6. Rancangan CLI Mod Manager
 
-### A. Alur Kerja `mcmod install`
+### A. Alur Kerja `loadmoder install`
 ```text
 1. Tentukan filter  : versi Minecraft + loader (flag > config > prompt interaktif)
 2. Tentukan folder  : --dir > config > folder .minecraft/mods bawaan OS
@@ -214,11 +214,11 @@ Minotaur adalah plugin Gradle resmi Modrinth untuk mempublikasikan mod; versi ma
 | **macOS** | `~/Library/Application Support/minecraft/mods` |
 | **Linux** | `~/.minecraft/mods` |
 
-Jika kamu memakai launcher lain (Prism, MultiMC, dll.) yang punya folder instance sendiri, arahkan CLI ke folder `mods` instance tersebut dengan `--dir <path>` atau `mcmod config set mods-dir <path>`.
+Jika kamu memakai launcher lain (Prism, MultiMC, dll.) yang punya folder instance sendiri, arahkan CLI ke folder `mods` instance tersebut dengan `--dir <path>` atau `loadmoder config set mods-dir <path>`.
 
 ### C. Struktur Proyek
 ```text
-mc-mod-cli/
+loadmoder/
 ├── package.json
 ├── tsconfig.json
 └── src/
@@ -255,15 +255,18 @@ mkdir src
 Ubah/lengkapi field berikut (`"type": "module"` **wajib** karena kode memakai ES Modules dan `top-level await`):
 ```json
 {
-  "name": "mc-mod-cli",
-  "version": "1.0.0",
-  "description": "CLI mod manager Minecraft berbasis Modrinth API v2",
+  "name": "loadmoder",
+  "version": "2.0.0",
+  "description": "CLI & TUI mod manager Minecraft berbasis Modrinth API v2",
   "type": "module",
-  "bin": { "mcmod": "./dist/index.js" },
+  "bin": {
+    "loadmoder": "./dist/index.js",
+    "lm": "./dist/index.js"
+  },
   "engines": { "node": ">=20" },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "tsup",
     "start": "node dist/index.js"
   }
 }
@@ -293,14 +296,14 @@ Ubah/lengkapi field berikut (`"type": "module"` **wajib** karena kode memakai ES
 
 ### A. `src/constants.ts`
 ```typescript
-export const APP_NAME = 'mc-mod-cli';
-export const APP_VERSION = '1.0.0';
+export const APP_NAME = 'loadmoder';
+export const APP_VERSION = '2.0.0';
 
 // Ganti dengan username GitHub kamu (format User-Agent "Better/Best" dari dokumentasi Modrinth)
 export const GITHUB_USER = 'hafiznovelrianto';
 
-// Kontak opsional: set lewat env MCMOD_CONTACT (email/URL) agar Modrinth bisa menghubungi kamu
-const contact = process.env.MCMOD_CONTACT;
+// Kontak opsional: set lewat env LOADMODER_CONTACT (email/URL) agar Modrinth bisa menghubungi kamu
+const contact = process.env.LOADMODER_CONTACT;
 export const USER_AGENT = `${GITHUB_USER}/${APP_NAME}/${APP_VERSION}${contact ? ` (${contact})` : ''}`;
 
 // Bisa diganti ke staging untuk uji: MODRINTH_API_URL=https://staging-api.modrinth.com/v2
@@ -436,8 +439,8 @@ export function formatNumber(n: number): string {
   return new Intl.NumberFormat('en-US', { notation: 'compact' }).format(n);
 }
 
-// ---------- Config (~/.mcmod/config.json) ----------
-export const CONFIG_PATH = path.join(process.env.MCMOD_HOME ?? path.join(os.homedir(), '.mcmod'), 'config.json');
+// ---------- Config (~/.loadmoder/config.json) ----------
+export const CONFIG_PATH = path.join(process.env.LOADMODER_HOME ?? path.join(os.homedir(), '.loadmoder'), 'config.json');
 
 export async function loadConfig(): Promise<Config> {
   try {
@@ -773,7 +776,7 @@ async function ensureFilter(opts: CommonOpts, config: Config): Promise<Required<
   if (gameVersion && loader) return { gameVersion, loader };
 
   if (!process.stdin.isTTY) {
-    throw new Error('Versi Minecraft & loader belum ditentukan. Pakai -v/-l atau: mcmod config set mc-version 1.21.1');
+    throw new Error('Versi Minecraft & loader belum ditentukan. Pakai -v/-l atau: loadmoder config set mc-version 1.21.1');
   }
   gameVersion ??= (await input({ message: 'Versi Minecraft (contoh 1.21.1):', validate: (v) => v.trim() !== '' || 'Wajib diisi' })).trim();
   loader ??= await select({ message: 'Mod loader:', choices: LOADERS.map((l) => ({ name: l, value: l })) });
@@ -792,7 +795,7 @@ function handle<A extends unknown[]>(fn: (...args: A) => Promise<void>) {
   };
 }
 
-program.name('mcmod').description('CLI Mod Manager Minecraft berbasis Modrinth API v2').version(APP_VERSION);
+program.name('loadmoder').description('CLI Mod Manager Minecraft berbasis Modrinth API v2').version(APP_VERSION);
 
 // ---------------- search ----------------
 program
@@ -1033,41 +1036,41 @@ npm run build
 node dist/index.js install iris -v 1.21.1 -l fabric
 ```
 
-### C. Pasang Sebagai Perintah Global `mcmod`
+### C. Pasang Sebagai Perintah Global `loadmoder` (Alias: `lm`)
 ```bash
 npm run build
-npm link          # membuat perintah global "mcmod" dari folder proyek
-mcmod --help
+npm link          # membuat perintah global "loadmoder" dan "lm" dari folder proyek
+loadmoder --help
 ```
 Di Linux/macOS, file `dist/index.js` sudah memiliki baris `#!/usr/bin/env node` (shebang) dari `src/index.ts`, sehingga bisa dijalankan sebagai perintah.
 
 ### D. Contoh Penggunaan
 ```bash
 # Simpan default sekali saja
-mcmod config set mc-version 1.21.1
-mcmod config set loader fabric
+loadmoder config set mc-version 1.21.1
+loadmoder config set loader fabric
 
 # Cari mod, urutkan berdasarkan unduhan terbanyak
-mcmod search "minimap" --sort downloads -n 5
+loadmoder search "minimap" --sort downloads -n 5
 
 # Pasang beberapa mod sekaligus (memilih dari daftar hasil pencarian)
-mcmod install sodium lithium
+loadmoder install sodium lithium
 
 # Pasang tanpa bertanya (hasil pertama) atau dengan slug persis
-mcmod install sodium -y
-mcmod install --slug fabric-api
+loadmoder install sodium -y
+loadmoder install --slug fabric-api
 
 # Simulasi tanpa mengunduh
-mcmod install iris --dry-run
+loadmoder install iris --dry-run
 
 # Folder mods kustom (mis. instance launcher lain)
-mcmod install sodium -d "/path/ke/instance/minecraft/mods"
+loadmoder install sodium -d "/path/ke/instance/minecraft/mods"
 
 # Lihat, perbarui, hapus
-mcmod list
-mcmod update --dry-run
-mcmod update -y
-mcmod remove sodium
+loadmoder list
+loadmoder update --dry-run
+loadmoder update -y
+loadmoder remove sodium
 ```
 
 ### E. Ringkasan Opsi
@@ -1085,9 +1088,9 @@ mcmod remove sodium
 ### F. Variabel Lingkungan
 | Variabel | Fungsi |
 | :--- | :--- |
-| `MCMOD_CONTACT` | Email/URL kontak yang ditambahkan ke `User-Agent` (format "Best") |
+| `LOADMODER_CONTACT` | Email/URL kontak yang ditambahkan ke `User-Agent` (format "Best") |
 | `MODRINTH_API_URL` | Mengganti base URL API, mis. `https://staging-api.modrinth.com/v2` untuk pengujian |
-| `MCMOD_HOME` | Mengganti lokasi folder konfigurasi (default `~/.mcmod`) |
+| `LOADMODER_HOME` | Mengganti lokasi folder konfigurasi (default `~/.loadmoder`) |
 
 ---
 
@@ -1103,9 +1106,9 @@ Kode pada panduan ini telah dikompilasi dengan `tsc` (mode `strict`) dan diuji e
 * `update` menaikkan versi lalu melaporkan "sudah terbaru" pada run berikutnya.
 * `remove` dan `config set/show/unset`, serta pesan error jelas bila versi/loader belum diatur di lingkungan non-interaktif.
 
-> Pengujian di atas memakai server tiruan, **bukan** API Modrinth asli. Sebelum dipakai sungguhan, coba sekali di folder mods cadangan: `mcmod install sodium -v 1.21.1 -l fabric -d ./tes-mods`.
+> Pengujian di atas memakai server tiruan, **bukan** API Modrinth asli. Sebelum dipakai sungguhan, coba sekali di folder mods cadangan: `loadmoder install sodium -v 1.21.1 -l fabric -d ./tes-mods`.
 
-Untuk menguji terhadap API sungguhan tanpa menyentuh folder game, selalu gunakan `-d ./folder-uji` dan `--dry-run`. Untuk menguji dengan staging: `MODRINTH_API_URL=https://staging-api.modrinth.com/v2 mcmod search sodium`.
+Untuk menguji terhadap API sungguhan tanpa menyentuh folder game, selalu gunakan `-d ./folder-uji` dan `--dry-run`. Untuk menguji dengan staging: `MODRINTH_API_URL=https://staging-api.modrinth.com/v2 loadmoder search sodium`.
 
 ---
 
@@ -1113,26 +1116,29 @@ Untuk menguji terhadap API sungguhan tanpa menyentuh folder game, selalu gunakan
 
 | Gejala | Penyebab & Solusi |
 | :--- | :--- |
-| `Versi Minecraft & loader belum ditentukan` | Jalankan di terminal interaktif, atau beri `-v`/`-l`, atau `mcmod config set ...` |
+| `Versi Minecraft & loader belum ditentukan` | Jalankan di terminal interaktif, atau beri `-v`/`-l`, atau `loadmoder config set ...` |
 | `Mod tidak ditemukan` | Versi/loader tidak cocok dengan mod tersebut. Coba tanpa `-v`/`-l` di `search` untuk melihat versi yang didukung |
 | `EBUSY` / `EPERM` saat memasang (Windows) | File jar sedang dipakai Minecraft. Tutup game lalu ulangi |
 | `Checksum SHA-512 tidak cocok` | Unduhan korup. Ulangi; file `.part` sudah otomatis dihapus |
 | `Modrinth API 429` berulang | Terlalu banyak permintaan; tunggu 1 menit. Klien sudah mengulang otomatis sampai 3 kali |
 | `410 Gone` | Versi API yang dipakai sudah dihentikan. Periksa dokumentasi migrasi dan perbarui `API_BASE_URL` |
-| Perintah `mcmod` tidak ditemukan setelah `npm link` | Pastikan `npm run build` sudah dijalankan dan folder bin global npm ada di `PATH` |
+| Perintah `loadmoder` / `lm` tidak ditemukan setelah `npm link` | Pastikan `npm run build` sudah dijalankan dan folder bin global npm ada di `PATH` |
 
 ---
 
-## 12. Ide Pengembangan Lanjutan
+## 12. Ide Pengembangan Lanjutan (Realisasi LoadModer v2)
 
-* **Prune dependensi yatim**: saat `remove`, hapus dependensi wajib yang tidak lagi dibutuhkan mod lain (butuh lockfile atau analisis grafik dependensi dari hash).
-* **Unduhan paralel** dengan batas konkurensi (mis. 3–4 sekaligus) agar tetap jauh di bawah rate limit.
-* **Mendukung tipe proyek lain**: `resourcepack` dan `shader` (folder `resourcepacks`/`shaderpacks`) dengan mengubah facet `project_type`.
-* **Impor modpack `.mrpack`** (format modpack Modrinth).
-* **Profil/instance ganda**: menyimpan beberapa kombinasi folder + versi + loader di config dan memilihnya dengan `--profile`.
-* **Cache** hasil pencarian/versi di disk agar hemat permintaan.
-* **Validasi versi Minecraft** dengan `GET /tag/game_version` dan loader dengan `GET /tag/loader` sebelum memanggil API lain.
-* **Uji otomatis** (Vitest) dengan `fetch` yang di-mock, plus pipeline CI untuk build.
+> [!NOTE]
+> Seluruh ide pengembangan lanjutan di bawah ini telah diimplementasikan penuh pada rilis **LoadModer v2.0**:
+
+* **Prune dependensi yatim**: Terintegrasi via Directed Acyclic Graph (DAG) reference counting (`src/core/dependency/graph.ts`) dan opsi `--prune`.
+* **Unduhan paralel & streaming**: Terintegrasi dengan batas konkurensi `p-limit` dan antrean unduhan modular.
+* **Mendukung tipe proyek lain**: Dukungan multi-aset untuk `mod`, `modpack` (`.mrpack`), `resourcepack`, dan `shader`.
+* **Impor modpack `.mrpack`**: Modul `src/core/modpack/unpacker.ts` mengekstrak manifest `modrinth.index.json`, overrides, dan env filtering.
+* **Profil/instance ganda**: Snapshot manager (`src/core/profile/snapshotManager.ts`) mengisolasi aset per konfigurasi versi.
+* **Cache**: In-memory TTL cache hemat kuota API di `src/api/cache.ts`.
+* **Validasi versi Minecraft dinamis**: Endpoint `GET /v2/tag/game_version` dengan cache 1 jam di `src/core/minecraft/versions.ts`.
+* **Uji otomatis**: Suite Vitest komprehensif di `tests/`.
 
 ---
 

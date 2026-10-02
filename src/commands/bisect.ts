@@ -17,7 +17,8 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
   const modsDir = opts.dir ?? activeInst?.modsDir;
   if (!modsDir) {
     p.log.error('Folder mods belum ditentukan. Jalankan "loadmoder init" terlebih dahulu.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const runner = new BisectRunner(modsDir);
@@ -38,6 +39,7 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
         p.outro(pc.cyan('Silakan uji game Anda...'));
       } catch (err) {
         p.log.error((err as Error).message);
+        process.exitCode = 1;
       }
       break;
     }
@@ -48,8 +50,8 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
         const res = await runner.report(subcommand);
         if (res.finished) {
           p.note(
-            `Mod perusak / penyebab crash telah diisolasi:\n${pc.bold(pc.red(res.culprit!))}`,
-            '🎯 TERSANGKA DITEMUKAN'
+            `Mod penyebab crash berhasil diisolasi:\n${pc.bold(pc.red(res.culprit!))}`,
+            '🎯 MOD PENYEBAB CRASH TERDETEKSI'
           );
           p.log.info(`Gunakan "lm disable ${res.culprit}" atau hapus mod tersebut.`);
           p.outro(pc.green('Sesi bisect selesai, mod lainnya telah diaktifkan kembali.'));
@@ -63,6 +65,7 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
         }
       } catch (err) {
         p.log.error((err as Error).message);
+        process.exitCode = 1;
       }
       break;
     }
@@ -75,6 +78,7 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
 
     default: {
       p.log.error(`Sub-perintah "${subcommand}" tidak dikenal. Gunakan: start | good | bad | reset`);
+      process.exitCode = 1;
       break;
     }
   }

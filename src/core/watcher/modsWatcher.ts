@@ -1,6 +1,6 @@
-import { watch, type FSWatcher } from 'node:fs';
-import { EventEmitter } from 'node:events';
-import { DependencyGraph } from '../dependency/graph.js';
+import {watch, type FSWatcher} from "node:fs";
+import {EventEmitter} from "node:events";
+import {DependencyGraph} from "../dependency/graph.js";
 
 export interface WatcherSyncEvent {
   unregistered: string[];
@@ -9,22 +9,20 @@ export interface WatcherSyncEvent {
 }
 
 export interface WatcherFileEvent {
-  eventType: 'rename' | 'change';
+  eventType: "rename" | "change";
   filename: string;
   timestamp: string;
 }
 
-/**
- * ModsWatcher memantau folder mods secara real-time menggunakan native fs.watch.
- * Mendeteksi penambahan, penghapusan, atau penonaktifan mod (.jar / .jar.disabled)
- * dan secara otomatis merekonsiliasi state di loadmoder.lock.json.
- */
 export class ModsWatcher extends EventEmitter {
   private watcher: FSWatcher | null = null;
   private debounceTimer: NodeJS.Timeout | null = null;
   private isWatching = false;
 
-  constructor(public readonly modsDir: string, public readonly instanceDir: string) {
+  constructor(
+    public readonly modsDir: string,
+    public readonly instanceDir: string,
+  ) {
     super();
   }
 
@@ -36,8 +34,7 @@ export class ModsWatcher extends EventEmitter {
         if (!filename) return;
         const nameStr = filename.toString();
 
-        // Hanya pantau berkas .jar dan .jar.disabled
-        if (!nameStr.endsWith('.jar') && !nameStr.endsWith('.disabled')) {
+        if (!nameStr.endsWith(".jar") && !nameStr.endsWith(".disabled")) {
           return;
         }
 
@@ -46,9 +43,8 @@ export class ModsWatcher extends EventEmitter {
           filename: nameStr,
           timestamp: new Date().toLocaleTimeString(),
         };
-        this.emit('file-event', fileEvent);
+        this.emit("file-event", fileEvent);
 
-        // Debounce 300ms agar operasi batch (seperti hapus banyak mod sekaligus) diproses efisien
         if (this.debounceTimer) {
           clearTimeout(this.debounceTimer);
         }
@@ -59,9 +55,9 @@ export class ModsWatcher extends EventEmitter {
       });
 
       this.isWatching = true;
-      this.emit('started', { modsDir: this.modsDir });
+      this.emit("started", {modsDir: this.modsDir});
     } catch (err) {
-      this.emit('error', err);
+      this.emit("error", err);
     }
   }
 
@@ -77,7 +73,7 @@ export class ModsWatcher extends EventEmitter {
     };
 
     if (res.unregistered.length > 0 || res.orphanedSlugs.length > 0) {
-      this.emit('sync', syncEvent);
+      this.emit("sync", syncEvent);
     }
 
     return syncEvent;
@@ -93,7 +89,7 @@ export class ModsWatcher extends EventEmitter {
       this.watcher = null;
     }
     this.isWatching = false;
-    this.emit('stopped');
+    this.emit("stopped");
   }
 
   get running(): boolean {

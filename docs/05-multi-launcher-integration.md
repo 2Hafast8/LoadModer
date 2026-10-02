@@ -18,11 +18,11 @@ Dokumen ini mendokumentasikan mekanisme pendeteksian otomatis (*auto-discovery*)
 
 ## 2. Struktur Metadata Tiap Launcher
 
-Setiap launcher memiliki cara sendiri dalam menyimpan informasi mengenai versi Minecraft, mod loader, dan nama profil:
+Setiap launcher menyimpan informasi versi Minecraft, mod loader, dan konfigurasi profil secara berbeda:
 
 ### A. Prism Launcher & MultiMC
-* **File Konfigurasi**: `<instance_dir>/mmc-pack.json` dan `<instance_dir>/instance.cfg`
-* Di dalam `mmc-pack.json`, terdapat array `components`:
+* **Berkas Konfigurasi**: `<instance_dir>/mmc-pack.json` dan `<instance_dir>/instance.cfg`
+* Pada `mmc-pack.json`, informasi dibaca dari array `components`:
   ```json
   {
     "formatVersion": 1,
@@ -37,10 +37,10 @@ Setiap launcher memiliki cara sendiri dalam menyimpan informasi mengenai versi M
   * `net.minecraftforge` $\rightarrow$ `forge`
   * `net.neoforged` $\rightarrow$ `neoforge`
   * `org.quiltmc.quilt-loader` $\rightarrow$ `quilt`
-* **Path Folder Mods**: `<instance_dir>/.minecraft/mods/` (atau `<instance_dir>/minecraft/mods/`).
+* **Path Folder Mods**: `<instance_dir>/.minecraft/mods/`
 
 ### B. Modrinth App (Theseus)
-* **File Konfigurasi**: `<profile_dir>/profile.json`
+* **Berkas Konfigurasi**: `<profile_dir>/profile.json`
 * Struktur JSON:
   ```json
   {
@@ -50,42 +50,32 @@ Setiap launcher memiliki cara sendiri dalam menyimpan informasi mengenai versi M
     "loader_version": "0.16.5"
   }
   ```
-* **Path Folder Mods**: `<profile_dir>/mods/`.
+* **Path Folder Mods**: `<profile_dir>/mods/`
 
 ### C. CurseForge App
-* **File Konfigurasi**: `<instance_dir>/minecraftinstance.json`
-* Di dalamnya terdapat field:
+* **Berkas Konfigurasi**: `<instance_dir>/minecraftinstance.json`
+* Field target:
   * `gameVersion`: `"1.20.1"`
-  * `baseModLoader.name`: `"forge-47.2.0"` $\rightarrow$ parsed ke `forge`
-* **Path Folder Mods**: `<instance_dir>/mods/`.
+  * `baseModLoader.name`: `"forge-47.2.0"` $\rightarrow$ diparsing ke `forge`
+* **Path Folder Mods**: `<instance_dir>/mods/`
 
 ### D. Official Vanilla Launcher
-* **File Konfigurasi**: `.minecraft/launcher_profiles.json`
-* Profil tersimpan di dalam objek `profiles`. Versi Minecraft dan loader diekstraksi dari nama versi target.
-* **Path Folder Mods**: `.minecraft/mods/`.
+* **Direktori**: `.minecraft/versions` dan `.minecraft/mods`
+* Sistem memindai file `.json` di tiap folder versi (`.minecraft/versions/<version>/<version>.json`) dan memeriksa nama file `.jar` yang ada di folder `mods/` untuk menentukan loader dan versi game aktif.
 
 ---
 
 ## 3. Implementasi Detektor Instance (`src/core/instance/detector.ts`)
 
-Kode pendeteksi instance memindai seluruh direktori launcher di sistem operasi pengguna secara konkuren:
+Pendeteksian instance memindai seluruh direktori launcher yang terpasang:
 
 ```typescript
 import os from 'node:os';
 import path from 'node:path';
 import { readdir, readFile, stat } from 'node:fs/promises';
+import type { MinecraftInstance, LoaderType } from '../../types/instance.js';
 
-export interface DiscoveredInstance {
-  id: string;
-  name: string;
-  launcher: 'Prism' | 'MultiMC' | 'Modrinth' | 'CurseForge' | 'Vanilla';
-  rootDir: string;
-  modsDir: string;
-  gameVersion?: string;
-  loader?: 'fabric' | 'forge' | 'neoforge' | 'quilt';
-}
-
-export class LauncherDetector {
+export class InstanceDetector {
   private readonly home = os.homedir();
   private readonly isWin = process.platform === 'win32';
   private readonly isMac = process.platform === 'darwin';
@@ -94,7 +84,7 @@ export class LauncherDetector {
     return process.env.APPDATA ?? path.join(this.home, 'AppData', 'Roaming');
   }
 
-  async scanAll(): Promise<DiscoveredInstance[]> {
+  async scanAll(): Promise<MinecraftInstance[]> {
     const [prism, modrinth, curseforge, vanilla] = await Promise.all([
       this.scanPrismAndMultiMC(),
       this.scanModrinthApp(),
@@ -102,31 +92,31 @@ export class LauncherDetector {
       this.scanVanilla(),
     ]);
 
-    const results: DiscoveredInstance[] = [...prism, ...modrinth, ...curseforge];
+    const results: MinecraftInstance[] = [...prism, ...modrinth, ...curseforge];
     if (vanilla) results.push(vanilla);
     return results;
   }
-  // ... pemindaian spesifik per launcher
 }
+
+export const instanceDetector = new InstanceDetector();
 ```
 
 ---
 
 ## 4. Isolasi Profil & Snapshot Manager (`src/core/profile/snapshotManager.ts`)
 
-Ketika menggunakan satu direktori permainan bersama (terutama pada Vanilla Launcher di `.minecraft/mods/`), berganti versi game (misal dari `1.21.1 Fabric` ke `1.20.1 Forge`) berisiko fatal:
-* Mod versi `1.21.1` akan menyebabkan crash saat dimuat di game `1.20.1`.
-* Menghapus file secara manual membuat konfigurasi mod sebelumnya hilang.
+Berganti versi game pada instance yang sama (misal dari `1.21.1 Fabric` ke `1.20.1 Forge`) berisiko menyebabkan game crash jika file mod versi lama masih tertinggal di folder `mods/`.
 
-LoadModer mengatasi masalah ini dengan **Profile Snapshot Engine**:
+LoadModer menangani ini melalui **ProfileSnapshotManager**:
 1. **Penyimpanan Snapshot**:
-   Saat pengguna berganti profil melalui `lm profile switch`, seluruh file `.jar` dan `.disabled` di folder `mods/` saat ini dipindahkan atau disinkronkan ke direktori snapshot lokal:
+   Saat pengguna menjalankan `lm profile switch`, seluruh file `.jar` dan `.disabled` di folder `mods/` dipindahkan ke folder arsip snapshot:
    ```text
-   .loadmoder/profiles/<profile_id>/
-   ├── profile.json            # Metadata (nama, versi Minecraft, mod loader)
-   └── mods/                   # Berkas-berkas mod milik profil tersebut
+   <rootDir>/.loadmoder/snapshots/
+   ├── fabric-1.21.1.json            # Metadata snapshot & salinan lockfile
+   └── fabric-1.21.1/
+       └── jars/                     # Arsip berkas .jar milik profil tersebut
    ```
 2. **Restorasi Bersih**:
-   Folder `mods/` dikosongkan dari mod versi sebelumnya, lalu file-file milik profil target disalin kembali ke folder `mods/`.
+   Folder `mods/` dikosongkan dari mod versi sebelumnya, lalu jika snapshot target (`forge-1.20.1`) sudah pernah ada sebelumnya, file mod dan state lockfile target otomatis dipulihkan.
 3. **Penyelarasan Perintah `install`**:
-   Perintah `lm install` selalu memeriksa versi Minecraft dan loader dari profil aktif saat ini, mencegah salah deteksi versi game saat mengunduh library dependensi.
+   Perintah `lm install` selalu memverifikasi versi game dan loader aktif untuk memastikan library yang diunduh cocok dengan konfigurasi instance.

@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import writeFileAtomic from 'write-file-atomic';
 import { GLOBAL_CONFIG_PATH } from '../../constants.js';
 import type { GlobalConfig, SavedInstanceConfig } from '../../types/instance.js';
+import { InstanceNotFoundError } from '../../types/errors.js';
 
 export class InstanceConfigManager {
   private configPath: string;
@@ -21,7 +22,18 @@ export class InstanceConfigManager {
       const data = await readFile(this.configPath, 'utf8');
       this.config = JSON.parse(data);
       if (!this.config.instances) this.config.instances = {};
-    } catch {
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        this.config = {
+          defaultEnvironment: 'client',
+          instances: {},
+        };
+        return this.config;
+      }
+      try {
+        const raw = await readFile(this.configPath);
+        await writeFileAtomic(`${this.configPath}.corrupt.${Date.now()}.bak`, raw);
+      } catch {}
       this.config = {
         defaultEnvironment: 'client',
         instances: {},
@@ -46,7 +58,7 @@ export class InstanceConfigManager {
 
   setActiveInstance(key: string): void {
     if (!this.config.instances[key]) {
-      throw new Error(`Instance dengan id/nama "${key}" tidak ditemukan.`);
+      throw new InstanceNotFoundError(key);
     }
     this.config.activeInstance = key;
   }
@@ -55,6 +67,13 @@ export class InstanceConfigManager {
     this.config.instances[key] = instance;
     if (makeActive || !this.config.activeInstance) {
       this.config.activeInstance = key;
+    }
+  }
+
+  deleteInstance(key: string): void {
+    delete this.config.instances[key];
+    if (this.config.activeInstance === key) {
+      delete this.config.activeInstance;
     }
   }
 

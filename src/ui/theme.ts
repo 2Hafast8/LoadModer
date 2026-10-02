@@ -4,9 +4,23 @@ import gradient from 'gradient-string';
 import figlet from 'figlet';
 import Table from 'cli-table3';
 import { formatNumber } from '../utils/format.js';
+import { APP_VERSION } from '../constants.js';
 
-// === Nordic Minimalist Clean Palette ===
-export const theme = {
+export function isLightTerminal(): boolean {
+  if (process.env.LOADMODER_THEME === 'light') return true;
+  if (process.env.LOADMODER_THEME === 'dark') return false;
+  const colorfgbg = process.env.COLORFGBG;
+  if (colorfgbg) {
+    const parts = colorfgbg.split(';');
+    const bg = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(bg) && (bg === 7 || bg === 15 || bg > 8)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const darkTheme = {
   primary: '#38bdf8',     // Frost Ice Blue (Fokus utama / aksi)
   secondary: '#818cf8',   // Soft Lavender Indigo (Aksen judul & kategori)
   success: '#34d399',     // Nordic Mint Green (Status aktif & terpasang)
@@ -15,11 +29,35 @@ export const theme = {
   info: '#67e8f9',        // Polar Cyan (Informasi detail & metadata)
   text: '#f1f5f9',        // Light Slate Text (Teks utama)
   textMuted: '#94a3b8',   // Slate Gray (Teks sekunder)
-  muted: '#64748b',       // Deep Slate (Redup / separator)
+  muted: '#94a3b8',       // Slate 400 (8.19:1 contrast, elevated from #64748b)
   border: '#334155',      // Slate 700 (Border halus)
   activeBg: '#1e293b',    // Slate 800 (Highlight baris terpilih)
   pointer: '❯',           // Modern minimal pointer
 };
+
+const lightTheme = {
+  primary: '#0369a1',     // Sky 700 (5.93:1 contrast on white)
+  secondary: '#4338ca',   // Indigo 700 (7.90:1 contrast on white)
+  success: '#047857',     // Emerald 700 (5.48:1 contrast on white)
+  warning: '#92400e',     // Amber 800 (7.07:1 contrast on white)
+  error: '#b91c1c',       // Red 700 (6.47:1 contrast on white)
+  info: '#0e7490',        // Cyan 700 (5.36:1 contrast on white)
+  text: '#0f172a',        // Slate 900 (17.85:1 contrast on white)
+  textMuted: '#334155',   // Slate 700 (10.35:1 contrast on white)
+  muted: '#475569',       // Slate 600 (7.58:1 contrast on white)
+  border: '#64748b',      // Slate 500 (4.76:1 contrast on white)
+  activeBg: '#e2e8f0',    // Slate 200 (Highlight baris terpilih)
+  pointer: '❯',           // Modern minimal pointer
+};
+
+export type ThemeTokens = typeof darkTheme;
+
+export const theme: ThemeTokens = new Proxy(darkTheme, {
+  get(target, prop: keyof ThemeTokens) {
+    const active = isLightTerminal() ? lightTheme : darkTheme;
+    return active[prop] ?? target[prop];
+  },
+});
 
 export const tableChars = {
   top: '─',
@@ -40,8 +78,7 @@ export const tableChars = {
 };
 
 export const clearScreen = () => {
-  process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
-  console.clear();
+  process.stdout.write('\x1B[2J\x1B[H');
 };
 
 export const showBanner = (
@@ -50,11 +87,12 @@ export const showBanner = (
   showInstanceBox = false,
   extraInfo?: string
 ) => {
-  if (compact) {
+  const isAccessible = Boolean(process.env.ACCESSIBLE || process.env.NO_COLOR || process.env.CI);
+  if (compact || isAccessible) {
     const extra = extraInfo ? chalk.hex(theme.muted)(` • ${extraInfo}`) : '';
     console.log(
       chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
-        chalk.hex(theme.muted)(' v2.0.0 ') +
+        chalk.hex(theme.muted)(` v${APP_VERSION} `) +
         (instanceName ? chalk.hex(theme.secondary)(`• [${instanceName}]`) : '') +
         extra +
         '\n'
@@ -63,12 +101,15 @@ export const showBanner = (
   }
 
   const cols = process.stdout.columns || 80;
-  const nordicGradient = gradient(['#38bdf8', '#818cf8']);
+  const isLight = isLightTerminal();
+  const bannerGradient = isLight
+    ? gradient(['#0369a1', '#4338ca'])
+    : gradient(['#38bdf8', '#818cf8']);
 
   if (cols < 60) {
     console.log(
       chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
-        chalk.hex(theme.muted)(' v2.0.0 ') +
+        chalk.hex(theme.muted)(` v${APP_VERSION} `) +
         chalk.hex(theme.muted)('• Minecraft Mod & Modpack Manager\n')
     );
   } else {
@@ -78,17 +119,17 @@ export const showBanner = (
         font,
         horizontalLayout: 'fitted',
       });
-      console.log(nordicGradient.multiline(banner));
+      console.log(bannerGradient.multiline(banner));
     } catch {
       console.log(
         chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
-          chalk.hex(theme.muted)(' v2.0.0\n')
+          chalk.hex(theme.muted)(` v${APP_VERSION}\n`)
       );
     }
   }
 
   console.log(
-    chalk.hex(theme.muted)('  v2.0.0  •  ') +
+    chalk.hex(theme.muted)(`  v${APP_VERSION}  •  `) +
       chalk.hex(theme.primary).bold('Minecraft Mod & Modpack Manager') +
       chalk.hex(theme.muted)('  •  Nordic Clean TUI\n')
   );
@@ -119,6 +160,11 @@ export const renderInstanceHeader = (info: {
   activeCount?: number;
   storageUsage?: string;
 }) => {
+  const loaderVersionText =
+    info.loader || info.gameVersion
+      ? `${info.loader ?? '-'} (${info.gameVersion ?? '-'})`
+      : 'Belum ditentukan';
+
   const line1 =
     chalk.hex(theme.textMuted)('Instance : ') +
     chalk.hex(theme.primary).bold(info.instanceName ?? 'Belum dipilih') +
@@ -126,7 +172,7 @@ export const renderInstanceHeader = (info: {
     chalk.hex(theme.muted)('│') +
     '  ' +
     chalk.hex(theme.textMuted)('Mod Loader : ') +
-    chalk.hex(theme.secondary).bold(`${info.loader ?? 'Fabric'} (${info.gameVersion ?? '1.21'})`);
+    chalk.hex(theme.secondary).bold(loaderVersionText);
 
   const line2 =
     chalk.hex(theme.textMuted)('Total Mod: ') +
@@ -182,134 +228,6 @@ export const logger = {
   br: () => console.log(''),
 };
 
-export const showModDetails = (project: any, versions: any[] = []) => {
-  const metaTable = new Table({
-    colWidths: [18, 56],
-    wordWrap: true,
-    chars: tableChars,
-    style: { head: [], border: [theme.border] },
-  });
-
-  metaTable.push(
-    [chalk.hex(theme.secondary)('Judul'), chalk.bold.hex(theme.text)(project.title)],
-    [chalk.hex(theme.secondary)('Slug'), chalk.hex(theme.primary)(project.slug)],
-    [chalk.hex(theme.secondary)('Penulis'), chalk.hex(theme.textMuted)(project.author || '-')],
-    [chalk.hex(theme.secondary)('Tipe'), chalk.hex(theme.info)(project.project_type ?? 'mod')],
-    [chalk.hex(theme.secondary)('Unduhan'), chalk.hex(theme.success)(`⬇ ${formatNumber(project.downloads)}`)],
-    [chalk.hex(theme.secondary)('Kategori'), chalk.hex(theme.textMuted)(project.categories?.join(', ') || '-')],
-    [chalk.hex(theme.secondary)('Versi Terbaru'), chalk.hex(theme.primary)(versions[0]?.version_number || '-')]
-  );
-
-  console.log(metaTable.toString());
-  logger.br();
-
-  if (project.description) {
-    const descBox = boxen(chalk.hex(theme.text)(project.description), {
-      padding: 1,
-      margin: { top: 0, bottom: 1, left: 0, right: 0 },
-      borderStyle: 'round',
-      borderColor: theme.border,
-      title: chalk.hex(theme.textMuted)(' Ringkasan Deskripsi '),
-      titleAlignment: 'left',
-    });
-    console.log(descBox);
-  }
-};
-
-export interface InstalledModMeta {
-  title: string;
-  filename: string;
-  status: 'active' | 'disabled';
-  fileSize: string;
-  filePath: string;
-  slug?: string;
-  projectId?: string;
-  versionNumber?: string;
-  isRoot?: boolean;
-  dependencies?: string[];
-  dependedBy?: string[];
-  installedAt?: string;
-  author?: string;
-  description?: string;
-  downloads?: number;
-}
-
-export const showInstalledModDetails = (meta: InstalledModMeta) => {
-  const statusBadge =
-    meta.status === 'active'
-      ? chalk.hex(theme.success).bold('● Aktif')
-      : chalk.hex(theme.error).bold('○ Nonaktif (.disabled)');
-
-  const typeBadge =
-    meta.isRoot === undefined
-      ? chalk.hex(theme.muted)('Lokal / Manual')
-      : meta.isRoot
-        ? chalk.hex(theme.secondary).bold('Root Mod (Pilihan User)')
-        : chalk.hex(theme.textMuted)('Dependensi Pustaka');
-
-  const metaTable = new Table({
-    colWidths: [20, 56],
-    wordWrap: true,
-    chars: tableChars,
-    style: { head: [], border: [theme.border] },
-  });
-
-  metaTable.push(
-    [chalk.hex(theme.secondary)('Judul Mod'), chalk.bold.hex(theme.text)(meta.title)],
-    [chalk.hex(theme.secondary)('Status'), statusBadge],
-    [chalk.hex(theme.secondary)('Nama Berkas'), chalk.hex(theme.primary)(meta.filename)],
-    [chalk.hex(theme.secondary)('Ukuran Berkas'), chalk.hex(theme.info)(meta.fileSize)],
-    [chalk.hex(theme.secondary)('Versi Terpasang'), chalk.hex(theme.text)(meta.versionNumber || '-')],
-    [chalk.hex(theme.secondary)('Tipe Instalasi'), typeBadge]
-  );
-
-  if (meta.slug) {
-    metaTable.push([
-      chalk.hex(theme.secondary)('Mod Slug / ID'),
-      chalk.hex(theme.primary)(`${meta.slug}${meta.projectId ? ` (${meta.projectId})` : ''}`),
-    ]);
-  }
-  if (meta.author) {
-    metaTable.push([chalk.hex(theme.secondary)('Penulis / Author'), chalk.hex(theme.textMuted)(meta.author)]);
-  }
-
-  const depsText =
-    meta.dependencies && meta.dependencies.length > 0
-      ? meta.dependencies.map((d) => chalk.hex(theme.primary)(d)).join(', ')
-      : chalk.hex(theme.muted)('Tidak ada');
-  metaTable.push([chalk.hex(theme.secondary)('Dependensi Wajib'), depsText]);
-
-  const dependedByText =
-    meta.dependedBy && meta.dependedBy.length > 0
-      ? meta.dependedBy.map((d) => chalk.hex(theme.warning)(d)).join(', ')
-      : chalk.hex(theme.muted)('Tidak ada (Aman dihapus)');
-  metaTable.push([chalk.hex(theme.secondary)('Dibutuhkan Oleh'), dependedByText]);
-
-  if (meta.installedAt) {
-    try {
-      const dateFormatted = new Date(meta.installedAt).toLocaleString();
-      metaTable.push([chalk.hex(theme.secondary)('Tanggal Pasang'), chalk.hex(theme.muted)(dateFormatted)]);
-    } catch {}
-  }
-
-  metaTable.push([chalk.hex(theme.secondary)('Lokasi Berkas'), chalk.hex(theme.muted)(meta.filePath)]);
-
-  console.log(metaTable.toString());
-  logger.br();
-
-  if (meta.description) {
-    const descBox = boxen(chalk.hex(theme.text)(meta.description), {
-      padding: 1,
-      margin: { top: 0, bottom: 1, left: 0, right: 0 },
-      borderStyle: 'round',
-      borderColor: theme.border,
-      title: chalk.hex(theme.textMuted)(' Ringkasan Deskripsi '),
-      titleAlignment: 'left',
-    });
-    console.log(descBox);
-  }
-};
-
 export const printFAQ = () => {
   createHeader('❓ PANDUAN PENGGUNAAN & PUSAT BANTUAN', theme.primary);
   logger.br();
@@ -317,15 +235,15 @@ export const printFAQ = () => {
   const faqs = [
     {
       q: 'Bagaimana cara memilih instance Minecraft?',
-      a: 'Gunakan opsi [Pilih / Ganti Instance] di menu utama atau perintah "lm init". LoadModer mendukung Prism Launcher, Modrinth App, MultiMC, CurseForge, dan Vanilla Launcher.',
+      a: 'Pilih "Kelola Profil & Versi Game" di menu utama atau jalankan "lm init". LoadModer mendukung Prism Launcher, Modrinth App, MultiMC, CurseForge, dan Vanilla Launcher.',
     },
     {
       q: 'Bagaimana cara memasang modpack (.mrpack)?',
-      a: 'Pilih [Eksplorasi Modpack] di dashboard atau ketik "lm install <slug> --type modpack". File modpack diekstrak otomatis beserta config dan overrides.',
+      a: 'Pilih "Jelajahi Modpack Populer" di menu utama atau jalankan "lm install <slug> --type modpack". Berkas modpack diekstrak otomatis beserta konfigurasi dan overrides.',
     },
     {
       q: 'Bagaimana cara menggunakan Bisect untuk mengatasi crash?',
-      a: 'Pilih [Diagnostik & Bisect] atau ketik "lm bisect start". Sistem akan menonaktifkan 50% mod secara cerdas hingga mod penyebab crash terisolasi dalam hitungan menit.',
+      a: 'Pilih "Diagnostik Crash & Bisect Tool" di menu utama atau jalankan "lm bisect start". Sistem menggunakan algoritma pencarian biner (bisect) untuk menonaktifkan separuh mod pada tiap langkah pengujian hingga mod penyebab crash ditemukan.',
     },
     {
       q: 'Apakah dependensi wajib ikut terpasang otomatis?',
