@@ -6,6 +6,7 @@ import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
 
 interface RemoveOptions {
   dir?: string;
+  type?: string;
   prune?: boolean;
   yes?: boolean;
   skipBanner?: boolean;
@@ -28,7 +29,60 @@ export async function removeCommand(targets: string[], opts: RemoveOptions) {
   const graph = new DependencyGraph(instanceDir);
   await graph.load();
 
-  const filesInFolder = await readdir(modsDir);
+  const assetType = (opts.type ?? 'mod').toLowerCase();
+
+  if (assetType === 'shader' || assetType === 'resourcepack') {
+    const subfolder = assetType === 'shader' ? 'shaderpacks' : 'resourcepacks';
+    const targetDir = path.join(instanceDir, subfolder);
+
+    let filesInFolder: string[] = [];
+    try {
+      filesInFolder = await readdir(targetDir);
+    } catch {
+      p.log.warn(`Folder ${subfolder} belum ada.`);
+      return;
+    }
+
+    for (const target of targets) {
+      p.log.step(`Mencari ${assetType} "${target}"...`);
+      const q = target.toLowerCase();
+      const matched = filesInFolder.filter(
+        (f) => f.toLowerCase().includes(q) && f.endsWith('.zip')
+      );
+
+      if (matched.length === 0) {
+        p.log.warn(`Tidak ditemukan ${assetType} yang cocok dengan "${target}".`);
+        continue;
+      }
+
+      for (const match of matched) {
+        if (!opts.yes) {
+          const confirm = await p.confirm({
+            message: `Hapus berkas "${match}" dari folder ${subfolder}?`,
+            initialValue: true,
+          });
+          exitIfCancel(confirm);
+          if (!confirm) continue;
+        }
+
+        await rm(path.join(targetDir, match), { force: true });
+        graph.removeAsset(assetType, target);
+        p.log.success(pc.green(`Berkas dihapus: ${match}`));
+      }
+    }
+
+    await graph.save();
+    p.outro(pc.green('Operasi penghapusan selesai!'));
+    return;
+  }
+
+  let filesInFolder: string[] = [];
+  try {
+    filesInFolder = await readdir(modsDir);
+  } catch {
+    p.log.warn('Folder mods belum ada atau kosong.');
+    return;
+  }
 
   for (const target of targets) {
     p.log.step(`Mencari mod "${target}"...`);

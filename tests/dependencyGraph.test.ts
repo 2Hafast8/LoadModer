@@ -150,4 +150,70 @@ describe("DependencyGraph", () => {
     const backupFile = files.find((f) => f.includes(".corrupt."));
     expect(backupFile).toBeDefined();
   });
+
+  it("harus dapat meregistrasi dan menghapus aset non-jar (shaderpack dan resourcepack)", async () => {
+    graph.registerAsset("shader", "complementary-reimagined", {
+      filename: "ComplementaryReimagined_r5.2.2.zip",
+      sha512: "sha512_shader_hash",
+    });
+
+    graph.registerAsset("resourcepack", "stay-true", {
+      filename: "Stay_True_v1.21.zip",
+      sha512: "sha512_rp_hash",
+    });
+
+    expect(graph.data.shaderpacks?.["complementary-reimagined"]).toBeDefined();
+    expect(graph.data.resourcepacks?.["stay-true"]).toBeDefined();
+
+    const shader = graph.findAsset("shader", "complementary-reimagined");
+    expect(shader?.entry.filename).toBe("ComplementaryReimagined_r5.2.2.zip");
+
+    const removed = graph.removeAsset("shader", "complementary-reimagined");
+    expect(removed).toBe(true);
+    expect(graph.data.shaderpacks?.["complementary-reimagined"]).toBeUndefined();
+  });
+
+  it("tidak boleh menghapus shader atau resourcepack saat reconcileWithDisk dijalankan", async () => {
+    const fs = await import("node:fs/promises");
+    const modsDir = path.join(tempDir, "mods");
+    const shaderDir = path.join(tempDir, "shaderpacks");
+    const rpDir = path.join(tempDir, "resourcepacks");
+
+    await fs.mkdir(modsDir, { recursive: true });
+    await fs.mkdir(shaderDir, { recursive: true });
+    await fs.mkdir(rpDir, { recursive: true });
+
+    await fs.writeFile(path.join(modsDir, "sodium-0.6.0.jar"), "dummy");
+    await fs.writeFile(path.join(shaderDir, "BSL_v8.2.zip"), "dummy");
+    await fs.writeFile(path.join(rpDir, "Bare_Bones.zip"), "dummy");
+
+    graph.registerMod("sodium", {
+      projectId: "AANobbMI",
+      versionId: "ver1",
+      versionNumber: "0.6.0",
+      filename: "sodium-0.6.0.jar",
+      sha512: "hash1",
+      isRoot: true,
+      dependencies: [],
+    });
+
+    graph.registerAsset("shader", "bsl", {
+      filename: "BSL_v8.2.zip",
+      sha512: "shader_hash",
+    });
+
+    graph.registerAsset("resourcepack", "bare-bones", {
+      filename: "Bare_Bones.zip",
+      sha512: "rp_hash",
+    });
+
+    await graph.save();
+
+    const result = await graph.reconcileWithDisk(modsDir, tempDir);
+
+    expect(result.unregistered).toHaveLength(0);
+    expect(graph.data.mods["sodium"]).toBeDefined();
+    expect(graph.data.shaderpacks?.["bsl"]).toBeDefined();
+    expect(graph.data.resourcepacks?.["bare-bones"]).toBeDefined();
+  });
 });

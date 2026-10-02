@@ -1,13 +1,20 @@
 import path from "node:path";
 import {readFile, readdir} from "node:fs/promises";
 import writeFileAtomic from "write-file-atomic";
-import type {LockfileData, LockModEntry} from "../../types/lockfile.js";
+import {
+  LockfileDataSchema,
+  type LockfileData,
+  type LockModEntry,
+  type AssetEntry,
+} from "../../types/lockfile.js";
 
 export class DependencyGraph {
+  public readonly instanceDir: string;
   public lockfilePath: string;
   public data: LockfileData;
 
   constructor(instanceDir: string, gameVersion = "", loader = "") {
+    this.instanceDir = instanceDir;
     this.lockfilePath = path.join(instanceDir, "loadmoder.lock.json");
     this.data = {
       $schema: "https://loadmoder.dev/schema/v1/lock.json",
@@ -17,14 +24,21 @@ export class DependencyGraph {
       environment: "client",
       updatedAt: new Date().toISOString(),
       mods: {},
+      resourcepacks: {},
+      shaderpacks: {},
     };
   }
 
   async load(): Promise<void> {
     try {
       const content = await readFile(this.lockfilePath, "utf8");
-      this.data = JSON.parse(content);
-      if (!this.data.mods) this.data.mods = {};
+      const parsed = JSON.parse(content);
+      const validated = LockfileDataSchema.safeParse(parsed);
+      if (validated.success) {
+        this.data = validated.data;
+      } else {
+        await writeFileAtomic(`${this.lockfilePath}.corrupt.${Date.now()}.bak`, Buffer.from(content));
+      }
     } catch (err: any) {
       if (err?.code === "ENOENT") {
         return;
@@ -110,6 +124,48 @@ export class DependencyGraph {
     return {removedMod: target, orphanedSlugs};
   }
 
+  registerAsset(type: "shader" | "resourcepack", slug: string, entry: AssetEntry): void {
+    const key = slug.toLowerCase();
+    if (type === "shader") {
+      this.data.shaderpacks = this.data.shaderpacks ?? {};
+      this.data.shaderpacks[key] = entry;
+    } else {
+      this.data.resourcepacks = this.data.resourcepacks ?? {};
+      this.data.resourcepacks[key] = entry;
+    }
+  }
+
+  removeAsset(type: "shader" | "resourcepack", slug: string): boolean {
+    const key = slug.toLowerCase();
+    if (type === "shader" && this.data.shaderpacks?.[key]) {
+      delete this.data.shaderpacks[key];
+      return true;
+    }
+    if (type === "resourcepack" && this.data.resourcepacks?.[key]) {
+      delete this.data.resourcepacks[key];
+      return true;
+    }
+    return false;
+  }
+
+  findAsset(
+    type: "shader" | "resourcepack",
+    slugOrFilename: string,
+  ): {slug: string; entry: AssetEntry} | undefined {
+    const collection = type === "shader" ? this.data.shaderpacks : this.data.resourcepacks;
+    if (!collection) return undefined;
+    const clean = slugOrFilename.toLowerCase();
+    if (collection[clean]) {
+      return {slug: clean, entry: collection[clean]};
+    }
+    for (const [slug, entry] of Object.entries(collection)) {
+      if (entry.filename.toLowerCase() === clean) {
+        return {slug, entry};
+      }
+    }
+    return undefined;
+  }
+
   checkIncompatibilities(incompatibleProjectIds: string[]): string[] {
     const conflicts: string[] = [];
     for (const mod of Object.values(this.data.mods)) {
@@ -122,7 +178,9 @@ export class DependencyGraph {
 
   async reconcileWithDisk(
     modsDir: string,
+    instanceDir?: string,
   ): Promise<{unregistered: string[]; orphanedSlugs: string[]}> {
+    const baseInstanceDir = instanceDir ?? this.instanceDir;
     try {
       const files = await readdir(modsDir);
       const activeFilenames = new Set(files);
@@ -143,7 +201,32 @@ export class DependencyGraph {
         }
       }
 
-      if (unregistered.length > 0) {
+      let assetsChanged = false;
+      if (baseInstanceDir) {
+        const shaderDir = path.join(baseInstanceDir, "shaderpacks");
+        try {
+          const shaderFiles = new Set(await readdir(shaderDir));
+          for (const [slug, entry] of Object.entries(this.data.shaderpacks ?? {})) {
+            if (!shaderFiles.has(entry.filename)) {
+              delete this.data.shaderpacks![slug];
+              assetsChanged = true;
+            }
+          }
+        } catch {}
+
+        const rpDir = path.join(baseInstanceDir, "resourcepacks");
+        try {
+          const rpFiles = new Set(await readdir(rpDir));
+          for (const [slug, entry] of Object.entries(this.data.resourcepacks ?? {})) {
+            if (!rpFiles.has(entry.filename)) {
+              delete this.data.resourcepacks![slug];
+              assetsChanged = true;
+            }
+          }
+        } catch {}
+      }
+
+      if (unregistered.length > 0 || assetsChanged) {
         await this.save();
       }
 

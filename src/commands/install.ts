@@ -39,6 +39,16 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
   const loader = opts.loader ?? activeInst?.loader;
   const targetEnv = opts.env ?? "client";
 
+  const targetHasMods = targets.some(
+    (t) => !t.endsWith(".mrpack") && opts.type !== "shader" && opts.type !== "resourcepack" && opts.type !== "modpack"
+  );
+  if (targetHasMods && (!gameVersion || !loader)) {
+    p.log.error(
+      'Versi Minecraft atau loader belum ditentukan pada instance aktif. Gunakan flag -v dan -l atau jalankan "lm init".',
+    );
+    process.exit(1);
+  }
+
   p.log.info(
     `Instance: ${pc.bold(activeInst?.name ?? "Kustom")} | MC: ${pc.cyan(gameVersion ?? "Auto")} | Loader: ${pc.cyan(loader ?? "Auto")} | Env: ${pc.cyan(targetEnv)}`,
   );
@@ -104,7 +114,12 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
     if (opts.versionId) {
       try {
         best = await modrinthClient.getVersion(opts.versionId);
-      } catch {}
+      } catch (err: any) {
+        p.log.error(
+          `Gagal mengambil versi dengan ID "${opts.versionId}": ${err?.message ?? "Versi tidak ditemukan"}`,
+        );
+        continue;
+      }
     }
 
     if (!best) {
@@ -181,54 +196,72 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
           ((oldModEntry && ex === oldModEntry.filename) || versionRegex.test(ex)) &&
           (ex.endsWith(".jar") || ex.endsWith(".zip"))
         ) {
-          await rm(path.join(destDir, ex), {force: true});
-          p.log.message(pc.dim(`Versi lama dihapus: ${ex}`));
+          try {
+            await rm(path.join(destDir, ex), {force: true});
+            p.log.message(pc.dim(`Versi lama dihapus: ${ex}`));
+          } catch (rmErr: any) {
+            p.log.warn(
+              `Gagal menghapus versi lama (${ex}): ${rmErr?.message ?? "Berkas sedang digunakan oleh aplikasi lain"}`,
+            );
+          }
         }
       }
     } catch {}
 
-    const reqDeps = (best.dependencies || [])
-      .filter(
-        (d): d is typeof d & {project_id: string} =>
-          d.dependency_type === "required" && Boolean(d.project_id),
-      )
-      .map((d) => d.project_id);
+    if (projectType === "shader") {
+      graph.registerAsset("shader", slug, {
+        filename: file.filename,
+        sha512: file.hashes.sha512,
+      });
+    } else if (projectType === "resourcepack") {
+      graph.registerAsset("resourcepack", slug, {
+        filename: file.filename,
+        sha512: file.hashes.sha512,
+      });
+    } else {
+      const reqDeps = (best.dependencies || [])
+        .filter(
+          (d): d is typeof d & {project_id: string} =>
+            d.dependency_type === "required" && Boolean(d.project_id),
+        )
+        .map((d) => d.project_id);
 
-    graph.registerMod(slug, {
-      projectId: best.project_id,
-      versionId: best.id,
-      versionNumber: best.version_number,
-      filename: file.filename,
-      sha512: file.hashes.sha512,
-      isRoot: true,
-      dependencies: reqDeps,
-    });
-
-    if (!opts.noDeps && projectType === "mod") {
-      const depResult = await resolveAndInstallDependencies({
-        mainModSlug: slug,
-        mainVersion: best,
-        project: projectMeta,
-        modsDir,
-        gameVersion: gameVersion ?? "1.21.1",
-        loader: loader ?? "fabric",
-        graph,
-        dryRun: opts.dryRun,
-        onLog: (level, msg) => {
-          if (level === "step") p.log.step(msg);
-          else if (level === "warn") p.log.warn(pc.yellow(msg));
-          else if (level === "dim") p.log.message(pc.dim(msg));
-          else if (level === "success") p.log.message(pc.green(msg));
-          else p.log.info(msg);
-        },
+      graph.registerMod(slug, {
+        projectId: best.project_id,
+        versionId: best.id,
+        versionNumber: best.version_number,
+        filename: file.filename,
+        sha512: file.hashes.sha512,
+        isRoot: true,
+        dependencies: reqDeps,
       });
 
-      if (depResult.installed.length > 0) {
-        p.log.success(
-          pc.green(
-            `✔ Berhasil memasang ${depResult.installed.length} library tambahan yang sesuai untuk ${loader?.toUpperCase() ?? "FABRIC"} ${gameVersion ?? "1.21.1"}!`,
-          ),
-        );
+      if (!opts.noDeps) {
+        const depResult = await resolveAndInstallDependencies({
+          mainModSlug: slug,
+          mainVersion: best,
+          project: projectMeta,
+          modsDir,
+          gameVersion: gameVersion!,
+          loader: loader!,
+          graph,
+          dryRun: opts.dryRun,
+          onLog: (level, msg) => {
+            if (level === "step") p.log.step(msg);
+            else if (level === "warn") p.log.warn(pc.yellow(msg));
+            else if (level === "dim") p.log.message(pc.dim(msg));
+            else if (level === "success") p.log.message(pc.green(msg));
+            else p.log.info(msg);
+          },
+        });
+
+        if (depResult.installed.length > 0) {
+          p.log.success(
+            pc.green(
+              `✔ Berhasil memasang ${depResult.installed.length} library tambahan yang sesuai untuk ${loader!.toUpperCase()} ${gameVersion!}!`,
+            ),
+          );
+        }
       }
     }
 

@@ -78,6 +78,7 @@ program
 program
   .command("list")
   .description("Menampilkan daftar aset yang terpasang pada instance aktif")
+  .option("-t, --type <type>", "Tipe aset: all | mod | shader | resourcepack", "all")
   .option("-d, --dir <path>", "Folder mods kustom")
   .option("--json", "Keluarkan output dalam format JSON murni")
   .action(
@@ -107,6 +108,7 @@ program
   .alias("rm")
   .description("Menghapus mod terpasang beserta pembersihan dependensi yatim (prune)")
   .argument("<targets...>", "Nama mod atau slug yang ingin dihapus")
+  .option("-t, --type <type>", "Tipe aset: mod | shader | resourcepack", "mod")
   .option("-d, --dir <path>", "Folder mods kustom")
   .option("--prune", "Otomatis bersihkan dependensi yatim yang tidak lagi terpakai")
   .option("-y, --yes", "Otomatis setujui konfirmasi penghapusan")

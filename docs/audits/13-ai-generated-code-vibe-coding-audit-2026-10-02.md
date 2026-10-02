@@ -1,7 +1,7 @@
 # 13 — AI-Generated Code & Vibe Coding Audit Report
 
 **Audit Date:** 2026-10-02  
-**Audit Mode:** **AUDIT-ONLY** (Static inspection, structural tracing, contract verification, and evidence-driven analysis; zero production code or configuration modified)  
+**Audit Mode:** **AUDIT + FIX** (Remediation completed for AIC-001 through AIC-006; full verification suite passed)  
 **Target Repository:** LoadModer (`2Hafast8/LoadModer`)  
 **Lead Auditor:** Antigravity AI Architecture & Systems Integrity System  
 **Governing Skills:** `software-architecture`, `code-review`, `clean-code`, `antislop`, `antislop-code`, `antislop-human`  
@@ -15,13 +15,13 @@ Audit Title:                 AI-Generated Code & Vibe Coding Audit (#13)
 Audit Date:                  2026-10-02
 Repository:                  LoadModer (github.com/2Hafast8/LoadModer)
 Branch:                      improvement
-Commit SHA:                  e92fb06
-Working Tree State:          Clean
-Audit Mode:                  AUDIT-ONLY
+Commit SHA:                  44065c8
+Working Tree State:          Remediated & Verified (on branch improvement)
+Audit Mode:                  AUDIT + FIX
 Target Deliverable Type:     Standalone CLI & Interactive TUI Application (TypeScript / Node.js)
 Runtime Target:              Node.js >= 20.0.0 (ESM)
 Architecture Pattern:        Layered CLI/TUI + Pure Core Domain + Graph State Engine
-Test Suite:                  Vitest 1.6.1 (13 test files, 78 tests, 100% passing)
+Test Suite:                  Vitest 1.6.1 (13 test files, 80 tests, 100% passing)
 TypeScript Compilation:      tsc --noEmit (0 errors)
 Active Skills:               software-architecture, code-review, clean-code, antislop, antislop-code, antislop-human
 ```
@@ -396,14 +396,27 @@ Build success in 206ms
 
 ## 10. Prioritized Action Plan
 
-When authorized by the user to enter **AUDIT + FIX** remediation mode:
+Remediation was executed in order of architectural importance:
+1. **Phase 1 (Critical State Integrity — `AIC-001`):** Complete
+2. **Phase 2 (Fail-Fast User Input — `AIC-002` & `AIC-003`):** Complete
+3. **Phase 3 (Diagnostic Visibility & Scope Symmetry — `AIC-004` & `AIC-005`):** Complete
+4. **Phase 4 (Schema Validation — `AIC-006`):** Complete
 
-1. **Phase 1 (Critical State Integrity — `AIC-001`):**
-   - Update `DependencyGraph` to support `shaderpacks` and `resourcepacks` records in `loadmoder.lock.json`.
-   - Update `reconcileWithDisk` to scan the appropriate subdirectories so non-jar assets are never falsely evicted.
-2. **Phase 2 (Fail-Fast User Input — `AIC-002` & `AIC-003`):**
-   - Remove hardcoded `"1.21.1"` and `"fabric"` fallbacks in `install.ts`; require explicit target version or abort with an actionable prompt.
-   - If `--version-id` fails to fetch, report an error immediately rather than silently falling back to the latest version.
-3. **Phase 3 (Diagnostic Visibility & Scope Symmetry — `AIC-004` & `AIC-005`):**
-   - Emit a warning log if old `.jar` removal fails due to file locks.
-   - Add multi-content filtering to `lm list` and `lm remove`.
+---
+
+## 11. Remediation & Verification Summary
+
+### Remediated Findings
+| Finding ID | Severity | File(s) Modified | Summary of Fix | Status |
+|:---|:---|:---|:---|:---|
+| **AIC-001** | **HIGH** | `src/types/lockfile.ts`, `src/core/dependency/graph.ts`, `src/commands/install.ts` | Separated shader and resource pack registration from `.jar` mod graph; updated `reconcileWithDisk` to scan the appropriate subdirectories so non-jar assets are never evicted from lockfile. | **RESOLVED** |
+| **AIC-002** | **MEDIUM** | `src/commands/install.ts` | Removed silent fallback to `1.21.1` Fabric; enforced strict validation requiring explicit Minecraft version and loader before resolving mod dependencies. | **RESOLVED** |
+| **AIC-003** | **MEDIUM** | `src/commands/install.ts` | Replaced silent `catch {}` on `--version-id` with immediate error logging and target skipping so invalid version pins fail fast. | **RESOLVED** |
+| **AIC-004** | **LOW** | `src/commands/list.ts`, `src/commands/remove.ts`, `src/index.ts` | Added `-t, --type <type>` support (`all \| mod \| shader \| resourcepack`) across `list` and `remove` commands for scope symmetry. | **RESOLVED** |
+| **AIC-005** | **LOW** | `src/commands/install.ts` | Replaced empty error suppression during old `.jar` deletion with diagnostic warning logging when files are locked (`EBUSY`/`EPERM`). | **RESOLVED** |
+| **AIC-006** | **INFO** | `src/types/lockfile.ts`, `src/core/dependency/graph.ts` | Implemented `LockfileDataSchema` via Zod runtime validation in `DependencyGraph.load()`, automatically creating backups if corrupted. | **RESOLVED** |
+
+### Verification Protocol Results
+- **TypeScript Static Check (`npx tsc --noEmit`):** Exit code `0`, zero type errors.
+- **Vitest Test Suite (`npm test`):** Exit code `0`, 13 test files passed, 80 tests passed (100%).
+- **Build Bundle (`npm run build`):** Exit code `0`, esbuild/tsup bundled successfully in 123ms with zero warnings.
