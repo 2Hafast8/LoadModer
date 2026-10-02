@@ -216,4 +216,28 @@ describe("DependencyGraph", () => {
     expect(graph.data.shaderpacks?.["bsl"]).toBeDefined();
     expect(graph.data.resourcepacks?.["bare-bones"]).toBeDefined();
   });
+
+  it("harus dapat menemukan dan menghapus mod menggunakan nama berkas (filename) dan filename.disabled", async () => {
+    graph.registerMod("sodium", {
+      projectId: "AANobbMI",
+      versionId: "ver1",
+      versionNumber: "0.6.0",
+      filename: "sodium-fabric-0.6.0+mc1.21.1.jar",
+      sha512: "hash1",
+      isRoot: true,
+      dependencies: [],
+    });
+
+    const matchByFilename = graph.findMod("sodium-fabric-0.6.0+mc1.21.1.jar");
+    expect(matchByFilename).toBeDefined();
+    expect(matchByFilename?.slug).toBe("sodium");
+
+    const matchByDisabled = graph.findMod("sodium-fabric-0.6.0+mc1.21.1.jar.disabled");
+    expect(matchByDisabled).toBeDefined();
+    expect(matchByDisabled?.slug).toBe("sodium");
+
+    const removeRes = graph.removeMod("sodium-fabric-0.6.0+mc1.21.1.jar");
+    expect(removeRes.removedMod).toBeDefined();
+    expect(graph.data.mods["sodium"]).toBeUndefined();
+  });
 });

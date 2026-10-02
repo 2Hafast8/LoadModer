@@ -3,6 +3,7 @@ import { readdir, rm } from 'node:fs/promises';
 import { modrinthClient } from '../api/client.js';
 import { instanceConfig } from '../core/instance/config.js';
 import { DependencyGraph } from '../core/dependency/graph.js';
+import { resolveAndInstallDependencies } from '../core/dependency/resolver.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
 import { hashFile } from '../utils/crypto.js';
 import { formatBytes } from '../utils/format.js';
@@ -158,6 +159,25 @@ export async function updateCommand(opts: UpdateOptions) {
       isRoot,
       dependencies: reqDeps,
     });
+
+    const missingDeps = reqDeps.filter((depId: string) => !graph.findMod(depId));
+    if (missingDeps.length > 0) {
+      await resolveAndInstallDependencies({
+        mainModSlug: slug,
+        mainVersion: up.nextVersion,
+        modsDir,
+        gameVersion,
+        loader,
+        graph,
+        onLog: (level, msg) => {
+          if (level === 'step') p.log.step(msg);
+          else if (level === 'warn') p.log.warn(pc.yellow(msg));
+          else if (level === 'dim') p.log.message(pc.dim(msg));
+          else if (level === 'success') p.log.message(pc.green(msg));
+          else p.log.info(msg);
+        },
+      });
+    }
   }
 
   if (updates.length > 0) {

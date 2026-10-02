@@ -38,6 +38,7 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
         p.outro(pc.cyan('Silakan uji game Anda...'));
       } catch (err) {
         p.log.error((err as Error).message);
+        process.exitCode = 1;
       }
       break;
     }
@@ -63,6 +64,7 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
         }
       } catch (err) {
         p.log.error((err as Error).message);
+        process.exitCode = 1;
       }
       break;
     }
@@ -75,6 +77,7 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
 
     default: {
       p.log.error(`Sub-perintah "${subcommand}" tidak dikenal. Gunakan: start | good | bad | reset`);
+      process.exitCode = 1;
       break;
     }
   }

@@ -100,6 +100,42 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
           s.message(`Mengunduh [${done}/${total}] ${path.basename(file)}...`);
         },
       });
+
+      if (!target.endsWith(".mrpack")) {
+        try {
+          await rm(mrpackFile, {force: true});
+        } catch {}
+      }
+
+      for (const file of index.files) {
+        const basename = path.basename(file.path);
+        const fileExt = path.extname(basename).toLowerCase();
+        const baseSlug = basename.replace(/\.(jar|zip|mrpack)$/i, "").toLowerCase();
+
+        if (file.path.startsWith("shaderpacks/") || file.path.includes("/shaderpacks/")) {
+          graph.registerAsset("shader", baseSlug, {
+            filename: basename,
+            sha512: file.hashes.sha512,
+          });
+        } else if (file.path.startsWith("resourcepacks/") || file.path.includes("/resourcepacks/")) {
+          graph.registerAsset("resourcepack", baseSlug, {
+            filename: basename,
+            sha512: file.hashes.sha512,
+          });
+        } else if (fileExt === ".jar" || file.path.startsWith("mods/") || file.path.includes("/mods/")) {
+          graph.registerMod(baseSlug, {
+            projectId: baseSlug,
+            versionId: index.versionId,
+            versionNumber: index.versionId,
+            filename: basename,
+            sha512: file.hashes.sha512,
+            isRoot: true,
+            dependencies: [],
+          });
+        }
+      }
+
+      await graph.save();
       s.stop(pc.green(`Modpack "${index.name}" (${index.versionId}) berhasil dipasang!`));
       continue;
     }
@@ -161,6 +197,25 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
       p.log.info(
         `[dry-run] Akan memasang ${projectType}: ${file.filename} (${formatBytes(file.size)}) ke ${destDir}`,
       );
+      if (projectType === "mod" && !opts.noDeps) {
+        await resolveAndInstallDependencies({
+          mainModSlug: slug,
+          mainVersion: best,
+          project: projectMeta,
+          modsDir,
+          gameVersion: gameVersion!,
+          loader: loader!,
+          graph,
+          dryRun: true,
+          onLog: (level, msg) => {
+            if (level === "step") p.log.step(msg);
+            else if (level === "warn") p.log.warn(pc.yellow(msg));
+            else if (level === "dim") p.log.message(pc.dim(msg));
+            else if (level === "success") p.log.message(pc.green(msg));
+            else p.log.info(msg);
+          },
+        });
+      }
       continue;
     }
 

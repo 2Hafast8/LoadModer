@@ -44,20 +44,28 @@ export async function listCommand(opts: ListOptions) {
     return;
   }
 
-  const s = p.spinner();
-  s.start(`Memindai folder mods: ${modsDir}...`);
+  const s = opts.json ? null : p.spinner();
+  s?.start(`Memindai folder mods: ${modsDir}...`);
 
   let entries: string[] = [];
   try {
     entries = await readdir(modsDir);
   } catch {
-    s.stop(pc.yellow('Folder mods belum ada atau masih kosong.'));
+    if (opts.json) {
+      console.log('[]');
+      return;
+    }
+    s?.stop(pc.yellow('Folder mods belum ada atau masih kosong.'));
     return;
   }
 
   const modFiles = entries.filter((f) => f.endsWith('.jar') || f.endsWith('.jar.disabled'));
   if (modFiles.length === 0) {
-    s.stop(pc.yellow('Tidak ada mod yang terpasang di folder ini.'));
+    if (opts.json) {
+      console.log('[]');
+      return;
+    }
+    s?.stop(pc.yellow('Tidak ada mod yang terpasang di folder ini.'));
   } else {
     const limit = pLimit(8);
     const fileDetails = await Promise.all(
@@ -72,13 +80,13 @@ export async function listCommand(opts: ListOptions) {
       )
     );
 
-    const knownMap = await modrinthClient.getVersionsByHashes(fileDetails.map((f) => f.sha1));
-    s.stop(pc.green(`Ditemukan ${modFiles.length} berkas mod:`));
-
     if (opts.json) {
       console.log(JSON.stringify(fileDetails, null, 2));
       return;
     }
+
+    const knownMap = await modrinthClient.getVersionsByHashes(fileDetails.map((f) => f.sha1));
+    s?.stop(pc.green(`Ditemukan ${modFiles.length} berkas mod:`));
 
     const table = createModsTable();
 
@@ -128,6 +136,10 @@ async function listPackAssets(
   } catch {}
 
   if (files.length === 0) {
+    if (jsonOutput) {
+      console.log('[]');
+      return;
+    }
     p.log.info(pc.yellow(`Tidak ada ${label} yang terpasang di ${dir}.`));
     return;
   }

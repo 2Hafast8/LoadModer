@@ -25,6 +25,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
     case 'use': {
       if (!key) {
         p.log.error('Masukkan ID instance yang ingin digunakan. Contoh: lm config use prism-1.21');
+        process.exitCode = 1;
         return;
       }
       try {
@@ -33,6 +34,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
         p.outro(pc.green(`Instance aktif berhasil dialihkan ke: ${key}`));
       } catch (err) {
         p.log.error((err as Error).message);
+        process.exitCode = 1;
       }
       break;
     }
@@ -40,6 +42,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
     case 'set': {
       if (!key || value === undefined) {
         p.log.error('Gunakan: lm config set <key> <value>');
+        process.exitCode = 1;
         return;
       }
 
@@ -50,11 +53,13 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
       } else if (key === 'defaultEnvironment' || key === 'env') {
         if (value !== 'client' && value !== 'server') {
           p.log.error('Environment harus "client" atau "server".');
+          process.exitCode = 1;
           return;
         }
         instanceConfig.set('defaultEnvironment', value);
       } else {
         p.log.error(`Key "${key}" tidak valid.`);
+        process.exitCode = 1;
         return;
       }
 
@@ -65,6 +70,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
 
     default: {
       p.log.error(`Aksi "${action}" tidak dikenal. Gunakan: show | set | use`);
+      process.exitCode = 1;
       break;
     }
   }

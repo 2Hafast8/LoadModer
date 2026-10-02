@@ -332,6 +332,7 @@ export async function profileListCommand(): Promise<void> {
   const active = instanceConfig.getActiveInstance();
   if (!active) {
     p.log.error("Tidak ada instance aktif.");
+    process.exitCode = 1;
     return;
   }
 
@@ -359,6 +360,12 @@ export async function profileSwitchCommand(loader?: string, version?: string): P
 
   if (!activeKey || !cfg.instances[activeKey]) {
     p.log.error("Tidak ada instance aktif yang dipilih.");
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!loader && !version) {
+    await runInteractiveProfileSwitcher(activeKey);
     return;
   }
 
@@ -383,5 +390,6 @@ export async function profileSwitchCommand(loader?: string, version?: string): P
   } catch (err: any) {
     s.stop(pc.red("Gagal mengalihkan profil."));
     p.log.error(err.message);
+    process.exitCode = 1;
   }
 }

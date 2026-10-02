@@ -27,11 +27,12 @@ export async function searchCommand(query: string, opts: SearchOptions) {
   const projectType = (opts.type as ProjectType) ?? 'mod';
   const category = opts.category;
   const environment = opts.env;
-  const limit = Math.min(Number(opts.limit) || 10, 50);
+  const rawLimit = Number(opts.limit);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 10;
   const sort = (opts.sort as SearchIndex) ?? 'relevance';
 
-  const s = p.spinner();
-  s.start(chalk.hex(theme.textMuted)(`Mencari "${query}" (${projectType}) di Modrinth...`));
+  const s = opts.json ? null : p.spinner();
+  s?.start(chalk.hex(theme.textMuted)(`Mencari "${query}" (${projectType}) di Modrinth...`));
 
   const response = await modrinthClient.search(
     query,
@@ -39,7 +40,7 @@ export async function searchCommand(query: string, opts: SearchOptions) {
     limit,
     sort
   );
-  s.stop(chalk.hex(theme.success)(`Ditemukan ${response.total_hits} hasil (menampilkan ${response.hits.length}):`));
+  s?.stop(chalk.hex(theme.success)(`Ditemukan ${response.total_hits} hasil (menampilkan ${response.hits.length}):`));
 
   if (opts.json) {
     console.log(JSON.stringify(response.hits, null, 2));

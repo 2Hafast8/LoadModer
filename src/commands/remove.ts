@@ -66,7 +66,11 @@ export async function removeCommand(targets: string[], opts: RemoveOptions) {
         }
 
         await rm(path.join(targetDir, match), { force: true });
-        graph.removeAsset(assetType, target);
+        const matchedAsset =
+          graph.findAsset(assetType as 'shader' | 'resourcepack', match) ??
+          graph.findAsset(assetType as 'shader' | 'resourcepack', target);
+        const slugToRemove = matchedAsset?.slug ?? target;
+        graph.removeAsset(assetType as 'shader' | 'resourcepack', slugToRemove);
         p.log.success(pc.green(`Berkas dihapus: ${match}`));
       }
     }

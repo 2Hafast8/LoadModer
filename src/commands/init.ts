@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { instanceDetector } from '../core/instance/detector.js';
 import { instanceConfig } from '../core/instance/config.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
@@ -12,6 +13,16 @@ export async function initCommand() {
   const instances = await instanceDetector.scanAll();
   s.stop(pc.green(`Ditemukan ${instances.length} instance!`));
 
+  let target: {
+    id: string;
+    name: string;
+    launcher: string;
+    rootDir: string;
+    modsDir: string;
+    gameVersion?: string;
+    loader?: any;
+  };
+
   if (instances.length === 0) {
     p.log.warn('Tidak ada instance otomatis yang ditemukan.');
     const customDir = await p.text({
@@ -20,31 +31,29 @@ export async function initCommand() {
     });
     exitIfCancel(customDir);
 
-    await instanceConfig.load();
-    instanceConfig.saveInstance('custom-instance', {
+    const normalizedDir = path.resolve(customDir.trim());
+    target = {
+      id: 'custom-instance',
       name: 'Custom Instance',
       launcher: 'Custom',
-      rootDir: customDir,
-      modsDir: `${customDir}/mods`,
+      rootDir: normalizedDir,
+      modsDir: path.join(normalizedDir, 'mods'),
+    };
+  } else {
+    const choices = instances.map((inst) => ({
+      value: inst.id,
+      label: `[${inst.launcher}] ${inst.name}`,
+      hint: `${inst.loader ? inst.loader + ' ' : ''}${inst.gameVersion ?? ''} (${inst.rootDir})`,
+    }));
+
+    const selectedId = await p.select({
+      message: 'Pilih instance Minecraft target yang ingin dikelola:',
+      options: choices,
     });
-    await instanceConfig.save();
-    p.outro(pc.green('Instance kustom berhasil disimpan sebagai default!'));
-    return;
+    exitIfCancel(selectedId);
+
+    target = instances.find((i) => i.id === selectedId)!;
   }
-
-  const choices = instances.map((inst) => ({
-    value: inst.id,
-    label: `[${inst.launcher}] ${inst.name}`,
-    hint: `${inst.loader ? inst.loader + ' ' : ''}${inst.gameVersion ?? ''} (${inst.rootDir})`,
-  }));
-
-  const selectedId = await p.select({
-    message: 'Pilih instance Minecraft target yang ingin dikelola:',
-    options: choices,
-  });
-  exitIfCancel(selectedId);
-
-  const target = instances.find((i) => i.id === selectedId)!;
 
   let gameVersion = target.gameVersion;
   let loader = target.loader;

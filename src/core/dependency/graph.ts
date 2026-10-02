@@ -61,7 +61,13 @@ export class DependencyGraph {
       return {slug: clean, entry: this.data.mods[clean]};
     }
     for (const [slug, entry] of Object.entries(this.data.mods)) {
-      if (entry.projectId.toLowerCase() === clean) {
+      const fn = entry.filename.toLowerCase();
+      if (
+        entry.projectId.toLowerCase() === clean ||
+        fn === clean ||
+        `${fn}.disabled` === clean ||
+        fn.replace(/\.disabled$/, "") === clean
+      ) {
         return {slug, entry};
       }
     }

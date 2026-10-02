@@ -218,8 +218,10 @@ export class InstanceDetector {
               else if (lower.includes("quilt")) loader = "quilt";
             }
             if (!gameVersion) {
-              const m = f.match(/(?:mc|-|\+|fabric-)(\d+\.\d+(?:\.\d+)?|26\.\d+)/i);
-              if (m) gameVersion = m[1];
+              const m = f.match(
+                /(?:mc|minecraft)[-_ ]?((?:1\.(?:1[2-9]|2[0-9])(?:\.[0-9]+)?)|26\.\d+)|[-_+](1\.(?:1[2-9]|2[0-9])(?:\.[0-9]+)?|26\.\d+)/i,
+              );
+              if (m) gameVersion = m[1] || m[2];
             }
             if (loader && gameVersion) break;
           }
