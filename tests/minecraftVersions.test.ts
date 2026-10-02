@@ -3,9 +3,9 @@ import {
   isMinecraftVersionAtLeast1_16,
   compareMinecraftVersionsDesc,
   getMinecraftReleaseVersions,
-  getMinecraftVersionChoices,
   FALLBACK_MINECRAFT_VERSIONS,
 } from '../src/core/minecraft/versions.js';
+import { getMinecraftVersionChoices, type InteractiveChoice } from '../src/ui/interactive.js';
 import { modrinthClient } from '../src/api/client.js';
 
 describe('Minecraft Versions Management', () => {
@@ -101,7 +101,7 @@ describe('Minecraft Versions Management', () => {
 
     it('harus menandai versi aktif saat ini dengan tag yang tepat', async () => {
       const choices = await getMinecraftVersionChoices('1.21.1');
-      const activeChoice = choices.find((c) => c.value === '1.21.1');
+      const activeChoice = choices.find((c: InteractiveChoice) => c.value === '1.21.1');
 
       expect(activeChoice).toBeDefined();
       expect(activeChoice?.name).toContain('● Minecraft 1.21.1');
@@ -110,7 +110,7 @@ describe('Minecraft Versions Management', () => {
 
     it('harus menyertakan badge highlight untuk versi populer', async () => {
       const choices = await getMinecraftVersionChoices('1.16.5');
-      const pop120 = choices.find((c) => c.value === '1.20.1');
+      const pop120 = choices.find((c: InteractiveChoice) => c.value === '1.20.1');
 
       expect(pop120).toBeDefined();
       expect(pop120?.hint).toBe('Koleksi Mod Terbesar');

@@ -1,12 +1,12 @@
-import path from 'node:path';
-import { createWriteStream } from 'node:fs';
-import { mkdir, rename, rm } from 'node:fs/promises';
-import { Readable, Transform } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-import type { ReadableStream as WebReadableStream } from 'node:stream/web';
-import { API_BASE_URL, USER_AGENT } from '../constants.js';
-import { hashFile } from '../utils/crypto.js';
-import { apiCache } from './cache.js';
+import path from "node:path";
+import {createWriteStream} from "node:fs";
+import {mkdir, rename, rm} from "node:fs/promises";
+import {Readable, Transform} from "node:stream";
+import {pipeline} from "node:stream/promises";
+import type {ReadableStream as WebReadableStream} from "node:stream/web";
+import {API_BASE_URL, USER_AGENT} from "../constants.js";
+import {hashFile} from "../utils/crypto.js";
+import {apiCache} from "./cache.js";
 import type {
   FilterOptions,
   ModProject,
@@ -14,30 +14,33 @@ import type {
   SearchResponse,
   VersionType,
   ModrinthGameVersionTag,
-} from '../types/modrinth.js';
+} from "../types/modrinth.js";
 
 export class ModrinthError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
     super(message);
-    this.name = 'ModrinthError';
+    this.name = "ModrinthError";
   }
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST';
+  method?: "GET" | "POST";
   query?: Record<string, string | number>;
   body?: unknown;
   skipCache?: boolean;
 }
 
-export type SearchIndex = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';
+export type SearchIndex = "relevance" | "downloads" | "follows" | "newest" | "updated";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class ModrinthClient {
   constructor(
     public readonly userAgent: string = USER_AGENT,
-    private readonly baseUrl: string = API_BASE_URL
+    private readonly baseUrl: string = API_BASE_URL,
   ) {}
 
   private async request<T>(endpoint: string, opts: RequestOptions = {}, attempt = 0): Promise<T> {
@@ -46,88 +49,100 @@ export class ModrinthClient {
       url.searchParams.set(k, String(v));
     }
 
-    const cacheKey = `${opts.method ?? 'GET'}:${url.toString()}`;
-    if (opts.method !== 'POST' && !opts.skipCache) {
+    const cacheKey = `${opts.method ?? "GET"}:${url.toString()}`;
+    if (opts.method !== "POST" && !opts.skipCache) {
       const cached = apiCache.get<T>(cacheKey);
       if (cached) return cached;
     }
 
-    const res = await fetch(url, {
-      method: opts.method ?? 'GET',
-      headers: {
-        'User-Agent': this.userAgent,
-        Accept: 'application/json',
-        ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      },
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      signal: AbortSignal.timeout(15000),
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: opts.method ?? "GET",
+        headers: {
+          "User-Agent": this.userAgent,
+          Accept: "application/json",
+          ...(opts.body !== undefined ? {"Content-Type": "application/json"} : {}),
+        },
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (netErr: any) {
+      if (attempt < 3) {
+        await sleep(1000 * Math.pow(2, attempt) + 200);
+        return this.request<T>(endpoint, opts, attempt + 1);
+      }
+      throw netErr;
+    }
 
-    // 429 Rate Limit (kuota 300 req/min): baca X-Ratelimit-Reset lalu ulangi
     if (res.status === 429 && attempt < 3) {
-      const reset = Number(res.headers.get('x-ratelimit-reset'));
+      const reset = Number(res.headers.get("x-ratelimit-reset"));
       const waitSeconds = Number.isFinite(reset) && reset > 0 ? reset : 2;
       await sleep(waitSeconds * 1000 + 250);
+      return this.request<T>(endpoint, opts, attempt + 1);
+    }
+
+    if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < 3) {
+      await sleep(1000 * Math.pow(2, attempt) + 250);
       return this.request<T>(endpoint, opts, attempt + 1);
     }
 
     if (!res.ok) {
       if (res.status === 410) {
         throw new ModrinthError(
-          'API versi ini sudah dihentikan (410 Gone). Silakan perbarui LoadModer.',
-          410
+          "API versi ini sudah dihentikan (410 Gone). Silakan perbarui LoadModer.",
+          410,
         );
       }
-      const detail = await res.text().catch(() => '');
+      const detail = await res.text().catch(() => "");
       throw new ModrinthError(
         `Modrinth API error ${res.status} ${res.statusText} pada ${endpoint} ${detail}`.trim(),
-        res.status
+        res.status,
       );
     }
 
     const data = (await res.json()) as T;
-    if (opts.method !== 'POST' && !opts.skipCache) {
+    if (opts.method !== "POST" && !opts.skipCache) {
       apiCache.set(cacheKey, data);
     }
     return data;
   }
 
-  // ---------- Projects & Search ----------
   async search(
     query: string,
     filter: FilterOptions = {},
     limit = 10,
-    index: SearchIndex = 'relevance',
-    offset = 0
+    index: SearchIndex = "relevance",
+    offset = 0,
   ): Promise<SearchResponse> {
     const facets: string[][] = [];
 
-    const pType = filter.projectType ?? 'mod';
+    const pType = filter.projectType ?? "mod";
     facets.push([`project_type:${pType}`]);
 
-    if (filter.gameVersion && filter.gameVersion !== 'all') {
+    if (filter.gameVersion && filter.gameVersion !== "all") {
       facets.push([`versions:${filter.gameVersion}`]);
     }
-    if (filter.loader && filter.loader !== 'all') {
+    if (filter.loader && filter.loader !== "all") {
       facets.push([`categories:${filter.loader.toLowerCase()}`]);
     }
-    if (filter.category && filter.category !== 'all') {
+    if (filter.category && filter.category !== "all") {
       facets.push([`categories:${filter.category.toLowerCase()}`]);
     }
     if (filter.categories && filter.categories.length > 0) {
       for (const cat of filter.categories) {
-        if (cat && cat !== 'all') {
+        if (cat && cat !== "all") {
           facets.push([`categories:${cat.toLowerCase()}`]);
         }
       }
     }
-    if (filter.environment === 'client') {
-      facets.push(['client_side:required', 'client_side:optional']);
-    } else if (filter.environment === 'server') {
-      facets.push(['server_side:required', 'server_side:optional']);
+    if (filter.environment === "client") {
+      facets.push(["client_side:required", "client_side:optional"]);
+    } else if (filter.environment === "server") {
+      facets.push(["server_side:required", "server_side:optional"]);
     }
 
-    return this.request('/search', {
+    return this.request("/search", {
       query: {
         query,
         facets: JSON.stringify(facets),
@@ -144,12 +159,11 @@ export class ModrinthClient {
 
   async getProjects(ids: string[]): Promise<ModProject[]> {
     if (ids.length === 0) return [];
-    return this.request('/projects', {
-      query: { ids: JSON.stringify(ids) },
+    return this.request("/projects", {
+      query: {ids: JSON.stringify(ids)},
     });
   }
 
-  // ---------- Versions ----------
   async getProjectVersions(idOrSlug: string, filter: FilterOptions = {}): Promise<ModVersion[]> {
     const query: Record<string, string> = {};
     if (filter.gameVersion) {
@@ -161,7 +175,7 @@ export class ModrinthClient {
 
     const versions = await this.request<ModVersion[]>(
       `/project/${encodeURIComponent(idOrSlug)}/version`,
-      { query }
+      {query},
     );
     return versions.sort((a, b) => b.date_published.localeCompare(a.date_published));
   }
@@ -170,26 +184,25 @@ export class ModrinthClient {
     return this.request(`/version/${encodeURIComponent(versionId)}`);
   }
 
-  // ---------- Version Files (Hash lookup) ----------
   async getVersionsByHashes(sha1Hashes: string[]): Promise<Record<string, ModVersion>> {
     if (sha1Hashes.length === 0) return {};
-    return this.request('/version_files', {
-      method: 'POST',
-      body: { hashes: sha1Hashes, algorithm: 'sha1' },
+    return this.request("/version_files", {
+      method: "POST",
+      body: {hashes: sha1Hashes, algorithm: "sha1"},
     });
   }
 
   async getLatestByHashes(
     sha1Hashes: string[],
-    filter: Required<Pick<FilterOptions, 'gameVersion' | 'loader'>>,
-    versionTypes: VersionType[] = ['release']
+    filter: Required<Pick<FilterOptions, "gameVersion" | "loader">>,
+    versionTypes: VersionType[] = ["release"],
   ): Promise<Record<string, ModVersion>> {
     if (sha1Hashes.length === 0) return {};
-    return this.request('/version_files/update', {
-      method: 'POST',
+    return this.request("/version_files/update", {
+      method: "POST",
       body: {
         hashes: sha1Hashes,
-        algorithm: 'sha1',
+        algorithm: "sha1",
         loaders: [filter.loader],
         game_versions: [filter.gameVersion],
         version_types: versionTypes,
@@ -197,12 +210,10 @@ export class ModrinthClient {
     });
   }
 
-  // ---------- Tags & Metadata ----------
   async getGameVersions(): Promise<ModrinthGameVersionTag[]> {
-    return this.request<ModrinthGameVersionTag[]>('/tag/game_version');
+    return this.request<ModrinthGameVersionTag[]>("/tag/game_version");
   }
 
-  // ---------- Download Pipeline ----------
   async download(
     url: string,
     dest: string,
@@ -210,19 +221,34 @@ export class ModrinthClient {
       sha512?: string;
       size?: number;
       onProgress?: (received: number, total: number) => void;
-    } = {}
+    } = {},
+    attempt = 0,
   ): Promise<void> {
-    await mkdir(path.dirname(dest), { recursive: true });
+    await mkdir(path.dirname(dest), {recursive: true});
 
-    const res = await fetch(url, {
-      headers: { 'User-Agent': this.userAgent },
-      signal: AbortSignal.timeout(60000), // 60 detik timeout unduhan
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {"User-Agent": this.userAgent},
+        signal: AbortSignal.timeout(60000),
+      });
+    } catch (netErr: any) {
+      if (attempt < 2) {
+        await sleep(1000 * Math.pow(2, attempt) + 250);
+        return this.download(url, dest, opts, attempt + 1);
+      }
+      throw netErr;
+    }
+
     if (!res.ok || !res.body) {
+      if ((res.status === 502 || res.status === 503 || res.status === 504 || res.status === 429) && attempt < 2) {
+        await sleep(1500 * Math.pow(2, attempt) + 250);
+        return this.download(url, dest, opts, attempt + 1);
+      }
       throw new ModrinthError(`Gagal mengunduh (${res.status}): ${url}`, res.status);
     }
 
-    const total = Number(res.headers.get('content-length')) || opts.size || 0;
+    const total = Number(res.headers.get("content-length")) || opts.size || 0;
     const tmp = `${dest}.part`;
     let received = 0;
 
@@ -238,19 +264,23 @@ export class ModrinthClient {
       await pipeline(
         Readable.fromWeb(res.body as unknown as WebReadableStream),
         counter,
-        createWriteStream(tmp)
+        createWriteStream(tmp),
       );
 
       if (opts.sha512) {
-        const actualSha512 = await hashFile(tmp, 'sha512');
+        const actualSha512 = await hashFile(tmp, "sha512");
         if (actualSha512.toLowerCase() !== opts.sha512.toLowerCase()) {
-          throw new Error('Checksum SHA-512 tidak cocok, berkas dibatalkan (korup).');
+          throw new Error("Checksum SHA-512 tidak cocok, berkas dibatalkan (korup).");
         }
       }
 
       await rename(tmp, dest);
     } catch (err) {
-      await rm(tmp, { force: true });
+      await rm(tmp, {force: true});
+      if (attempt < 2) {
+        await sleep(1000 * Math.pow(2, attempt) + 250);
+        return this.download(url, dest, opts, attempt + 1);
+      }
       throw err;
     }
   }

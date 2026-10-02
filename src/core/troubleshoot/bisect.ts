@@ -6,6 +6,7 @@ interface BisectState {
   activeCandidates: string[];
   currentTestGroup: string[];
   step: number;
+  initialDisabled?: string[];
 }
 
 export class BisectRunner {
@@ -18,6 +19,7 @@ export class BisectRunner {
   async start(): Promise<{ totalMods: number; testingCount: number }> {
     const files = await readdir(this.modsDir);
     const activeMods = files.filter((f) => f.endsWith('.jar'));
+    const alreadyDisabled = files.filter((f) => f.endsWith('.jar.disabled'));
 
     if (activeMods.length < 2) {
       throw new Error('Minimal harus ada 2 mod aktif untuk memulai sesi bisect.');
@@ -34,6 +36,7 @@ export class BisectRunner {
       activeCandidates: activeMods,
       currentTestGroup: toDisable,
       step: 1,
+      initialDisabled: alreadyDisabled,
     };
     await writeFileAtomic(this.stateFile, JSON.stringify(state, null, 2), 'utf8');
 
@@ -62,7 +65,7 @@ export class BisectRunner {
       return { finished: true, culprit, remaining: 1, step: state.step };
     }
 
-    await this.resetFiles();
+    await this.resetFiles(state.initialDisabled);
     const midpoint = Math.ceil(candidates.length / 2);
     const nextDisable = candidates.slice(0, midpoint);
 
@@ -79,17 +82,23 @@ export class BisectRunner {
   }
 
   async reset(): Promise<void> {
-    await this.resetFiles();
+    let initialDisabled: string[] = [];
+    try {
+      const state: BisectState = JSON.parse(await readFile(this.stateFile, 'utf8'));
+      if (state.initialDisabled) initialDisabled = state.initialDisabled;
+    } catch {}
+    await this.resetFiles(initialDisabled);
     try {
       await rm(this.stateFile, { force: true });
     } catch {}
   }
 
-  private async resetFiles(): Promise<void> {
+  private async resetFiles(initialDisabled: string[] = []): Promise<void> {
     try {
       const files = await readdir(this.modsDir);
+      const skipSet = new Set(initialDisabled);
       for (const f of files) {
-        if (f.endsWith('.jar.disabled')) {
+        if (f.endsWith('.jar.disabled') && !skipSet.has(f)) {
           await rename(path.join(this.modsDir, f), path.join(this.modsDir, f.replace(/\.disabled$/, '')));
         }
       }

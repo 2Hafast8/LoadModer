@@ -163,7 +163,7 @@ export class InstanceDetector {
       let gameVersion: string | undefined;
       let loader: LoaderType | undefined;
 
-      // 1. Pindai folder versions untuk mendeteksi Fabric/Forge/NeoForge dan versi MC
+      // Scan versions directory for loader JSON and game version
       const versionsDir = path.join(mcDir, 'versions');
       try {
         const vDirs = await readdir(versionsDir, { withFileTypes: true });
@@ -197,7 +197,7 @@ export class InstanceDetector {
         }
       } catch {}
 
-      // 2. Jika belum terdeteksi, deteksi dari berkas jar yang ada di folder mods
+      // Fallback: detect loader and game version from jar filenames in mods directory
       if (!loader || !gameVersion) {
         try {
           const modFiles = await readdir(modsDir);

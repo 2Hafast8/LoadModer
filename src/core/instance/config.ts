@@ -21,7 +21,18 @@ export class InstanceConfigManager {
       const data = await readFile(this.configPath, 'utf8');
       this.config = JSON.parse(data);
       if (!this.config.instances) this.config.instances = {};
-    } catch {
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        this.config = {
+          defaultEnvironment: 'client',
+          instances: {},
+        };
+        return this.config;
+      }
+      try {
+        const raw = await readFile(this.configPath);
+        await writeFileAtomic(`${this.configPath}.corrupt.${Date.now()}.bak`, raw);
+      } catch {}
       this.config = {
         defaultEnvironment: 'client',
         instances: {},
@@ -55,6 +66,13 @@ export class InstanceConfigManager {
     this.config.instances[key] = instance;
     if (makeActive || !this.config.activeInstance) {
       this.config.activeInstance = key;
+    }
+  }
+
+  deleteInstance(key: string): void {
+    delete this.config.instances[key];
+    if (this.config.activeInstance === key) {
+      delete this.config.activeInstance;
     }
   }
 

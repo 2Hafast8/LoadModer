@@ -3,7 +3,6 @@ import { readFile, mkdir } from 'node:fs/promises';
 import writeFileAtomic from 'write-file-atomic';
 import { modrinthClient } from '../../api/client.js';
 import { GLOBAL_CONFIG_DIR } from '../../constants.js';
-import type { InteractiveChoice } from '../../ui/interactive.js';
 
 const CACHE_FILE_PATH = path.join(GLOBAL_CONFIG_DIR, 'cache', 'minecraft_versions.json');
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 jam TTL cache
@@ -102,12 +101,10 @@ export async function getMinecraftReleaseVersions(options?: {
 }): Promise<string[]> {
   const now = Date.now();
 
-  // 1. Cek memory cache jika masih fresh
   if (!options?.forceRefresh && inMemoryVersions && inMemoryVersions.length > 0 && now - lastFetchTime < CACHE_TTL_MS) {
     return inMemoryVersions;
   }
 
-  // 2. Coba fetch dari Modrinth API /tag/game_version
   try {
     const tags = await modrinthClient.getGameVersions();
     const releases = tags
@@ -115,22 +112,18 @@ export async function getMinecraftReleaseVersions(options?: {
       .map((t) => t.version)
       .filter(isMinecraftVersionAtLeast1_16);
 
-    // Hilangkan duplikasi dan urutkan
     const uniqueVersions = Array.from(new Set(releases)).sort(compareMinecraftVersionsDesc);
 
     if (uniqueVersions.length > 0) {
       inMemoryVersions = uniqueVersions;
       lastFetchTime = now;
-
-      // Simpan ke disk cache secara asinkron di latar belakang
       saveToDiskCache({ updatedAt: now, versions: uniqueVersions }).catch(() => {});
       return uniqueVersions;
     }
   } catch {
-    // Abaikan error jaringan dan lanjutkan ke cache disk / fallback
+    // Network failure: proceed to disk cache or static fallback
   }
 
-  // 3. Coba baca dari disk cache lokal
   const diskData = await loadFromDiskCache();
   if (diskData && diskData.versions && diskData.versions.length > 0) {
     inMemoryVersions = diskData.versions;
@@ -138,49 +131,10 @@ export async function getMinecraftReleaseVersions(options?: {
     return diskData.versions;
   }
 
-  // 4. Fallback statis jika benar-benar offline tanpa cache
+  // Static fallback if offline without cached metadata
   inMemoryVersions = FALLBACK_MINECRAFT_VERSIONS;
   lastFetchTime = now;
   return FALLBACK_MINECRAFT_VERSIONS;
-}
-
-/**
- * Menghasilkan daftar InteractiveChoice yang rapi dan siap pakai di antarmuka menu (Inquirer)
- * dengan highlight versi populer dan versi aktif pengguna saat ini.
- */
-export async function getMinecraftVersionChoices(
-  currentVersion?: string
-): Promise<InteractiveChoice[]> {
-  const versions = await getMinecraftReleaseVersions();
-  const cleanCurrent = currentVersion?.toLowerCase().trim();
-
-  const choices: InteractiveChoice[] = [];
-
-  for (let i = 0; i < versions.length; i++) {
-    const ver = versions[i];
-    const isCurrent = cleanCurrent === ver.toLowerCase();
-
-    let tagHint = '';
-    if (isCurrent) {
-      tagHint = '● Aktif Saat Ini';
-    } else if (i === 0) {
-      tagHint = 'Versi Terkini';
-    } else if (ver === '1.21.1') {
-      tagHint = 'Paling Populer & Stabil';
-    } else if (ver === '1.20.1') {
-      tagHint = 'Koleksi Mod Terbesar';
-    } else if (ver === '1.16.5') {
-      tagHint = 'Klasik Modern';
-    }
-
-    choices.push({
-      name: `${isCurrent ? '● ' : '○ '}Minecraft ${ver}`,
-      value: ver,
-      hint: tagHint || undefined,
-    });
-  }
-
-  return choices;
 }
 
 async function loadFromDiskCache(): Promise<DiskVersionCache | null> {

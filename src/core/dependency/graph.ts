@@ -25,8 +25,14 @@ export class DependencyGraph {
       const content = await readFile(this.lockfilePath, 'utf8');
       this.data = JSON.parse(content);
       if (!this.data.mods) this.data.mods = {};
-    } catch {
-      // Inisialisasi lockfile baru jika belum ada
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        return;
+      }
+      try {
+        const raw = await readFile(this.lockfilePath);
+        await writeFileAtomic(`${this.lockfilePath}.corrupt.${Date.now()}.bak`, raw);
+      } catch {}
     }
   }
 
@@ -35,19 +41,33 @@ export class DependencyGraph {
     await writeFileAtomic(this.lockfilePath, JSON.stringify(this.data, null, 2) + '\n', 'utf8');
   }
 
+  findMod(idOrSlug: string): { slug: string; entry: LockModEntry } | undefined {
+    const clean = idOrSlug.toLowerCase();
+    if (this.data.mods[clean]) {
+      return { slug: clean, entry: this.data.mods[clean] };
+    }
+    for (const [slug, entry] of Object.entries(this.data.mods)) {
+      if (entry.projectId.toLowerCase() === clean) {
+        return { slug, entry };
+      }
+    }
+    return undefined;
+  }
+
   getMod(slug: string): LockModEntry | undefined {
-    return this.data.mods[slug.toLowerCase()];
+    return this.findMod(slug)?.entry;
   }
 
   registerMod(slug: string, entry: Omit<LockModEntry, 'dependedBy' | 'installedAt'>): void {
     const key = slug.toLowerCase();
     const existing = this.data.mods[key];
+    const projectIdClean = entry.projectId.toLowerCase();
 
-    // Cari mod apa saja yang sudah terdaftar yang bergantung pada mod ini
     const dependedBy = existing ? [...existing.dependedBy] : [];
     for (const [modKey, modEntry] of Object.entries(this.data.mods)) {
+      const depList = (modEntry.dependencies || []).map((d) => d.toLowerCase());
       if (
-        modEntry.dependencies.map((d) => d.toLowerCase()).includes(key) &&
+        (depList.includes(key) || depList.includes(projectIdClean)) &&
         !dependedBy.includes(modKey)
       ) {
         dependedBy.push(modKey);
@@ -60,31 +80,29 @@ export class DependencyGraph {
       installedAt: existing?.installedAt ?? new Date().toISOString(),
     };
 
-    // Tambahkan relasi dependedBy ke anak dependensi yang sudah ada
-    for (const depSlug of entry.dependencies) {
-      const depKey = depSlug.toLowerCase();
-      if (this.data.mods[depKey] && !this.data.mods[depKey].dependedBy.includes(key)) {
-        this.data.mods[depKey].dependedBy.push(key);
+    for (const depIdentifier of entry.dependencies) {
+      const target = this.findMod(depIdentifier);
+      if (target && !target.entry.dependedBy.includes(key)) {
+        target.entry.dependedBy.push(key);
       }
     }
   }
 
-  removeMod(slug: string): { removedMod: LockModEntry | null; orphanedSlugs: string[] } {
-    const key = slug.toLowerCase();
-    const target = this.data.mods[key];
-    if (!target) return { removedMod: null, orphanedSlugs: [] };
+  removeMod(slugOrId: string): { removedMod: LockModEntry | null; orphanedSlugs: string[] } {
+    const match = this.findMod(slugOrId);
+    if (!match) return { removedMod: null, orphanedSlugs: [] };
 
+    const key = match.slug;
+    const target = match.entry;
     delete this.data.mods[key];
     const orphanedSlugs: string[] = [];
 
-    // Kurangi referensi dari dependensinya
-    for (const depSlug of target.dependencies) {
-      const depKey = depSlug.toLowerCase();
-      const dep = this.data.mods[depKey];
-      if (dep) {
-        dep.dependedBy = dep.dependedBy.filter((parent) => parent !== key);
-        if (!dep.isRoot && dep.dependedBy.length === 0) {
-          orphanedSlugs.push(depKey);
+    for (const depIdentifier of target.dependencies) {
+      const child = this.findMod(depIdentifier);
+      if (child) {
+        child.entry.dependedBy = child.entry.dependedBy.filter((parent) => parent !== key);
+        if (!child.entry.isRoot && child.entry.dependedBy.length === 0) {
+          orphanedSlugs.push(child.slug);
         }
       }
     }

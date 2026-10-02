@@ -56,7 +56,16 @@ export async function removeCommand(targets: string[], opts: RemoveOptions) {
       await rm(path.join(modsDir, match), { force: true });
       p.log.success(pc.green(`Berkas dihapus: ${match}`));
 
-      const { orphanedSlugs } = graph.removeMod(target);
+      const matchClean = match.replace(/\.disabled$/, '');
+      const lockEntry = Object.entries(graph.data.mods).find(
+        ([slug, m]) =>
+          m.filename === match ||
+          m.filename === matchClean ||
+          slug.toLowerCase() === target.toLowerCase()
+      );
+      const targetSlug = lockEntry ? lockEntry[0] : target;
+
+      const { orphanedSlugs } = graph.removeMod(targetSlug);
 
       if (orphanedSlugs.length > 0) {
         p.log.warn(
@@ -74,14 +83,20 @@ export async function removeCommand(targets: string[], opts: RemoveOptions) {
         }
 
         if (doPrune) {
+          const freshFiles = await readdir(modsDir).catch(() => filesInFolder);
           for (const orphan of orphanedSlugs) {
-            const orphanFiles = filesInFolder.filter(
-              (f) => f.toLowerCase().includes(orphan) && f.endsWith('.jar')
+            const orphanEntry = graph.getMod(orphan);
+            const orphanFilename = orphanEntry?.filename;
+            const orphanFiles = freshFiles.filter(
+              (f) =>
+                (orphanFilename && (f === orphanFilename || f === `${orphanFilename}.disabled`)) ||
+                (f.toLowerCase().includes(orphan) && (f.endsWith('.jar') || f.endsWith('.disabled')))
             );
             for (const ofile of orphanFiles) {
               await rm(path.join(modsDir, ofile), { force: true });
               p.log.message(pc.dim(`Dependensi yatim dihapus: ${ofile}`));
             }
+            graph.removeMod(orphan);
           }
         }
       }

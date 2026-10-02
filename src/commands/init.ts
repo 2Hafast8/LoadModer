@@ -1,7 +1,7 @@
 import { instanceDetector } from '../core/instance/detector.js';
 import { instanceConfig } from '../core/instance/config.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
-import { getMinecraftVersionChoices } from '../core/minecraft/versions.js';
+import { getMinecraftVersionChoices } from '../ui/interactive.js';
 
 export async function initCommand() {
   showBanner();
