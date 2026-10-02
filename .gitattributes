@@ -1,0 +1,8 @@
+# Auto-detect text files and normalize line endings to LF
+* text=auto eol=lf
+
+# GitHub Linguist Overrides
+# Ensure LoadModer is accurately recognized as 100% TypeScript
+.agent/** linguist-vendored
+tests/** linguist-documentation
+docs/** linguist-documentation
