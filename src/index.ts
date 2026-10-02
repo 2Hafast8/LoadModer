@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import {Command} from "commander";
 import {APP_NAME, APP_VERSION} from "./constants.js";
 import {initCommand} from "./commands/init.js";
