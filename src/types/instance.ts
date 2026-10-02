@@ -17,7 +17,7 @@ export interface SavedInstanceConfig {
   rootDir: string;
   modsDir: string;
   gameVersion?: string;
-  loader?: string;
+  loader?: LoaderType | string;
 }
 
 export interface GlobalConfig {

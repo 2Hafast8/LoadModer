@@ -17,7 +17,8 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
   const modsDir = opts.dir ?? activeInst?.modsDir;
   if (!modsDir) {
     p.log.error('Folder mods belum ditentukan. Jalankan "loadmoder init" terlebih dahulu.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const runner = new BisectRunner(modsDir);

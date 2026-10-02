@@ -14,8 +14,11 @@ export const GLOBAL_CONFIG_DIR =
   process.env.LOADMODER_HOME ?? path.join(os.homedir(), ".loadmoder");
 export const GLOBAL_CONFIG_PATH = path.join(GLOBAL_CONFIG_DIR, "config.json");
 
+import type { LoaderType } from "./types/instance.js";
+import type { ProjectType } from "./types/modrinth.js";
+
 export const SUPPORTED_LOADERS = ["fabric", "forge", "neoforge", "quilt"] as const;
-export type SupportedLoader = (typeof SUPPORTED_LOADERS)[number];
+export type SupportedLoader = LoaderType;
 
 export const PROJECT_TYPES = ["mod", "modpack", "resourcepack", "shader", "datapack"] as const;
-export type ProjectType = (typeof PROJECT_TYPES)[number];
+export type { ProjectType };

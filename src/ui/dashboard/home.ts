@@ -8,7 +8,7 @@ import {runInteractiveManager} from "./manager.js";
 import {updateCommand} from "../../commands/update.js";
 import {initCommand} from "../../commands/init.js";
 import {bisectCommand} from "../../commands/bisect.js";
-import {runInteractiveProfileSwitcher} from "../../commands/profile.js";
+import {runInteractiveProfileSwitcher} from "./profileSwitcher.js";
 import {DependencyGraph} from "../../core/dependency/graph.js";
 import {ModsWatcher} from "../../core/watcher/modsWatcher.js";
 import {formatBytes} from "../../utils/format.js";

@@ -8,7 +8,7 @@ import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
 import { hashFile } from '../utils/crypto.js';
 import { formatBytes } from '../utils/format.js';
 import pLimit from 'p-limit';
-import type { VersionType } from '../types/modrinth.js';
+import type { VersionType, ModVersion, ModVersionFile, ModVersionDependency } from '../types/modrinth.js';
 
 interface UpdateOptions {
   dir?: string;
@@ -30,7 +30,8 @@ export async function updateCommand(opts: UpdateOptions) {
   const modsDir = opts.dir ?? activeInst?.modsDir;
   if (!modsDir) {
     p.log.error('Folder mods belum ditentukan. Jalankan "loadmoder init" terlebih dahulu.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const gameVersion = opts.mcVersion ?? activeInst?.gameVersion;
@@ -38,7 +39,8 @@ export async function updateCommand(opts: UpdateOptions) {
 
   if (!gameVersion || !loader) {
     p.log.error('Versi Minecraft atau loader belum ditentukan. Gunakan -v dan -l.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const s = p.spinner();
@@ -75,7 +77,7 @@ export async function updateCommand(opts: UpdateOptions) {
     versionTypes
   );
 
-  const updates: { current: string; currentPath: string; nextVersion: any; nextFile: any }[] = [];
+  const updates: { current: string; currentPath: string; nextVersion: ModVersion; nextFile: ModVersionFile }[] = [];
 
   for (const item of fileHashes) {
     const nextVer = latestMap[item.sha1];
@@ -147,8 +149,8 @@ export async function updateCommand(opts: UpdateOptions) {
     const slug = existingLockEntry ? existingLockEntry[0] : up.nextVersion.project_id;
     const isRoot = existingLockEntry ? existingLockEntry[1].isRoot : true;
     const reqDeps = (up.nextVersion.dependencies || [])
-      .filter((d: any) => d.dependency_type === 'required' && Boolean(d.project_id))
-      .map((d: any) => d.project_id);
+      .filter((d: ModVersionDependency) => d.dependency_type === 'required' && Boolean(d.project_id))
+      .map((d: ModVersionDependency) => d.project_id!);
 
     graph.registerMod(slug, {
       projectId: up.nextVersion.project_id,

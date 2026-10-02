@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import writeFileAtomic from 'write-file-atomic';
 import { GLOBAL_CONFIG_PATH } from '../../constants.js';
 import type { GlobalConfig, SavedInstanceConfig } from '../../types/instance.js';
+import { InstanceNotFoundError } from '../../types/errors.js';
 
 export class InstanceConfigManager {
   private configPath: string;
@@ -57,7 +58,7 @@ export class InstanceConfigManager {
 
   setActiveInstance(key: string): void {
     if (!this.config.instances[key]) {
-      throw new Error(`Instance dengan id/nama "${key}" tidak ditemukan.`);
+      throw new InstanceNotFoundError(key);
     }
     this.config.activeInstance = key;
   }

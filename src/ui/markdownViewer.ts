@@ -2,7 +2,7 @@ import chalk from "chalk";
 import boxen from "boxen";
 import {theme, showBanner, clearScreen} from "./theme.js";
 import {askInteractiveMenu, ask, type InteractiveChoice} from "./interactive.js";
-import {renderMarkdownToTerminal} from "../utils/markdown.js";
+import {renderMarkdownToTerminal} from "./markdown.js";
 
 export async function displayPaginatedMarkdown(
   title: string,

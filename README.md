@@ -5,7 +5,7 @@
 
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
-[![Vitest](https://img.shields.io/badge/tests-85%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-91%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 
@@ -168,12 +168,13 @@ npx vitest
 - `tests/bisect.test.ts` (6 tests)
 - `tests/instanceConfig.test.ts` (4 tests)
 - `tests/searchFilters.test.ts` (6 tests)
+- `tests/architectureRefactor.test.ts` (6 tests)
 - `tests/cliJsonOutput.test.ts` (2 tests)
 - `tests/instanceDetector.test.ts` (2 tests)
 - `tests/modsWatcher.test.ts` (2 tests)
 - `tests/crypto.test.ts` (3 tests)
 - `tests/performance.test.ts` (2 tests)
-- **Total: 15 test files, 85 tests passed (100%)**.
+- **Total: 16 test files, 91 tests passed (100%)**.
 
 ---
 

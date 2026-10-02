@@ -3,6 +3,7 @@ import { instanceDetector } from '../core/instance/detector.js';
 import { instanceConfig } from '../core/instance/config.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
 import { getMinecraftVersionChoices } from '../ui/interactive.js';
+import type { LoaderType } from '../types/instance.js';
 
 export async function initCommand() {
   showBanner();
@@ -20,7 +21,7 @@ export async function initCommand() {
     rootDir: string;
     modsDir: string;
     gameVersion?: string;
-    loader?: any;
+    loader?: LoaderType;
   };
 
   if (instances.length === 0) {
@@ -101,7 +102,7 @@ export async function initCommand() {
       ],
     });
     exitIfCancel(inputLoader);
-    loader = inputLoader as any;
+    loader = inputLoader as LoaderType;
   }
 
   await instanceConfig.load();

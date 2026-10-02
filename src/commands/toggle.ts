@@ -1,5 +1,5 @@
 import { instanceConfig } from '../core/instance/config.js';
-import { BisectRunner } from '../core/troubleshoot/bisect.js';
+import { toggleModFile } from '../core/instance/modToggle.js';
 import { p, pc, showBanner } from '../ui/prompts.js';
 
 interface ToggleOptions {
@@ -14,13 +14,12 @@ export async function toggleCommand(modQuery: string, enable: boolean, opts: Tog
   const modsDir = opts.dir ?? activeInst?.modsDir;
   if (!modsDir) {
     p.log.error('Folder mods belum ditentukan. Jalankan "loadmoder init" terlebih dahulu.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
-  const runner = new BisectRunner(modsDir);
-
   try {
-    const newName = await runner.toggleMod(modQuery, enable);
+    const newName = await toggleModFile(modsDir, modQuery, enable);
     if (enable) {
       p.outro(pc.green(`Mod diaktifkan: ${pc.bold(newName)}`));
     } else {
@@ -28,6 +27,7 @@ export async function toggleCommand(modQuery: string, enable: boolean, opts: Tog
     }
   } catch (err) {
     p.log.error((err as Error).message);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }

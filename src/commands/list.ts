@@ -24,7 +24,8 @@ export async function listCommand(opts: ListOptions) {
   const modsDir = opts.dir ?? activeInst?.modsDir;
   if (!modsDir) {
     p.log.error('Folder mods belum ditentukan. Jalankan "loadmoder init" terlebih dahulu.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const instanceDir = activeInst?.rootDir ?? path.dirname(modsDir);

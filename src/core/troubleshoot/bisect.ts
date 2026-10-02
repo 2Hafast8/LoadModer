@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { readdir, rename, readFile, rm } from 'node:fs/promises';
 import writeFileAtomic from 'write-file-atomic';
+import { toggleModFile } from '../instance/modToggle.js';
 
 interface BisectState {
   activeCandidates: string[];
@@ -106,23 +107,6 @@ export class BisectRunner {
   }
 
   async toggleMod(modQuery: string, enable: boolean): Promise<string> {
-    const files = await readdir(this.modsDir);
-    const targetSuffix = enable ? '.jar.disabled' : '.jar';
-    const replaceSuffix = enable ? '.jar' : '.jar.disabled';
-
-    const match = files.find(
-      (f) => f.toLowerCase().includes(modQuery.toLowerCase()) && f.endsWith(targetSuffix)
-    );
-
-    if (!match) {
-      throw new Error(`Berkas "${modQuery}" dengan status ${enable ? 'nonaktif' : 'aktif'} tidak ditemukan.`);
-    }
-
-    const oldPath = path.join(this.modsDir, match);
-    const newName = match.replace(new RegExp(`\\${targetSuffix}$`), replaceSuffix);
-    const newPath = path.join(this.modsDir, newName);
-
-    await rename(oldPath, newPath);
-    return newName;
+    return toggleModFile(this.modsDir, modQuery, enable);
   }
 }

@@ -7,7 +7,7 @@ import {DependencyGraph} from "../core/dependency/graph.js";
 import {resolveAndInstallDependencies} from "../core/dependency/resolver.js";
 import {p, pc, showBanner} from "../ui/prompts.js";
 import {formatBytes} from "../utils/format.js";
-import type {ModVersion} from "../types/modrinth.js";
+import type {ModVersion, ModProject} from "../types/modrinth.js";
 
 interface InstallOptions {
   type?: string;
@@ -32,7 +32,8 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
   const modsDir = opts.dir ?? activeInst?.modsDir;
   if (!modsDir) {
     p.log.error('Folder mods belum ditentukan. Jalankan "loadmoder init" terlebih dahulu.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const gameVersion = opts.mcVersion ?? activeInst?.gameVersion;
@@ -46,7 +47,8 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
     p.log.error(
       'Versi Minecraft atau loader belum ditentukan pada instance aktif. Gunakan flag -v dan -l atau jalankan "lm init".',
     );
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   p.log.info(
@@ -180,7 +182,7 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
       continue;
     }
 
-    let projectMeta: any;
+    let projectMeta: ModProject | undefined;
     try {
       projectMeta = await modrinthClient.getProject(best.project_id || slug);
     } catch {}

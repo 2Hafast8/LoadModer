@@ -46,6 +46,8 @@ export interface ModDependency {
   dependency_type: DependencyType;
 }
 
+export type ModVersionDependency = ModDependency;
+
 export interface ModVersion {
   id: string;
   project_id: string;
