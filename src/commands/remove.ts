@@ -69,13 +69,13 @@ export async function removeCommand(targets: string[], opts: RemoveOptions) {
 
       if (orphanedSlugs.length > 0) {
         p.log.warn(
-          `Dependensi yatim terdeteksi (tidak lagi digunakan): ${pc.yellow(orphanedSlugs.join(', '))}`
+          `Dependensi tidak terpakai terdeteksi: ${pc.yellow(orphanedSlugs.join(', '))}`
         );
 
         let doPrune = opts.prune || opts.yes;
         if (!doPrune) {
           const pruneConfirm = await p.confirm({
-            message: `Hapus ${orphanedSlugs.length} dependensi yatim ini agar folder mods tetap bersih?`,
+            message: `Hapus ${orphanedSlugs.length} dependensi tidak terpakai ini?`,
             initialValue: true,
           });
           exitIfCancel(pruneConfirm);

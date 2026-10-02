@@ -4,6 +4,7 @@ import gradient from 'gradient-string';
 import figlet from 'figlet';
 import Table from 'cli-table3';
 import { formatNumber } from '../utils/format.js';
+import { APP_VERSION } from '../constants.js';
 
 export function isLightTerminal(): boolean {
   if (process.env.LOADMODER_THEME === 'light') return true;
@@ -91,7 +92,7 @@ export const showBanner = (
     const extra = extraInfo ? chalk.hex(theme.muted)(` • ${extraInfo}`) : '';
     console.log(
       chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
-        chalk.hex(theme.muted)(' v2.0.0 ') +
+        chalk.hex(theme.muted)(` v${APP_VERSION} `) +
         (instanceName ? chalk.hex(theme.secondary)(`• [${instanceName}]`) : '') +
         extra +
         '\n'
@@ -108,7 +109,7 @@ export const showBanner = (
   if (cols < 60) {
     console.log(
       chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
-        chalk.hex(theme.muted)(' v2.0.0 ') +
+        chalk.hex(theme.muted)(` v${APP_VERSION} `) +
         chalk.hex(theme.muted)('• Minecraft Mod & Modpack Manager\n')
     );
   } else {
@@ -122,13 +123,13 @@ export const showBanner = (
     } catch {
       console.log(
         chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
-          chalk.hex(theme.muted)(' v2.0.0\n')
+          chalk.hex(theme.muted)(` v${APP_VERSION}\n`)
       );
     }
   }
 
   console.log(
-    chalk.hex(theme.muted)('  v2.0.0  •  ') +
+    chalk.hex(theme.muted)(`  v${APP_VERSION}  •  `) +
       chalk.hex(theme.primary).bold('Minecraft Mod & Modpack Manager') +
       chalk.hex(theme.muted)('  •  Nordic Clean TUI\n')
   );
@@ -159,6 +160,11 @@ export const renderInstanceHeader = (info: {
   activeCount?: number;
   storageUsage?: string;
 }) => {
+  const loaderVersionText =
+    info.loader || info.gameVersion
+      ? `${info.loader ?? '-'} (${info.gameVersion ?? '-'})`
+      : 'Belum ditentukan';
+
   const line1 =
     chalk.hex(theme.textMuted)('Instance : ') +
     chalk.hex(theme.primary).bold(info.instanceName ?? 'Belum dipilih') +
@@ -166,7 +172,7 @@ export const renderInstanceHeader = (info: {
     chalk.hex(theme.muted)('│') +
     '  ' +
     chalk.hex(theme.textMuted)('Mod Loader : ') +
-    chalk.hex(theme.secondary).bold(`${info.loader ?? 'Fabric'} (${info.gameVersion ?? '1.21'})`);
+    chalk.hex(theme.secondary).bold(loaderVersionText);
 
   const line2 =
     chalk.hex(theme.textMuted)('Total Mod: ') +
@@ -229,15 +235,15 @@ export const printFAQ = () => {
   const faqs = [
     {
       q: 'Bagaimana cara memilih instance Minecraft?',
-      a: 'Gunakan opsi [Pilih / Ganti Instance] di menu utama atau perintah "lm init". LoadModer mendukung Prism Launcher, Modrinth App, MultiMC, CurseForge, dan Vanilla Launcher.',
+      a: 'Pilih "Kelola Profil & Versi Game" di menu utama atau jalankan "lm init". LoadModer mendukung Prism Launcher, Modrinth App, MultiMC, CurseForge, dan Vanilla Launcher.',
     },
     {
       q: 'Bagaimana cara memasang modpack (.mrpack)?',
-      a: 'Pilih [Eksplorasi Modpack] di dashboard atau ketik "lm install <slug> --type modpack". File modpack diekstrak otomatis beserta config dan overrides.',
+      a: 'Pilih "Jelajahi Modpack Populer" di menu utama atau jalankan "lm install <slug> --type modpack". Berkas modpack diekstrak otomatis beserta konfigurasi dan overrides.',
     },
     {
       q: 'Bagaimana cara menggunakan Bisect untuk mengatasi crash?',
-      a: 'Pilih [Diagnostik & Bisect] atau ketik "lm bisect start". Sistem akan menonaktifkan 50% mod secara cerdas hingga mod penyebab crash terisolasi dalam hitungan menit.',
+      a: 'Pilih "Diagnostik Crash & Bisect Tool" di menu utama atau jalankan "lm bisect start". Sistem menggunakan algoritma pencarian biner (bisect) untuk menonaktifkan separuh mod pada tiap langkah pengujian hingga mod penyebab crash ditemukan.',
     },
     {
       q: 'Apakah dependensi wajib ikut terpasang otomatis?',

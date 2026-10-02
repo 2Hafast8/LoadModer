@@ -12,7 +12,7 @@ export async function configCommand(action: 'show' | 'set' | 'use', key?: string
       p.note(
         `Instance Aktif     : ${pc.bold(active?.name ?? 'Belum ada')} (${active?.launcher ?? '-'})\n` +
           `Folder Mods        : ${pc.dim(active?.modsDir ?? '-')}\n` +
-          `Minecraft Version  : ${active?.gameVersion ?? '-'}\n` +
+          `Versi Minecraft    : ${active?.gameVersion ?? '-'}\n` +
           `Mod Loader         : ${active?.loader ?? '-'}\n` +
           `Lingkungan Target  : ${cfg.defaultEnvironment ?? 'client'}\n` +
           `Total Instance     : ${Object.keys(cfg.instances).length}`,

@@ -65,7 +65,7 @@ export function renderComprehensiveModDetailCard(detail: ComprehensiveModDetail)
   });
 
   const authorText =
-    detail.author && detail.author !== "-" ? chalk.hex(theme.muted)(` by ${detail.author}`) : "";
+    detail.author && detail.author !== "-" ? chalk.hex(theme.muted)(` oleh ${detail.author}`) : "";
   const slugText = detail.slug ? chalk.hex(theme.muted)(` [${detail.slug}]`) : "";
   metaTable.push([
     chalk.hex(theme.secondary).bold("Mod / Proyek"),
@@ -115,7 +115,7 @@ export function renderComprehensiveModDetailCard(detail: ComprehensiveModDetail)
       ? chalk.hex(theme.success)(`v${detail.installedVersion} (Terkini)`)
       : detail.latestVersion
         ? chalk.hex(theme.warning)(
-            `v${detail.installedVersion} → Update: v${detail.latestVersion}!`,
+            `v${detail.installedVersion} → Pembaruan: v${detail.latestVersion}`,
           )
         : `v${detail.installedVersion}`;
     metaTable.push([chalk.hex(theme.secondary)("Versi Terpasang"), verStatus]);

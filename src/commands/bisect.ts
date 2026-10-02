@@ -48,8 +48,8 @@ export async function bisectCommand(subcommand: string, opts: BisectOptions) {
         const res = await runner.report(subcommand);
         if (res.finished) {
           p.note(
-            `Mod perusak / penyebab crash telah diisolasi:\n${pc.bold(pc.red(res.culprit!))}`,
-            '🎯 TERSANGKA DITEMUKAN'
+            `Mod penyebab crash berhasil diisolasi:\n${pc.bold(pc.red(res.culprit!))}`,
+            '🎯 MOD PENYEBAB CRASH TERDETEKSI'
           );
           p.log.info(`Gunakan "lm disable ${res.culprit}" atau hapus mod tersebut.`);
           p.outro(pc.green('Sesi bisect selesai, mod lainnya telah diaktifkan kembali.'));
