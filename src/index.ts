@@ -23,10 +23,12 @@ function handleAction<T extends unknown[]>(fn: (...args: T) => Promise<void>) {
 program
   .command("init")
   .description("Wizard interaktif untuk mendeteksi launcher & memilih instance target")
+  .option("-s, --scan", "Pindai seluruh drive lokal untuk folder .minecraft / minecraft")
+  .option("-p, --path <path>", "Tentukan path folder .minecraft / minecraft secara manual")
   .action(
-    handleAction(async () => {
+    handleAction(async (opts) => {
       const {initCommand} = await import("./commands/init.js");
-      await initCommand();
+      await initCommand(opts);
     }),
   );
 

@@ -6,7 +6,7 @@
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-91%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-138%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 
@@ -14,23 +14,32 @@
 
 ## ⚡ Fitur Utama
 
-* **🎯 Operasi Dual-Mode**:
-  - **Interactive TUI Dashboard**: Jalankan `lm` untuk navigasi keyboard panah (`↑`/`↓` atau `j`/`k`), filter cepat, dan penjelajah katalog.
-  - **Direct CLI**: Jalankan `lm install`, `lm search`, `lm update` langsung dengan argumen dan flag untuk skrip otomatisasi maupun terminal.
-* **🧩 Resolusi Dependensi Otomatis**:
-  - Membaca dependensi wajib dari metadata API Modrinth dan parsing deskripsi mod.
-  - Menyesuaikan versi Minecraft dan mod loader aktif, serta melewati file yang sudah terpasang di folder `mods/`.
+* **🎯 Operasi Dual-Mode (Nordic Clean TUI & Direct CLI)**:
+  - **Interactive TUI Dashboard**: Header adaptif Figlet ASCII + 4-line Nordic Cyber Status Box, Live Badges navigasi instan, dan kontrol keyboard panah (`↑`/`↓` atau `j`/`k`).
+  - **Direct CLI**: Jalankan `lm install`, `lm search`, `lm update` langsung dengan flag dan argumen untuk skrip otomasi maupun terminal.
+* **🏷️ Browser Cepat & Horizontal Filter Chips**:
+  - Filter chip bar 2 baris ringkas menggantikan tabel vertikal, menampilkan hasil pencarian pertama langsung di layar tanpa scroll.
+* **⚡ Validasi Status Terpasang Konkuren**:
+  - Pengecekan paralel aset terpasang (via `loadmoder.lock.json` dan pemindaian disk) saat proses pencarian berlangsung (`lm search` dan TUI Browser) tanpa latensi tambahan.
+  - Kartu rincian mod menampilkan status akurat: `✔ Terpasang (Aktif)`, `○ Terpasang (Nonaktif)`, atau `🌐 Belum Terpasang (Modrinth)` beserta perbandingan versi lokal vs rilis terbaru.
+* **🗃️ Mod Manager Canggih (Segmented Tabs & Batch Operations)**:
+  - Tab segmen status: `● Semua Mod`, `✔ Aktif`, `○ Nonaktif`, dan pengukur kapasitas penyimpanan (*storage gauge*).
+  - Operasi massal (*batch toggle*) untuk mengaktifkan, menonaktifkan, atau menghapus banyak mod sekaligus dalam satu aksi.
+* **♿ Aksesibilitas Penuh (WCAG 2.2 AA & `NO_COLOR`)**:
+  - Seluruh token warna memenuhi rasio kontras $\ge 4.5:1$ pada dark mode maupun light mode.
+  - Standar `NO_COLOR` dan mode `ACCESSIBLE=true` (preservasi buffer *scrollback* terminal).
+  - Indikator ganda berbasis simbol teks (`✔`, `○`, `🌐`, `●`, `▲`, `✖`), tidak pernah mengandalkan warna semata.
+* **🎮 Multi-Drive Launcher Locator**:
+  - Mendeteksi launcher pihak ketiga (Prism, MultiMC, Modrinth App, CurseForge, Vanilla) di seluruh partisi drive Windows (`C:`, `D:`, `E:`, dll.) secara otomatis.
+* **🧩 Resolusi Dependensi Otomatis & Lockfile DAG**:
+  - Membaca dependensi wajib dari metadata API Modrinth dan membuat Directed Acyclic Graph (DAG) di `loadmoder.lock.json`.
+  - Pelacakan referensi (`dependedBy`) dan pembersihan otomatis dependensi yatim (*orphan pruning*) saat mod induk dihapus via `lm remove --prune`.
 * **🌐 Versi Minecraft Dinamis**:
   - Mengambil daftar versi resmi Minecraft ($\ge$ 1.16) langsung dari Modrinth API dengan cache lokal (TTL 1 jam) dan fallback offline.
-* **🔍 Dukungan Multi-Konten**:
-  - Mengelola **Mods** (`.jar`), **Modpacks** (`.mrpack`), **Shaders**, dan **Resource Packs**.
-  - Filter berdasarkan versi game, mod loader, kategori, dan environment (`client`/`server`).
 * **💾 Isolasi Profil & Snapshot**:
   - Menyimpan file mod per versi game dan loader ke snapshot lokal (`.loadmoder/snapshots/`), mencegah bentrok file saat berganti konfigurasi via `lm profile switch`.
 * **👀 Pemantau Folder Real-Time (`lm watch`)**:
   - Memantau folder `mods/` menggunakan Node.js native `fs.watch` dengan debouncing untuk mendeteksi penambahan, penghapusan, atau perubahan nama file manual.
-* **🔒 Lockfile & Graf Dependensi (`loadmoder.lock.json`)**:
-  - Directed Acyclic Graph (DAG) dengan pelacakan referensi (`dependedBy`) dan pembersihan otomatis dependensi yatim (*orphan pruning*) saat mod induk dihapus via `lm remove --prune`.
 * **🩺 Diagnostik Crash ($O(\log_2 N)$)**:
   - Melacak mod penyebab crash menggunakan algoritma pencarian biner otomatis (`lm bisect`).
 
@@ -140,6 +149,7 @@ Dokumentasi arsitektur dan spesifikasi lengkap tersedia di folder [`docs/`](docs
 * [**06. Dependency Graph & Lockfile**](docs/06-dependency-graph-and-lockfile.md) — Resolusi dependensi otomatis, Directed Acyclic Graph, dan reference counting.
 * [**07. Diagnostik Crash & Bisect Engine**](docs/07-troubleshooting-and-bisect.md) — Algoritma pencarian biner isolasi crash dan toggle status mod.
 * [**08. Panduan Pengembang & API**](docs/08-developer-guide-and-api.md) — Struktur berkas, alur pengujian, variabel lingkungan, dan kompilasi.
+* [**09. Spesifikasi Desain UI/UX (Nordic Clean TUI)**](docs/09-ui-ux-design-specification.md) — Filosofi visual, palet warna, aksesibilitas WCAG AA, dan arsitektur TUI.
 * [**Cetak Biru Arsitektur LoadModer**](docs/LOADMODER_ARCHITECTURE.md) — Spesifikasi platform menyeluruh dan pilar rekayasa sistem.
 * [**Katalog Agent Skills**](docs/SKILL.md) — Indeks 18 skill agen yang memandu kualitas kode dan standar arsitektur.
 
@@ -159,23 +169,27 @@ npx vitest
 ```
 
 **Hasil Pengujian:**
-- `tests/dependencyResolver.test.ts` (11 tests)
-- `tests/security.test.ts` (8 tests)
+- `tests/installedIndex.test.ts` (5 tests)
 - `tests/dependencyGraph.test.ts` (8 tests)
+- `tests/dependencyResolver.test.ts` (11 tests)
+- `tests/driveScanner.test.ts` (29 tests)
+- `tests/security.test.ts` (8 tests)
 - `tests/minecraftVersions.test.ts` (10 tests)
 - `tests/snapshotManager.test.ts` (3 tests)
-- `tests/uiThemeA11y.test.ts` (13 tests)
+- `tests/uiThemeA11y.test.ts` (19 tests)
+- `tests/detailCard.test.ts` (5 tests)
+- `tests/e2eUiFlow.test.ts` (2 tests)
 - `tests/compatibility.test.ts` (5 tests)
 - `tests/bisect.test.ts` (6 tests)
+- `tests/architectureRefactor.test.ts` (6 tests)
 - `tests/instanceConfig.test.ts` (4 tests)
 - `tests/searchFilters.test.ts` (6 tests)
-- `tests/architectureRefactor.test.ts` (6 tests)
-- `tests/cliJsonOutput.test.ts` (2 tests)
+- `tests/performance.test.ts` (2 tests)
 - `tests/instanceDetector.test.ts` (2 tests)
 - `tests/modsWatcher.test.ts` (2 tests)
+- `tests/cliJsonOutput.test.ts` (2 tests)
 - `tests/crypto.test.ts` (3 tests)
-- `tests/performance.test.ts` (2 tests)
-- **Total: 16 test files, 91 tests passed (100%)**.
+- **Total: 20 test files, 138 tests passed (100%)**.
 
 ---
 

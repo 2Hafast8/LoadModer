@@ -35,6 +35,7 @@ import {
 } from "./detailLoader.js";
 import type {SavedInstanceConfig} from "../../types/instance.js";
 import type {ProjectType, ModProject, ModVersion} from "../../types/modrinth.js";
+import {InstalledAssetsIndex} from "../../core/instance/installedIndex.js";
 
 export {
   computeModCompatibility,
@@ -381,6 +382,7 @@ export async function runRemoteModDetailRoute(
   slugOrId: string,
   activeInstance: SavedInstanceConfig | undefined,
   projectType: ProjectType = "mod",
+  preloadedIndex?: InstalledAssetsIndex,
 ): Promise<void> {
   let onDetail = true;
   while (onDetail) {
@@ -395,7 +397,13 @@ export async function runRemoteModDetailRoute(
       `  Memeriksa kecocokan versi untuk "${slugOrId}" dengan [${userLoader.toUpperCase()} ${userGameVersion}]...`,
     );
 
-    const {detail, versions} = await buildRemoteModDetail(slugOrId, userLoader, userGameVersion);
+    const {detail, versions} = await buildRemoteModDetail(
+      slugOrId,
+      userLoader,
+      userGameVersion,
+      currentInstance,
+      preloadedIndex,
+    );
     const comp = detail.compatibility!;
     const isComp = comp.isCompatible && comp.bestCompatibleVersion;
 
@@ -416,20 +424,54 @@ export async function runRemoteModDetailRoute(
       },
     ];
 
-    if (isComp) {
-      const libCount = detail.dependencies?.length ?? 0;
-      const libHint = libCount > 0 ? ` + ${libCount} library otomatis` : " (Mod mandiri)";
-      detailChoices.push({
-        name: `⬇  3. Unduh & Pasang Versi Terbaru (v${comp.bestCompatibleVersion!.version_number})`,
-        value: "install_compatible",
-        hint: `✔ Cocok untuk ${userLoader.toUpperCase()} ${userGameVersion}${libHint}`,
-      });
+    if (detail.isInstalled) {
+      if (isComp) {
+        const isUpToDate =
+          detail.installedVersion &&
+          comp.bestCompatibleVersion &&
+          detail.installedVersion === comp.bestCompatibleVersion.version_number;
+
+        if (isUpToDate) {
+          detailChoices.push({
+            name: `🔄  3. Pasang Ulang Versi Ini (v${comp.bestCompatibleVersion!.version_number})`,
+            value: "install_compatible",
+            hint: `✔ Versi terkini (v${detail.installedVersion}) sudah terpasang`,
+          });
+        } else {
+          detailChoices.push({
+            name: `🔄  3. Perbarui ke Versi Baru (v${comp.bestCompatibleVersion!.version_number})`,
+            value: "install_compatible",
+            hint: `Terpasang: v${detail.installedVersion ?? "?"} → Rilis baru: v${comp.bestCompatibleVersion!.version_number}`,
+          });
+        }
+      }
+
+      if (detail.filename && modsDir) {
+        detailChoices.push({
+          name:
+            detail.status === "active"
+              ? "🔴  Beralih Status: Nonaktifkan Mod (.jar -> .jar.disabled)"
+              : "🟢  Beralih Status: Aktifkan Mod (.jar.disabled -> .jar)",
+          value: "toggle_installed",
+          hint: "Ubah status berkas fisik terpasang secara instan",
+        });
+      }
     } else {
-      detailChoices.push({
-        name: `⚠️  3. Mod Inkompatibel (Pilih Solusi / Beralih Versi yang Didukung)`,
-        value: "incompatible_warning",
-        hint: `Tersedia untuk: ${comp.availableLoaders.slice(0, 3).join(", ") || "-"}`,
-      });
+      if (isComp) {
+        const libCount = detail.dependencies?.length ?? 0;
+        const libHint = libCount > 0 ? ` + ${libCount} library otomatis` : " (Mod mandiri)";
+        detailChoices.push({
+          name: `⬇  3. Unduh & Pasang Versi Terbaru (v${comp.bestCompatibleVersion!.version_number})`,
+          value: "install_compatible",
+          hint: `✔ Cocok untuk ${userLoader.toUpperCase()} ${userGameVersion}${libHint}`,
+        });
+      } else {
+        detailChoices.push({
+          name: `⚠️  3. Mod Inkompatibel (Pilih Solusi / Beralih Versi yang Didukung)`,
+          value: "incompatible_warning",
+          hint: `Tersedia untuk: ${comp.availableLoaders.slice(0, 3).join(", ") || "-"}`,
+        });
+      }
     }
 
     detailChoices.push(
@@ -444,7 +486,7 @@ export async function runRemoteModDetailRoute(
         hint: detail.webUrl ?? "Halaman resmi Modrinth",
       },
       {name: "──────────────────", value: "sep"},
-      {name: "[Kembali ke Hasil Pencarian]", value: "back"},
+      {name: "[Kembali]", value: "back"},
     );
 
     const action = await askInteractiveMenu(
@@ -497,6 +539,23 @@ export async function runRemoteModDetailRoute(
       await ask("Tekan Enter untuk melanjutkan...");
       onDetail = false;
       break;
+    } else if (action === "toggle_installed") {
+      if (detail.filename && modsDir) {
+        const willEnable = detail.status === "disabled";
+        try {
+          const newName = await toggleModFile(modsDir, detail.filename, willEnable);
+          detail.filename = newName;
+          detail.status = willEnable ? "active" : "disabled";
+          p.log.success(
+            willEnable
+              ? pc.green(`Mod diaktifkan: ${pc.bold(newName)}`)
+              : pc.yellow(`Mod dinonaktifkan: ${pc.bold(newName)}`),
+          );
+        } catch (err: any) {
+          p.log.error(`Gagal mengubah status berkas: ${err.message}`);
+        }
+        await ask("Tekan Enter untuk melanjutkan...");
+      }
     } else if (action === "incompatible_warning") {
       clearScreen();
       showBanner(currentInstance?.name, true);

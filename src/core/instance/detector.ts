@@ -2,6 +2,38 @@ import os from "node:os";
 import path from "node:path";
 import {readdir, readFile, stat} from "node:fs/promises";
 import type {MinecraftInstance, LoaderType} from "../../types/instance.js";
+import {
+  findMinecraftDirs,
+  instanceIdFromPath,
+  listLocalDrives,
+  normalizeForCompare,
+  type DriveScanOptions,
+  type DriveScanResult,
+} from "./driveScanner.js";
+
+export function deduplicateInstances(instances: MinecraftInstance[]): MinecraftInstance[] {
+  const seenIds = new Set<string>();
+  const seenRoots = new Set<string>();
+  const seenMods = new Set<string>();
+  const unique: MinecraftInstance[] = [];
+
+  for (const inst of instances) {
+    const idKey = inst.id.toLowerCase();
+    const rootKey = normalizeForCompare(inst.rootDir);
+    const modsKey = normalizeForCompare(inst.modsDir);
+
+    if (seenIds.has(idKey) || seenRoots.has(rootKey) || seenMods.has(modsKey)) {
+      continue;
+    }
+
+    seenIds.add(idKey);
+    seenRoots.add(rootKey);
+    seenMods.add(modsKey);
+    unique.push(inst);
+  }
+
+  return unique;
+}
 
 export class InstanceDetector {
   private readonly home = os.homedir();
@@ -25,7 +57,7 @@ export class InstanceDetector {
     results.push(...prism, ...modrinth, ...curseforge);
     if (vanilla) results.push(vanilla);
 
-    return results;
+    return deduplicateInstances(results);
   }
 
   private async scanPrismAndMultiMC(): Promise<MinecraftInstance[]> {
@@ -67,10 +99,11 @@ export class InstanceDetector {
               loader = "quilt";
           } catch {}
 
+          const isMultiMC = instancesDir.includes("MultiMC");
           instances.push({
-            id: `prism-${dir.name}`,
+            id: `${isMultiMC ? "multimc" : "prism"}-${dir.name}`,
             name: dir.name,
-            launcher: instancesDir.includes("MultiMC") ? "MultiMC" : "Prism",
+            launcher: isMultiMC ? "MultiMC" : "Prism",
             rootDir,
             modsDir: path.join(rootDir, ".minecraft", "mods"),
             gameVersion,
@@ -162,84 +195,124 @@ export class InstanceDetector {
 
     try {
       await stat(mcDir);
-      const modsDir = path.join(mcDir, "mods");
-
-      let gameVersion: string | undefined;
-      let loader: LoaderType | undefined;
-
-      const versionsDir = path.join(mcDir, "versions");
-      try {
-        const vDirs = await readdir(versionsDir, {withFileTypes: true});
-        for (const vd of vDirs) {
-          if (!vd.isDirectory()) continue;
-          const vJsonPath = path.join(versionsDir, vd.name, `${vd.name}.json`);
-          try {
-            const raw = await readFile(vJsonPath, "utf8");
-            const vJson = JSON.parse(raw);
-            const mainClass = vJson.mainClass ?? "";
-
-            if (mainClass.includes("fabricmc") || vd.name.toLowerCase().includes("fabric")) {
-              loader = "fabric";
-            } else if (
-              mainClass.includes("neoforged") ||
-              vd.name.toLowerCase().includes("neoforge")
-            ) {
-              loader = "neoforge";
-            } else if (
-              mainClass.includes("minecraftforge") ||
-              vd.name.toLowerCase().includes("forge")
-            ) {
-              loader = "forge";
-            } else if (mainClass.includes("quiltmc") || vd.name.toLowerCase().includes("quilt")) {
-              loader = "quilt";
-            }
-
-            if (vJson.inheritsFrom) {
-              gameVersion = vJson.inheritsFrom;
-            } else {
-              const match = vd.name.match(/(\d+\.\d+(?:\.\d+)?|26\.\d+)/);
-              if (match) gameVersion = match[1];
-            }
-
-            if (loader && gameVersion) break;
-          } catch {}
-        }
-      } catch {}
-
-      if (!loader || !gameVersion) {
-        try {
-          const modFiles = await readdir(modsDir);
-          for (const f of modFiles) {
-            const lower = f.toLowerCase();
-            if (!loader) {
-              if (lower.includes("fabric")) loader = "fabric";
-              else if (lower.includes("neoforge")) loader = "neoforge";
-              else if (lower.includes("forge")) loader = "forge";
-              else if (lower.includes("quilt")) loader = "quilt";
-            }
-            if (!gameVersion) {
-              const m = f.match(
-                /(?:mc|minecraft)[-_ ]?((?:1\.(?:1[2-9]|2[0-9])(?:\.[0-9]+)?)|26\.\d+)|[-_+](1\.(?:1[2-9]|2[0-9])(?:\.[0-9]+)?|26\.\d+)/i,
-              );
-              if (m) gameVersion = m[1] || m[2];
-            }
-            if (loader && gameVersion) break;
-          }
-        } catch {}
-      }
-
-      return {
-        id: "vanilla-default",
-        name: "Official Minecraft (Default)",
-        launcher: "Vanilla",
-        rootDir: mcDir,
-        modsDir,
-        gameVersion,
-        loader,
-      };
     } catch {
       return null;
     }
+    return this.inspectGameDir(mcDir, {
+      id: "vanilla-default",
+      name: "Official Minecraft (Default)",
+      launcher: "Vanilla",
+    });
+  }
+
+  async scanOtherDrives(
+    opts: DriveScanOptions & {
+      includeSystemDrive?: boolean;
+      roots?: string[];
+      exclude?: string[];
+    } = {},
+  ): Promise<{instances: MinecraftInstance[]; drives: string[]; result: DriveScanResult}> {
+    const drives = opts.roots ?? (await listLocalDrives({includeSystemDrive: opts.includeSystemDrive}));
+    const result = await findMinecraftDirs(drives, opts);
+
+    const known = new Set((opts.exclude ?? []).map(normalizeForCompare));
+    const instances: MinecraftInstance[] = [];
+    for (const dir of result.found) {
+      const key = normalizeForCompare(dir);
+      const parentKey = normalizeForCompare(path.dirname(dir));
+      const candidateModsKey = normalizeForCompare(path.join(dir, "mods"));
+
+      if (known.has(key) || known.has(parentKey) || known.has(candidateModsKey)) {
+        continue;
+      }
+
+      known.add(key);
+      known.add(parentKey);
+      known.add(candidateModsKey);
+
+      instances.push(
+        await this.inspectGameDir(dir, {
+          id: instanceIdFromPath(dir),
+          name: `${path.basename(dir)} (${path.parse(dir).root.replace(/[\\/]+$/, "") || "/"})`,
+          launcher: "Vanilla",
+        }),
+      );
+    }
+
+    return {instances: deduplicateInstances(instances), drives, result};
+  }
+
+  async inspectGameDir(
+    mcDir: string,
+    meta: Pick<MinecraftInstance, "id" | "name" | "launcher">,
+  ): Promise<MinecraftInstance> {
+    const modsDir = path.join(mcDir, "mods");
+
+    let gameVersion: string | undefined;
+    let loader: LoaderType | undefined;
+
+    const versionsDir = path.join(mcDir, "versions");
+    try {
+      const vDirs = await readdir(versionsDir, {withFileTypes: true});
+      for (const vd of vDirs) {
+        if (!vd.isDirectory()) continue;
+        const vJsonPath = path.join(versionsDir, vd.name, `${vd.name}.json`);
+        try {
+          const raw = await readFile(vJsonPath, "utf8");
+          const vJson = JSON.parse(raw);
+          const mainClass = vJson.mainClass ?? "";
+
+          if (mainClass.includes("fabricmc") || vd.name.toLowerCase().includes("fabric")) {
+            loader = "fabric";
+          } else if (
+            mainClass.includes("neoforged") ||
+            vd.name.toLowerCase().includes("neoforge")
+          ) {
+            loader = "neoforge";
+          } else if (
+            mainClass.includes("minecraftforge") ||
+            vd.name.toLowerCase().includes("forge")
+          ) {
+            loader = "forge";
+          } else if (mainClass.includes("quiltmc") || vd.name.toLowerCase().includes("quilt")) {
+            loader = "quilt";
+          }
+
+          if (vJson.inheritsFrom) {
+            gameVersion = vJson.inheritsFrom;
+          } else {
+            const match = vd.name.match(/(\d+\.\d+(?:\.\d+)?|26\.\d+)/);
+            if (match) gameVersion = match[1];
+          }
+
+          if (loader && gameVersion) break;
+        } catch {}
+      }
+    } catch {}
+
+    if (!loader || !gameVersion) {
+      try {
+        const modFiles = await readdir(modsDir);
+        for (const f of modFiles) {
+          const lower = f.toLowerCase();
+          if (!loader) {
+            if (lower.includes("fabric")) loader = "fabric";
+            else if (lower.includes("neoforge")) loader = "neoforge";
+            else if (lower.includes("forge")) loader = "forge";
+            else if (lower.includes("quilt")) loader = "quilt";
+          }
+          if (!gameVersion) {
+            const m = f.match(
+              /(?:mc|minecraft)[-_ ]?((?:1\.(?:1[2-9]|2[0-9])(?:\.[0-9]+)?)|26\.\d+)|[-_+](1\.(?:1[2-9]|2[0-9])(?:\.[0-9]+)?|26\.\d+)/i,
+            );
+            if (m) gameVersion = m[1] || m[2];
+          }
+          if (loader && gameVersion) break;
+        }
+      } catch {}
+    }
+
+    return {...meta, rootDir: mcDir, modsDir, gameVersion, loader};
   }
 }
 

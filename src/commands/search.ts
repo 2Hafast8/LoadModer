@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { modrinthClient, type SearchIndex } from '../api/client.js';
 import { instanceConfig } from '../core/instance/config.js';
+import { InstalledAssetsIndex } from '../core/instance/installedIndex.js';
 import { createSearchTable } from '../ui/tables.js';
 import { p, pc } from '../ui/prompts.js';
 import { theme } from '../ui/theme.js';
@@ -32,18 +33,27 @@ export async function searchCommand(query: string, opts: SearchOptions) {
   const sort = (opts.sort as SearchIndex) ?? 'relevance';
 
   const s = opts.json ? null : p.spinner();
-  s?.start(chalk.hex(theme.textMuted)(`Mencari "${query}" (${projectType}) di Modrinth...`));
+  s?.start(chalk.hex(theme.textMuted)(`Mencari "${query}" (${projectType}) di Modrinth & mengecek instalasi...`));
 
-  const response = await modrinthClient.search(
-    query,
-    { gameVersion, loader, projectType, category, environment },
-    limit,
-    sort
-  );
+  const [response, installedIndex] = await Promise.all([
+    modrinthClient.search(
+      query,
+      { gameVersion, loader, projectType, category, environment },
+      limit,
+      sort
+    ),
+    InstalledAssetsIndex.load(activeInst),
+  ]);
   s?.stop(chalk.hex(theme.success)(`Ditemukan ${response.total_hits} hasil (menampilkan ${response.hits.length}):`));
 
   if (opts.json) {
-    console.log(JSON.stringify(response.hits, null, 2));
+    const enrichedHits = response.hits.map((hit) => ({
+      ...hit,
+      installed:
+        installedIndex.isInstalled(hit.slug) ||
+        (hit.project_id ? installedIndex.isInstalled(hit.project_id) : false),
+    }));
+    console.log(JSON.stringify(enrichedHits, null, 2));
     return;
   }
 
@@ -54,9 +64,20 @@ export async function searchCommand(query: string, opts: SearchOptions) {
 
   const table = createSearchTable();
   response.hits.forEach((hit, idx) => {
+    const isInstalled =
+      installedIndex.isInstalled(hit.slug) ||
+      (hit.project_id ? installedIndex.isInstalled(hit.project_id) : false);
+
+    const statusBadge = isInstalled
+      ? chalk.hex(theme.success).bold('✔ Terpasang')
+      : chalk.hex(theme.muted)('—');
+
+    const checkMark = isInstalled ? chalk.hex(theme.success)('✔ ') : '';
+
     table.push([
       chalk.hex(theme.muted)((idx + 1).toString()),
-      `${chalk.bold.hex(theme.text)(hit.title)}\n${chalk.hex(theme.primary)(hit.slug)}`,
+      `${checkMark}${chalk.bold.hex(theme.text)(hit.title)}\n${chalk.hex(theme.primary)(hit.slug)}`,
+      statusBadge,
       chalk.hex(theme.textMuted)(hit.author),
       chalk.hex(theme.success)(`⬇ ${formatNumber(hit.downloads)}`),
       chalk.hex(theme.textMuted)(hit.categories.slice(0, 3).join(', ')),

@@ -103,7 +103,27 @@ export const instanceDetector = new InstanceDetector();
 
 ---
 
-## 4. Isolasi Profil & Snapshot Manager (`src/core/profile/snapshotManager.ts`)
+## 4. Pencarian Multi-Drive & Input Path Manual (`src/core/instance/driveScanner.ts`)
+
+Jika pemain tidak menyimpan instalasi Minecraft di drive sistem (`C:\`), LoadModer menyediakan dua mekanisme pendeteksian:
+
+### A. Pemindaian Multi-Drive Otomatis (`findMinecraftDirs` & `listLocalDrives`)
+- **Pendeteksian Drive**: Mendeteksi seluruh huruf drive aktif (`D:`, `E:`, `F:`, dst. pada Windows, atau titik mount `/mnt`, `/media`, `/Volumes` pada Linux/macOS).
+- **Pencarian Spesifik**: Hanya memindai folder dengan nama `.minecraft` atau `minecraft` (case-insensitive).
+- **Validasi Marker Game**: Folder hanya diakui sebagai instance game resmi jika memiliki setidaknya satu marker: `versions/`, `mods/`, `saves/`, `options.txt`, atau `launcher_profiles.json`.
+- **Proteksi Kinerja**: Membatasi kedalaman traversal hingga 5 level, batas waktu scan maksimum 60 detik (timeout aman), serta melewati direktori sistem seperti `Windows`, `System Volume Information`, `ProgramData`, dan `$Recycle.Bin`.
+
+### B. Input Path Manual (`resolveManualMinecraftPath`)
+- Pengguna dapat memasukkan path secara langsung via menu interaktif atau flag `lm init --path <dir>`.
+- **Penanganan Cerdas**:
+  - Otomatis menghapus tanda petik dari fitur Windows Explorer *"Copy as path"*.
+  - Mengekspansi tilde (`~`) dan variabel lingkungan seperti `%APPDATA%`.
+  - Jika diarahkan ke subfolder `mods/`, otomatis naik satu tingkat ke root direktori game.
+  - Jika diarahkan ke folder induk (misalnya `D:\Games`), otomatis mendeteksi subfolder `.minecraft` atau `minecraft` di dalamnya.
+
+---
+
+## 5. Isolasi Profil & Snapshot Manager (`src/core/profile/snapshotManager.ts`)
 
 Berganti versi game pada instance yang sama (misal dari `1.21.1 Fabric` ke `1.20.1 Forge`) berisiko menyebabkan game crash jika file mod versi lama masih tertinggal di folder `mods/`.
 
@@ -120,3 +140,4 @@ LoadModer menangani ini melalui **ProfileSnapshotManager**:
    Folder `mods/` dikosongkan dari mod versi sebelumnya, lalu jika snapshot target (`forge-1.20.1`) sudah pernah ada sebelumnya, file mod dan state lockfile target otomatis dipulihkan.
 3. **Penyelarasan Perintah `install`**:
    Perintah `lm install` selalu memverifikasi versi game dan loader aktif untuk memastikan library yang diunduh cocok dengan konfigurasi instance.
+

@@ -1,7 +1,8 @@
+import path from "node:path";
 import chalk from "chalk";
-import Table from "cli-table3";
+import boxen from "boxen";
 import {modrinthClient, type SearchIndex} from "../../api/client.js";
-import {showBanner, clearScreen, logger, theme, tableChars} from "../theme.js";
+import {showBanner, clearScreen, logger, theme, formatBadge} from "../theme.js";
 import {
   askInteractiveMenu,
   ask,
@@ -11,6 +12,7 @@ import {
 import {formatNumber} from "../../utils/format.js";
 import {runRemoteModDetailRoute} from "./detail.js";
 import {instanceConfig} from "../../core/instance/config.js";
+import {InstalledAssetsIndex} from "../../core/instance/installedIndex.js";
 import {p, pc} from "../prompts.js";
 import type {SavedInstanceConfig} from "../../types/instance.js";
 import type {ProjectType} from "../../types/modrinth.js";
@@ -118,20 +120,26 @@ export async function runInteractiveBrowser(
     );
 
     let res;
+    let installedIndex: InstalledAssetsIndex;
     try {
-      res = await modrinthClient.search(
-        query,
-        {
-          gameVersion: filterVersion,
-          loader: filterLoader,
-          projectType: currentProjectType,
-          category: filterCategory,
-          environment: filterEnvironment,
-        },
-        limit,
-        sortIndex,
-        offset,
-      );
+      const [searchRes, indexRes] = await Promise.all([
+        modrinthClient.search(
+          query,
+          {
+            gameVersion: filterVersion,
+            loader: filterLoader,
+            projectType: currentProjectType,
+            category: filterCategory,
+            environment: filterEnvironment,
+          },
+          limit,
+          sortIndex,
+          offset,
+        ),
+        InstalledAssetsIndex.load(currentInstance),
+      ]);
+      res = searchRes;
+      installedIndex = indexRes;
     } catch (err: any) {
       clearScreen();
       showBanner(currentInstance?.name, true);
@@ -146,51 +154,58 @@ export async function runInteractiveBrowser(
     const renderHeader = () => {
       showBanner(currentInstance?.name, true);
 
-      const termCols = process.stdout.columns || 80;
-      const filterCol2 = Math.max(28, Math.min(54, termCols - 29));
-      const filterTable = new Table({
-        head: [
-          chalk.hex(theme.secondary).bold("Parameter Filter"),
-          chalk.hex(theme.secondary).bold("Pengaturan Aktif"),
-        ],
-        colWidths: [22, filterCol2],
-        wordWrap: true,
-        chars: tableChars,
-        style: {head: [], border: [theme.border]},
-      });
+      const shortType =
+        currentProjectType === "mod"
+          ? "Mod"
+          : currentProjectType === "modpack"
+            ? "Modpack"
+            : currentProjectType === "shader"
+              ? "Shader"
+              : currentProjectType === "resourcepack"
+                ? "ResourcePack"
+                : "DataPack";
 
-      const typeVal = chalk
-        .hex(theme.primary)
-        .bold(CONTENT_TYPE_LABELS[currentProjectType] || currentProjectType.toUpperCase());
-      const verVal = filterVersion
-        ? chalk.hex(theme.success).bold(filterVersion)
-        : chalk.dim("Semua Versi (Tanpa Batasan)");
-      const loaderVal = filterLoader
-        ? chalk.hex(theme.warning).bold(filterLoader.toUpperCase())
-        : chalk.dim("Semua Loader (Agnostik)");
+      const chipType = chalk.hex(theme.primary).bold(`[${shortType}]`);
+      const chipLoader = filterLoader
+        ? chalk.hex(theme.warning)(`[${filterLoader.toUpperCase()}]`)
+        : chalk.hex(theme.muted)("[Semua Loader]");
+      const chipVersion = filterVersion
+        ? chalk.hex(theme.success)(`[${filterVersion}]`)
+        : chalk.hex(theme.muted)("[Semua Versi]");
+
       const catObj = CATEGORIES_BY_TYPE[currentProjectType]?.find((c) => c.slug === filterCategory);
-      const catVal = filterCategory
-        ? chalk.hex(theme.info)(catObj ? `${catObj.name} (${filterCategory})` : filterCategory)
-        : chalk.dim("Semua Kategori");
-      const envVal = filterEnvironment
-        ? chalk.hex(theme.secondary)(
-            filterEnvironment === "client"
-              ? "Client-Only (Sisi Klien)"
-              : "Server-Only (Sisi Server)",
-          )
-        : chalk.dim("Semua (Client & Server)");
-      const sortVal = chalk.hex(theme.textMuted)(getSortLabel(sortIndex));
+      const catLabel = catObj ? catObj.name.split("&")[0].trim() : filterCategory;
+      const chipCategory = catLabel
+        ? chalk.hex(theme.info)(`[${catLabel}]`)
+        : chalk.hex(theme.muted)("[Semua Kategori]");
 
-      filterTable.push(
-        [chalk.hex(theme.textMuted)("Tipe Konten"), typeVal],
-        [chalk.hex(theme.textMuted)("Versi Minecraft"), verVal],
-        [chalk.hex(theme.textMuted)("Mod Loader"), loaderVal],
-        [chalk.hex(theme.textMuted)("Kategori"), catVal],
-        [chalk.hex(theme.textMuted)("Lingkungan"), envVal],
-        [chalk.hex(theme.textMuted)("Urutan (Sort)"), sortVal],
+      const chipEnv = filterEnvironment
+        ? chalk.hex(theme.secondary)(`[${filterEnvironment.toUpperCase()}]`)
+        : "";
+
+      const chipSort = chalk.hex(theme.secondary)(`[Urut: ${getSortLabel(sortIndex)}]`);
+
+      const chips = [chipType, chipLoader, chipVersion, chipCategory];
+      if (chipEnv) chips.push(chipEnv);
+      const line1 = chips.join("  ") + "  •  " + chipSort;
+
+      const queryText = query
+        ? chalk.hex(theme.textMuted)("Query: ") + chalk.hex(theme.text).bold(`"${query}"`) + "  •  "
+        : chalk.hex(theme.muted)("Jelajahi Semua  •  ");
+      const hitsText = chalk.hex(theme.muted)("Total: ") + chalk.hex(theme.info)(`${formatNumber(res.total_hits)} hasil`);
+      const pageText = chalk.hex(theme.muted)("  •  Halaman: ") + chalk.hex(theme.text)(`${currentPage}/${totalPages}`);
+      const line2 = queryText + hitsText + pageText;
+
+      console.log(
+        boxen(`${line1}\n${line2}`, {
+          padding: { top: 0, bottom: 0, left: 2, right: 2 },
+          margin: { top: 0, bottom: 0, left: 0, right: 0 },
+          borderStyle: "round",
+          borderColor: theme.border,
+          title: chalk.hex(theme.primary).bold(" ❖ FILTER AKTIF & HASIL "),
+          titleAlignment: "left",
+        }),
       );
-
-      console.log(filterTable.toString());
     };
 
     if (res.hits.length === 0) {
@@ -244,15 +259,28 @@ export async function runInteractiveBrowser(
     }
 
     const choices: InteractiveChoice[] = res.hits.map((hit) => {
+      const status =
+        installedIndex.getStatus(hit.slug) ??
+        (hit.project_id ? installedIndex.getStatus(hit.project_id) : undefined);
+      const isInstalled = Boolean(status?.isInstalled);
+
       let typeBadge = "";
       if (hit.project_type === "modpack") typeBadge = chalk.magenta("[PACK] ");
       else if (hit.project_type === "shader") typeBadge = chalk.cyan("[SHDR] ");
       else if (hit.project_type === "resourcepack") typeBadge = chalk.yellow("[RP] ");
 
+      const checkPrefix = isInstalled ? chalk.hex(theme.success)("✔ ") : "";
+      const installedBadge = isInstalled
+        ? status?.isDisabled
+          ? formatBadge("Nonaktif", "warning")
+          : formatBadge("Terpasang", "success")
+        : undefined;
+
       return {
-        name: `${typeBadge}${hit.title} [${hit.slug}]`,
+        name: `${checkPrefix}${typeBadge}${hit.title} [${hit.slug}]`,
         value: hit.slug,
         hint: `⬇ ${formatNumber(hit.downloads)}  •  ${hit.categories?.slice(0, 3).join(", ") ?? "-"}  •  ${hit.author}`,
+        badge: installedBadge,
       };
     });
 
@@ -306,7 +334,7 @@ export async function runInteractiveBrowser(
       const changed = await handleSortSettings();
       if (changed) offset = 0;
     } else if (picked !== "sep") {
-      await runRemoteModDetailRoute(picked, currentInstance, currentProjectType);
+      await runRemoteModDetailRoute(picked, currentInstance, currentProjectType, installedIndex);
     }
   }
 

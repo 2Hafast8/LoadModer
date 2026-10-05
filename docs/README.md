@@ -16,6 +16,7 @@ Pusat dokumentasi arsitektur, spesifikasi teknis, dan panduan pengembang **LoadM
 | **[06. Dependency Graph & Lockfile](06-dependency-graph-and-lockfile.md)** | Resolusi dependensi otomatis (`resolver.ts`), struktur `loadmoder.lock.json`, Directed Acyclic Graph (DAG), reference counting, dan *orphan pruning*. |
 | **[07. Diagnostik Crash & Bisect Engine](07-troubleshooting-and-bisect.md)** | Sistem isolasi mod (`.disabled`) dan algoritma pencarian biner ($O(\log_2 N)$) untuk melacak mod penyebab crash. |
 | **[08. Panduan Pengembang & API](08-developer-guide-and-api.md)** | Struktur direktori proyek, skrip npm, variabel lingkungan, konfigurasi build tsup, dan panduan pengujian Vitest. |
+| **[09. Spesifikasi Desain UI/UX](09-ui-ux-design-specification.md)** | Filosofi visual Nordic Clean TUI, palet warna, aksesibilitas WCAG AA, dan spesifikasi komponen TUI. |
 | **[Cetak Biru Arsitektur LoadModer](LOADMODER_ARCHITECTURE.md)** | Cetak biru arsitektur menyeluruh dan pilar rekayasa sistem. |
 | **[Panduan Integrasi Modrinth API](modrinth-cli-guide.md)** | Referensi spesifikasi Labrinth API v2, otentikasi, pagination, dan aturan kuota request. |
 | **[Katalog Agent Skills](SKILL.md)** | Indeks 18 skill agen (`.agent/skills/`) yang memandu kualitas kode dan standar arsitektur. |

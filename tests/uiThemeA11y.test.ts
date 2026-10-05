@@ -1,5 +1,12 @@
 import {describe, it, expect, beforeEach, afterEach, vi} from "vitest";
-import {isLightTerminal, theme, clearScreen, showBanner} from "../src/ui/theme.js";
+import {
+  isLightTerminal,
+  theme,
+  clearScreen,
+  showBanner,
+  renderCommandCenterHeader,
+  formatBadge,
+} from "../src/ui/theme.js";
 import {ui, renderFooter} from "../src/ui/interactive.js";
 import {createModsTable, createSearchTable} from "../src/ui/tables.js";
 
@@ -80,10 +87,18 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
       return (lighter + 0.05) / (darker + 0.05);
     }
 
-    it("ensures dark theme muted text satisfies WCAG AA >= 4.5:1 on black", () => {
+    it("ensures all dark theme text tokens satisfy WCAG AA >= 4.5:1 on black", () => {
       process.env.LOADMODER_THEME = "dark";
-      const ratio = contrastRatio(theme.muted, "#000000");
-      expect(ratio).toBeGreaterThanOrEqual(4.5);
+      const bg = "#000000";
+      expect(contrastRatio(theme.text, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.textMuted, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.muted, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.primary, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.secondary, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.success, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.warning, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.error, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.info, bg)).toBeGreaterThanOrEqual(4.5);
     });
 
     it("ensures light theme text tokens satisfy WCAG AA >= 4.5:1 on white", () => {
@@ -98,6 +113,14 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
       expect(contrastRatio(theme.warning, bg)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(theme.error, bg)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(theme.info, bg)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it("respects NO_COLOR standard by falling back to accessible plain screen clear", () => {
+      process.env.NO_COLOR = "1";
+      const stdoutSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+      clearScreen();
+      expect(stdoutSpy).toHaveBeenCalledWith("\x1B[2J\x1B[H");
+      expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining("\x1B[3J"));
     });
   });
 
@@ -119,11 +142,18 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
   });
 
   describe("Scrollback & Banner Accessibility", () => {
-    it("preserves terminal scrollback buffer in clearScreen", () => {
+    it("preserves terminal scrollback buffer in clearScreen when ACCESSIBLE=true", () => {
+      process.env.ACCESSIBLE = "true";
       const stdoutSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
       clearScreen();
       expect(stdoutSpy).toHaveBeenCalledWith("\x1B[2J\x1B[H");
       expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining("\x1B[3J"));
+    });
+
+    it("clears terminal screen and scrollback buffer in normal mode", () => {
+      const stdoutSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+      clearScreen();
+      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining("\x1B[3J"));
     });
 
     it("suppresses multi-line ASCII banner when ACCESSIBLE=true", () => {
@@ -146,6 +176,67 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
     it("constructs search table without throwing", () => {
       const table = createSearchTable();
       expect(table).toBeDefined();
+    });
+  });
+
+  describe("Command Center Header & Badges", () => {
+    it("formats badges with brackets and color coding", () => {
+      const badge = formatBadge("31 mod", "success");
+      expect(badge).toContain("[31 mod]");
+    });
+
+    it("renders compact accessible header when ACCESSIBLE=true", () => {
+      process.env.ACCESSIBLE = "true";
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      renderCommandCenterHeader({
+        instanceName: "Test Instance",
+        gameVersion: "1.20.1",
+        loader: "fabric",
+        modsCount: 10,
+        activeCount: 8,
+        storageUsage: "12 MB",
+      });
+      expect(consoleSpy).toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+      expect(output).toContain("LOADMODER v2.0.0");
+      expect(output).toContain("Test Instance");
+      expect(output).toContain("fabric 1.20.1");
+      expect(output).toContain("8/10");
+    });
+
+    it("renders styled command center box without throwing in normal mode", () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      renderCommandCenterHeader({
+        instanceName: "My Pack",
+        gameVersion: "1.20.4",
+        loader: "forge",
+        modsCount: 5,
+        activeCount: 5,
+        storageUsage: "20 MB",
+        showAscii: true,
+      });
+      expect(consoleSpy).toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+      expect(output).toContain("STATUS INSTANCE");
+      expect(output).toContain("My Pack");
+      expect(output).toContain("Minecraft Mod & Modpack Manager");
+    });
+
+    it("renders compact box without ASCII art when showAscii=false", () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      renderCommandCenterHeader({
+        instanceName: "Compact Pack",
+        gameVersion: "1.21",
+        loader: "neoforge",
+        modsCount: 15,
+        activeCount: 12,
+        storageUsage: "35 MB",
+        showAscii: false,
+      });
+      expect(consoleSpy).toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+      expect(output).toContain("Compact Pack");
+      expect(output).toContain("neoforge 1.21");
     });
   });
 });

@@ -78,6 +78,7 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
     );
 
     if (!selected || selected === "back" || selected === "sep") {
+      clearScreen();
       inProfileMenu = false;
       break;
     }
@@ -100,11 +101,134 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
       }
 
       case "change_instance": {
-        await initCommand();
-        return;
+        const switched = await handleLauncherSwitchFlow(activeKey, instance);
+        if (switched) {
+          inProfileMenu = false;
+          return;
+        }
+        break;
       }
     }
   }
+}
+
+async function handleLauncherSwitchFlow(
+  activeKey: string,
+  currentInstance: SavedInstanceConfig,
+): Promise<boolean> {
+  await instanceConfig.load();
+  const cfg = instanceConfig.get();
+  const savedEntries = Object.entries(cfg.instances);
+
+  const choices: InteractiveChoice[] = [];
+
+  choices.push({name: "INSTANCE TERSIMPAN", value: "sep"});
+  for (const [key, inst] of savedEntries) {
+    const isActive = key === activeKey;
+    const prefix = isActive ? "● " : "○ ";
+    const hintText = isActive
+      ? "SEDANG AKTIF"
+      : `${inst.loader ?? "-"} ${inst.gameVersion ?? "-"} (${inst.launcher ?? "Game"})`;
+
+    choices.push({
+      name: `${prefix}[${inst.launcher ?? "Game"}] ${inst.name}`,
+      value: `select_${key}`,
+      hint: hintText,
+    });
+  }
+
+  choices.push({name: "PINDAI / TAMBAH LAUNCHER", value: "sep"});
+  choices.push({
+    name: "🔍  Pindai Semua Launcher & Drive...",
+    value: "action_scan",
+    hint: "Prism, MultiMC, Modrinth, CurseForge, Vanilla",
+  });
+  choices.push({
+    name: "✏️   Masukkan Path Folder Game Manual...",
+    value: "action_manual",
+    hint: "Ketik folder .minecraft / game di drive mana saja",
+  });
+
+  choices.push({name: "──────────────────", value: "sep"});
+  choices.push({name: "[Kembali ke Menu Profil]", value: "back"});
+
+  const selected = await askInteractiveMenu(
+    "GANTI KE INSTANCE LAUNCHER LAIN",
+    choices,
+    () => {
+      showBanner(
+        currentInstance.name,
+        true,
+        false,
+        `Saat ini: ${currentInstance.launcher ?? "Game"} (${currentInstance.loader ?? "-"} ${currentInstance.gameVersion ?? "-"})`,
+      );
+    },
+  );
+
+  if (!selected || selected === "back" || selected === "sep") {
+    return false;
+  }
+
+  if (selected.startsWith("select_")) {
+    const targetKey = selected.replace("select_", "");
+    if (targetKey === activeKey) {
+      clearScreen();
+      showBanner(currentInstance.name, true);
+      p.log.info(pc.cyan(`Instance "${currentInstance.name}" sudah merupakan instance aktif.`));
+      await ask("Tekan Enter untuk kembali...");
+      return false;
+    }
+
+    const targetInst = cfg.instances[targetKey];
+    if (targetInst) {
+      instanceConfig.setActiveInstance(targetKey);
+      await instanceConfig.save();
+
+      clearScreen();
+      showBanner(targetInst.name, true);
+      p.note(
+        `Instance Baru   : ${pc.bold(targetInst.name)} (${targetInst.launcher ?? "Game"})\n` +
+          `Folder Mods     : ${pc.dim(targetInst.modsDir)}\n` +
+          `Minecraft       : ${pc.green(targetInst.gameVersion ?? "-")}\n` +
+          `Mod Loader      : ${pc.cyan(targetInst.loader ?? "-")}`,
+        "Berhasil Beralih Instance",
+      );
+      await ask("Tekan Enter untuk melanjutkan ke dashboard...");
+      return true;
+    }
+    return false;
+  }
+
+  if (selected === "action_scan") {
+    clearScreen();
+    await initCommand({skipBanner: true, allowCancel: true});
+    await instanceConfig.load();
+    const freshCfg = instanceConfig.get();
+    if (freshCfg.activeInstance && freshCfg.activeInstance !== activeKey) {
+      await ask("Tekan Enter untuk melanjutkan ke dashboard...");
+      return true;
+    }
+    return false;
+  }
+
+  if (selected === "action_manual") {
+    clearScreen();
+    showBanner(currentInstance.name, true);
+    const manualInput = await ask("Masukkan path folder .minecraft / game (kosongkan untuk batal):");
+    if (!manualInput || !manualInput.trim()) {
+      return false;
+    }
+    await initCommand({path: manualInput.trim(), skipBanner: true, allowCancel: true});
+    await instanceConfig.load();
+    const freshCfg = instanceConfig.get();
+    if (freshCfg.activeInstance && freshCfg.activeInstance !== activeKey) {
+      await ask("Tekan Enter untuk melanjutkan ke dashboard...");
+      return true;
+    }
+    return false;
+  }
+
+  return false;
 }
 
 async function handleSwitchFlow(

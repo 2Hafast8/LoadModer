@@ -32,6 +32,8 @@ const darkTheme = {
   muted: '#94a3b8',       // Slate 400 (8.19:1 contrast, elevated from #64748b)
   border: '#334155',      // Slate 700 (Border halus)
   activeBg: '#1e293b',    // Slate 800 (Highlight baris terpilih)
+  chipBg: '#1e293b',      // Slate 800 (Latar belakang filter chip)
+  chipActive: '#0c4a6e',  // Ocean Dark Blue (Chip filter terpilih/aktif)
   pointer: '❯',           // Modern minimal pointer
 };
 
@@ -47,6 +49,8 @@ const lightTheme = {
   muted: '#475569',       // Slate 600 (7.58:1 contrast on white)
   border: '#64748b',      // Slate 500 (4.76:1 contrast on white)
   activeBg: '#e2e8f0',    // Slate 200 (Highlight baris terpilih)
+  chipBg: '#e2e8f0',      // Slate 200 (Latar belakang filter chip)
+  chipActive: '#bae6fd',  // Sky 200 (Chip filter aktif)
   pointer: '❯',           // Modern minimal pointer
 };
 
@@ -78,7 +82,15 @@ export const tableChars = {
 };
 
 export const clearScreen = () => {
-  process.stdout.write('\x1B[2J\x1B[H');
+  const isAccessible = Boolean(process.env.ACCESSIBLE || process.env.NO_COLOR || process.env.CI);
+  if (isAccessible) {
+    process.stdout.write('\x1B[2J\x1B[H');
+    return;
+  }
+  try {
+    console.clear();
+  } catch {}
+  process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
 };
 
 export const showBanner = (
@@ -152,48 +164,138 @@ export const showBanner = (
   }
 };
 
-export const renderInstanceHeader = (info: {
+export interface CommandCenterInfo {
   instanceName?: string;
   gameVersion?: string;
   loader?: string;
   modsCount?: number;
   activeCount?: number;
   storageUsage?: string;
-}) => {
+  statusText?: string;
+  showAscii?: boolean;
+}
+
+export const formatBadge = (
+  text: string,
+  variant: 'success' | 'warning' | 'error' | 'info' | 'muted' | 'primary' | 'secondary' = 'muted'
+): string => {
+  const color = (theme as Record<string, string>)[variant] ?? theme.muted;
+  return chalk.hex(color)(`[${text}]`);
+};
+
+export const renderCommandCenterHeader = (info: CommandCenterInfo) => {
+  const isAccessible = Boolean(process.env.ACCESSIBLE || process.env.NO_COLOR || process.env.CI);
   const loaderVersionText =
     info.loader || info.gameVersion
-      ? `${info.loader ?? '-'} (${info.gameVersion ?? '-'})`
+      ? `${info.loader ?? '-'} ${info.gameVersion ?? ''}`.trim()
       : 'Belum ditentukan';
 
-  const line1 =
-    chalk.hex(theme.textMuted)('Instance : ') +
-    chalk.hex(theme.primary).bold(info.instanceName ?? 'Belum dipilih') +
-    '  ' +
-    chalk.hex(theme.muted)('│') +
-    '  ' +
-    chalk.hex(theme.textMuted)('Mod Loader : ') +
-    chalk.hex(theme.secondary).bold(loaderVersionText);
+  if (isAccessible) {
+    console.log(
+      chalk.bold(`LOADMODER v${APP_VERSION}`) +
+        ` | Instance: ${info.instanceName ?? 'Default'} | Loader: ${loaderVersionText} | Mods: ${info.activeCount ?? 0}/${info.modsCount ?? 0} (${info.storageUsage ?? '0 B'})\n`
+    );
+    return;
+  }
 
-  const line2 =
-    chalk.hex(theme.textMuted)('Total Mod: ') +
-    chalk.hex(theme.success).bold(`${info.activeCount ?? 0} Aktif`) +
-    chalk.hex(theme.muted)(` / ${info.modsCount ?? 0} Total`) +
-    '  ' +
-    chalk.hex(theme.muted)('│') +
-    '  ' +
-    chalk.hex(theme.textMuted)('Penyimpanan: ') +
-    chalk.hex(theme.info)(info.storageUsage ?? '0 MB');
+  const cols = process.stdout.columns || 80;
+  const isLight = isLightTerminal();
+  const bannerGradient = isLight
+    ? gradient(['#0369a1', '#4338ca'])
+    : gradient(['#38bdf8', '#818cf8']);
+
+  const showAscii = info.showAscii ?? true;
+
+  if (showAscii) {
+    if (cols < 60) {
+      console.log(
+        chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
+          chalk.hex(theme.muted)(` v${APP_VERSION} `) +
+          chalk.hex(theme.muted)('• Minecraft Mod & Modpack Manager\n')
+      );
+    } else {
+      const font = cols >= 80 ? 'ANSI Shadow' : 'Slant';
+      try {
+        const banner = figlet.textSync('LOADMODER', {
+          font,
+          horizontalLayout: 'fitted',
+        });
+        console.log(bannerGradient.multiline(banner.trimEnd()));
+      } catch {
+        console.log(
+          chalk.bgHex(theme.border).hex(theme.primary).bold(' LOADMODER ') +
+            chalk.hex(theme.muted)(` v${APP_VERSION}`)
+        );
+      }
+      console.log(
+        chalk.hex(theme.muted)(`  v${APP_VERSION}  •  `) +
+          chalk.hex(theme.primary).bold('Minecraft Mod & Modpack Manager') +
+          chalk.hex(theme.muted)('  •  Nordic Clean TUI\n')
+      );
+    }
+  }
+
+  let content: string;
+  if (cols < 70) {
+    const line1 =
+      chalk.hex(theme.textMuted)('Instance : ') +
+      chalk.hex(theme.primary).bold(info.instanceName ?? 'Default');
+    const line2 =
+      chalk.hex(theme.textMuted)('Loader   : ') +
+      chalk.hex(theme.secondary).bold(loaderVersionText);
+    const line3 =
+      chalk.hex(theme.textMuted)('Mods     : ') +
+      chalk.hex(theme.success).bold(`${info.activeCount ?? 0}`) +
+      chalk.hex(theme.muted)(` / ${info.modsCount ?? 0}`) +
+      '  •  ' +
+      chalk.hex(theme.info)(info.storageUsage ?? '0 B') +
+      '  •  ' +
+      chalk.hex(theme.success)(info.statusText ?? '● Siap');
+    content = `${line1}\n${line2}\n${line3}`;
+  } else {
+    const line1 =
+      chalk.hex(theme.textMuted)('Instance : ') +
+      chalk.hex(theme.primary).bold(info.instanceName ?? 'Default') +
+      '   ' +
+      chalk.hex(theme.muted)('•') +
+      '   ' +
+      chalk.hex(theme.textMuted)('Loader : ') +
+      chalk.hex(theme.secondary).bold(loaderVersionText);
+
+    const line2 =
+      chalk.hex(theme.textMuted)('Mods     : ') +
+      chalk.hex(theme.success).bold(`${info.activeCount ?? 0} Aktif`) +
+      chalk.hex(theme.muted)(` / ${info.modsCount ?? 0} Total`) +
+      '   ' +
+      chalk.hex(theme.muted)('•') +
+      '   ' +
+      chalk.hex(theme.textMuted)('Storage : ') +
+      chalk.hex(theme.info)(info.storageUsage ?? '0 B') +
+      '   ' +
+      chalk.hex(theme.muted)('•') +
+      '   ' +
+      chalk.hex(theme.success)(info.statusText ?? '● Siap');
+    content = `${line1}\n${line2}`;
+  }
+
+  const boxTitle = showAscii
+    ? chalk.hex(theme.primary).bold(' ❖ STATUS INSTANCE ')
+    : chalk.hex(theme.primary).bold(' ❖ LOADMODER ') + chalk.hex(theme.muted)(`v${APP_VERSION} `);
 
   console.log(
-    boxen(`${line1}\n${line2}`, {
+    boxen(content, {
       padding: { top: 0, bottom: 0, left: 2, right: 2 },
-      margin: { top: 0, bottom: 1, left: 0, right: 0 },
+      margin: { top: 0, bottom: 0, left: 0, right: 0 },
       borderStyle: 'round',
       borderColor: theme.border,
-      title: chalk.hex(theme.primary).bold(' ❖ STATUS INSTANCE '),
+      title: boxTitle,
       titleAlignment: 'left',
     })
   );
+};
+
+export const renderInstanceHeader = (info: CommandCenterInfo) => {
+  renderCommandCenterHeader(info);
 };
 
 export const createBox = (content: string, title?: string, color: string = theme.primary) => {

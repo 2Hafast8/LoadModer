@@ -82,7 +82,20 @@ Kontrol navigasi:
 - `Enter` : Memilih menu
 - `Ctrl+C` : Keluar aplikasi
 
-### 3.2 `lm search <query>`
+### 3.2 `lm init`
+Wizard interaktif untuk mendeteksi launcher Minecraft atau memilih folder `.minecraft`:
+```bash
+# Inisialisasi standar dengan deteksi otomatis launcher
+lm init
+
+# Pindai seluruh drive lokal (C:, D:, E:, ...) untuk folder .minecraft / minecraft
+lm init --scan
+
+# Tentukan path folder .minecraft / minecraft secara langsung
+lm init --path "D:\Games\.minecraft"
+```
+
+### 3.3 `lm search <query>`
 Mencari konten di Modrinth dengan filter presisi:
 ```bash
 # Mencari mod optimasi untuk Fabric 1.21.1
@@ -95,7 +108,7 @@ lm search complementary -t shader
 lm search "fabulously optimized" -t modpack --json
 ```
 
-### 3.3 `lm install <targets...>`
+### 3.4 `lm install <targets...>`
 Memasang mod, modpack (`.mrpack`), atau URL proyek Modrinth:
 ```bash
 # Memasang mod dengan resolusi dependensi otomatis
@@ -111,7 +124,7 @@ lm install sodium --dry-run
 lm install custom-mod --no-deps
 ```
 
-### 3.4 `lm update`
+### 3.5 `lm update`
 Memeriksa versi mod lokal terhadap rilis terbaru di Modrinth:
 ```bash
 # Memperbarui semua mod dengan konfirmasi otomatis
@@ -121,14 +134,14 @@ lm update -y
 lm update --prerelease
 ```
 
-### 3.5 `lm remove <targets...>`
+### 3.6 `lm remove <targets...>`
 Menghapus mod dan dependensi yang tidak lagi digunakan:
 ```bash
 # Menghapus mod iris dan membersihkan library yatim yang tidak lagi dirujuk mod lain
 lm remove iris --prune -y
 ```
 
-### 3.6 `lm profile`
+### 3.7 `lm profile`
 Mengisolasi dan beralih antar kombinasi versi game:
 ```bash
 # Menampilkan daftar snapshot profil tersimpan
@@ -138,7 +151,7 @@ lm profile list
 lm profile switch -v 1.20.1 -l forge
 ```
 
-### 3.7 `lm bisect <action>`
+### 3.8 `lm bisect <action>`
 Melacak mod penyebab crash menggunakan algoritma pencarian biner ($O(\log_2 N)$):
 ```bash
 # Memulai sesi bisect (setengah mod dinonaktifkan sementara)
@@ -154,7 +167,7 @@ lm bisect bad
 lm bisect reset
 ```
 
-### 3.8 `lm watch`
+### 3.9 `lm watch`
 Memantau folder `mods/` secara real-time dan menyinkronkan status lockfile saat ada perubahan manual:
 ```bash
 lm watch

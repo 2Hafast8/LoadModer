@@ -21,6 +21,7 @@ export interface InteractiveChoice {
   name: string;
   value: string;
   hint?: string;
+  badge?: string;
   disabled?: boolean | string;
 }
 
@@ -95,7 +96,10 @@ export async function askInteractiveMenu(
         c.name.includes("Halaman") ||
         c.name.includes("Cari"));
 
-    const styledName = isAction ? chalk.hex(ui.accentAlt)(c.name) : chalk.hex(ui.text)(c.name);
+    const badgeText = c.badge ? `  ${c.badge}` : "";
+    const styledName = isAction
+      ? chalk.hex(ui.accentAlt)(c.name) + badgeText
+      : chalk.hex(ui.text)(c.name) + badgeText;
 
     return {
       name: styledName,
@@ -106,7 +110,7 @@ export async function askInteractiveMenu(
   });
 
   try {
-    return await select({
+    const result = await select({
       message: chalk.hex(ui.text).bold(message),
       choices: inquirerChoices,
       pageSize,
@@ -127,7 +131,10 @@ export async function askInteractiveMenu(
         },
       },
     });
+    clearScreen();
+    return result;
   } catch (err: any) {
+    clearScreen();
     if (err?.name === "ExitPromptError" || err instanceof ExitPromptError) {
       if (allowBackOnCancel) {
         return "back";
@@ -154,7 +161,7 @@ export async function askSearchMenu(
   }
 
   try {
-    return await search({
+    const result = await search({
       message: chalk.hex(ui.text).bold(message),
       source: async (input) => {
         if (!input) {
@@ -198,7 +205,10 @@ export async function askSearchMenu(
         },
       },
     });
+    clearScreen();
+    return result;
   } catch (err: any) {
+    clearScreen();
     if (err?.name === "ExitPromptError" || err instanceof ExitPromptError) {
       if (allowBackOnCancel) {
         return "back";
@@ -218,7 +228,7 @@ export async function ask(
   const allowBackOnCancel = options?.allowBackOnCancel ?? true;
 
   try {
-    return await input({
+    const result = await input({
       message: chalk.hex(ui.text)(query),
       default: defaultValue,
       theme: {
@@ -233,7 +243,10 @@ export async function ask(
         },
       },
     });
+    clearScreen();
+    return result;
   } catch (err: any) {
+    clearScreen();
     if (err?.name === "ExitPromptError" || err instanceof ExitPromptError) {
       if (allowBackOnCancel) {
         return defaultValue ?? "";

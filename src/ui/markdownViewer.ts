@@ -17,11 +17,11 @@ export async function displayPaginatedMarkdown(
     showBanner(undefined, true);
     console.log(
       boxen(renderedText, {
-        padding: 1,
-        margin: {top: 0, bottom: 1, left: 0, right: 0},
+        padding: { top: 0, bottom: 0, left: 1, right: 1 },
+        margin: { top: 0, bottom: 1, left: 0, right: 0 },
         borderStyle: "round",
-        borderColor: theme.primary,
-        title: chalk.bold.hex(theme.primary)(` 📖 ${title} `),
+        borderColor: theme.border,
+        title: chalk.hex(theme.primary).bold(` 📖 ${title} `),
         titleAlignment: "left",
       }),
     );
@@ -62,11 +62,11 @@ export async function displayPaginatedMarkdown(
         showBanner(undefined, true);
         console.log(
           boxen(currentChunk, {
-            padding: 1,
-            margin: {top: 0, bottom: 1, left: 0, right: 0},
+            padding: { top: 0, bottom: 0, left: 1, right: 1 },
+            margin: { top: 0, bottom: 0, left: 0, right: 0 },
             borderStyle: "round",
-            borderColor: theme.primary,
-            title: chalk.bold.hex(theme.primary)(
+            borderColor: theme.border,
+            title: chalk.hex(theme.primary).bold(
               ` 📖 ${title} (Halaman ${currentPage}/${totalPages}) `,
             ),
             titleAlignment: "left",

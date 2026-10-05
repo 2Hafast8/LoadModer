@@ -13,6 +13,7 @@ import {p, pc} from "../prompts.js";
 import type {SavedInstanceConfig} from "../../types/instance.js";
 import type {ModProject, ModVersion} from "../../types/modrinth.js";
 import type {ComprehensiveModDetail} from "./detailCard.js";
+import {InstalledAssetsIndex} from "../../core/instance/installedIndex.js";
 
 export async function ensureInstanceEnvironment(
   activeInstance?: SavedInstanceConfig,
@@ -206,10 +207,13 @@ export async function buildRemoteModDetail(
   slugOrId: string,
   userLoader: string,
   userGameVersion: string,
+  currentInstance?: SavedInstanceConfig,
+  preloadedIndex?: InstalledAssetsIndex,
 ): Promise<{detail: ComprehensiveModDetail; project: ModProject; versions: ModVersion[]}> {
-  const [project, versions] = await Promise.all([
+  const [project, versions, installedIndex] = await Promise.all([
     modrinthClient.getProject(slugOrId),
     modrinthClient.getProjectVersions(slugOrId),
+    preloadedIndex ? Promise.resolve(preloadedIndex) : InstalledAssetsIndex.load(currentInstance),
   ]);
 
   const compatibility = computeModCompatibility(versions, userLoader, userGameVersion);
@@ -217,13 +221,57 @@ export async function buildRemoteModDetail(
   const primaryFile = bestVer?.files?.find((f) => f.primary) ?? bestVer?.files?.[0];
   const requiredLibs = await getRequiredDependencyTitles(bestVer, project);
 
+  const installedStatus =
+    installedIndex.getStatus(slugOrId) ??
+    installedIndex.getStatus(project.slug) ??
+    (project.id ? installedIndex.getStatus(project.id) : undefined);
+
+  const isInstalled = Boolean(installedStatus?.isInstalled);
+  let status: "active" | "disabled" | "not_installed" = "not_installed";
+  if (isInstalled) {
+    status = installedStatus?.isDisabled ? "disabled" : "active";
+  }
+
+  let installedVersion = installedStatus?.version;
+  const filename = installedStatus?.filename;
+  let filePath: string | undefined;
+  let fileSizeBytes: number | undefined;
+  let fileSizeStr = primaryFile ? formatBytes(primaryFile.size) : undefined;
+  let modifiedAt: string | undefined;
+
+  if (isInstalled && currentInstance?.modsDir && filename) {
+    filePath = path.join(currentInstance.modsDir, filename);
+    try {
+      const s = await stat(filePath);
+      fileSizeBytes = s.size;
+      fileSizeStr = formatBytes(s.size);
+      modifiedAt = s.mtime.toLocaleString();
+    } catch {}
+  }
+
+  if (isInstalled && !installedVersion && filename) {
+    const cleanFn = filename.replace(/\.disabled$/, "");
+    const matchedVer = versions.find((v) =>
+      v.files.some((f) => f.filename === filename || f.filename === cleanFn),
+    );
+    if (matchedVer) {
+      installedVersion = matchedVer.version_number;
+    }
+  }
+
   const detail: ComprehensiveModDetail = {
     title: project.title,
     slug: project.slug,
     projectId: project.id,
     projectType: project.project_type ?? "mod",
-    status: "not_installed",
-    isInstalled: false,
+    status,
+    isInstalled,
+    filename,
+    filePath,
+    fileSizeBytes,
+    fileSizeStr,
+    modifiedAt,
+    installedVersion,
     author: project.author || project.team || "-",
     description: project.description,
     body: project.body,
@@ -244,7 +292,6 @@ export async function buildRemoteModDetail(
     latestVersion: bestVer?.version_number,
     loaders: bestVer?.loaders,
     gameVersions: bestVer?.game_versions,
-    fileSizeStr: primaryFile ? formatBytes(primaryFile.size) : undefined,
     sha1: primaryFile?.hashes?.sha1,
     compatibility,
   };

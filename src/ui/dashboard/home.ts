@@ -1,6 +1,12 @@
 import {readdir, stat} from "node:fs/promises";
 import path from "node:path";
-import {showBanner, renderInstanceHeader, printFAQ, clearScreen} from "../theme.js";
+import {
+  renderCommandCenterHeader,
+  formatBadge,
+  showBanner,
+  printFAQ,
+  clearScreen,
+} from "../theme.js";
 import {askInteractiveMenu, ask, type InteractiveChoice} from "../interactive.js";
 import {instanceConfig} from "../../core/instance/config.js";
 import {runInteractiveBrowser} from "./browser.js";
@@ -98,33 +104,67 @@ export async function launchHomeDashboard(): Promise<void> {
         {
           name: "🔍  Cari & Eksplorasi Konten Modrinth",
           value: "search",
-          hint: "Pencarian kustom & filter lengkap",
+          hint: "Pencarian kustom dengan filter tags, loader, dan versi game",
+          badge: formatBadge("Modrinth", "info"),
         },
-        {name: "⭐  Mod Esensial & Populer", value: "popular", hint: "Sodium, Iris, Lithium, dll."},
-        {name: "📦  Jelajahi Modpack Populer", value: "modpacks", hint: ".mrpack siap pakai"},
-        {name: "✨  Jelajahi Shader Pack", value: "shaders", hint: "Efek pencahayaan & visual"},
-        {name: "🎨  Jelajahi Resource Pack", value: "resourcepacks", hint: "Tekstur & GUI kustom"},
+        {
+          name: "⭐  Mod Esensial & Populer",
+          value: "popular",
+          hint: "Sodium, Iris, Lithium, Fabric API, dan mod esensial performa",
+        },
+        {
+          name: "📦  Jelajahi Modpack Populer",
+          value: "modpacks",
+          hint: "Paket mod siap pakai (.mrpack) terpopuler",
+        },
+        {
+          name: "✨  Jelajahi Shader Pack",
+          value: "shaders",
+          hint: "Efek pencahayaan dan grafis realistis",
+        },
+        {
+          name: "🎨  Jelajahi Resource Pack",
+          value: "resourcepacks",
+          hint: "Tekstur kustom, UI, dan paket audio",
+        },
 
         {name: "MANAJEMEN INSTANCE", value: "sep"},
         {
           name: "🗃️   Kelola Mod Terpasang",
           value: "manage",
-          hint: `${stats.modsCount} berkas (${stats.activeCount} aktif)`,
+          hint: `${stats.modsCount} berkas (${stats.activeCount} aktif) • ${stats.storageUsage}`,
+          badge: formatBadge(
+            `${stats.activeCount} mod`,
+            stats.activeCount > 0 ? "success" : "muted",
+          ),
         },
-        {name: "🔄  Periksa & Update Mod", value: "update", hint: "Deteksi versi rilis baru"},
+        {
+          name: "🔄  Periksa & Update Mod",
+          value: "update",
+          hint: "Deteksi rilis pembaruan baru di Modrinth",
+          badge: formatBadge("Periksa", "primary"),
+        },
         {
           name: "⚙️   Kelola Profil & Versi Game",
           value: "switch_instance",
-          hint: `${active?.loader ?? "-"} ${active?.gameVersion ?? "-"} (Snapshot & Switch)`,
+          hint: `Instance: ${active?.name ?? "Default"} (${active?.loader ?? "-"} ${active?.gameVersion ?? "-"})`,
+          badge: active?.loader
+            ? formatBadge(`${active.loader} ${active.gameVersion ?? ""}`.trim(), "secondary")
+            : undefined,
         },
 
         {name: "ALAT & PANDUAN", value: "sep"},
         {
           name: "🩺  Diagnostik Crash & Bisect Tool",
           value: "bisect",
-          hint: "Cari mod penyebab crash",
+          hint: "Cari mod penyebab crash via binary search otomatis",
+          badge: formatBadge("Bisect", "warning"),
         },
-        {name: "❓  Pusat Bantuan & Panduan", value: "faq", hint: "Dokumentasi & troubleshooting"},
+        {
+          name: "❓  Pusat Bantuan & Panduan",
+          value: "faq",
+          hint: "Dokumentasi perintah CLI, tips performa, & FAQ",
+        },
 
         {name: "──────────────────", value: "sep"},
         {name: "[Keluar dari LoadModer]", value: "exit"},
@@ -134,8 +174,7 @@ export async function launchHomeDashboard(): Promise<void> {
         "DASHBOARD UTAMA",
         homeChoices,
         () => {
-          showBanner(active?.name, false, false);
-          renderInstanceHeader({
+          renderCommandCenterHeader({
             instanceName: active?.name,
             gameVersion: active?.gameVersion,
             loader: active?.loader,
@@ -159,26 +198,31 @@ export async function launchHomeDashboard(): Promise<void> {
         }
 
         case "popular": {
+          clearScreen();
           await runInteractiveBrowser(active, "", "mod");
           break;
         }
 
         case "modpacks": {
+          clearScreen();
           await runInteractiveBrowser(active, "", "modpack");
           break;
         }
 
         case "shaders": {
+          clearScreen();
           await runInteractiveBrowser(active, "", "shader");
           break;
         }
 
         case "resourcepacks": {
+          clearScreen();
           await runInteractiveBrowser(active, "", "resourcepack");
           break;
         }
 
         case "manage": {
+          clearScreen();
           await runInteractiveManager(active);
           break;
         }
@@ -197,6 +241,7 @@ export async function launchHomeDashboard(): Promise<void> {
         }
 
         case "switch_instance": {
+          clearScreen();
           cleanupWatcher();
           await runInteractiveProfileSwitcher();
           break;

@@ -4,7 +4,7 @@ import {instanceConfig} from "../../core/instance/config.js";
 import {installCommand} from "../../commands/install.js";
 import {formatNumber, formatBytes} from "../../utils/format.js";
 import {displayPaginatedMarkdown} from "../markdownViewer.js";
-import {theme, showBanner, clearScreen, logger} from "../theme.js";
+import {theme, showBanner, clearScreen, logger, formatBadge} from "../theme.js";
 import {askInteractiveMenu, ask, type InteractiveChoice} from "../interactive.js";
 import {p, pc} from "../prompts.js";
 import type {SavedInstanceConfig} from "../../types/instance.js";
@@ -74,33 +74,34 @@ export async function handleVersionsExplorer(
       });
     } else {
       for (const v of displayedVersions.slice(0, 25)) {
-        let tagBadge = "";
-        if (v.version_type === "release") {
-          tagBadge = chalk.hex(theme.success)("[rel]");
-        } else if (v.version_type === "beta") {
-          tagBadge = chalk.hex(theme.warning)("[beta]");
-        } else {
-          tagBadge = chalk.hex(theme.error)("[alpha]");
-        }
+        const releaseBadge =
+          v.version_type === "release"
+            ? formatBadge("Release", "success")
+            : v.version_type === "beta"
+              ? formatBadge("Beta", "warning")
+              : formatBadge("Alpha", "error");
 
         const isCurrent = detail.installedVersion && v.version_number === detail.installedVersion;
         const isMatched =
           v.loaders.some((l) => l.toLowerCase() === cleanLoader) &&
           v.game_versions.some((gv) => gv.toLowerCase() === cleanVer);
 
-        const badgeStr = isCurrent
-          ? chalk.hex(theme.primary).bold(" ★ TERPASANG")
+        const matchBadge = isCurrent
+          ? formatBadge("Terpasang", "primary")
           : isMatched
-            ? chalk.hex(theme.success)(" ✔ COCOK")
-            : "";
+            ? formatBadge("Cocok", "success")
+            : undefined;
 
         const loadersStr = v.loaders?.slice(0, 2).join(", ") ?? "";
         const gvStr = v.game_versions?.slice(0, 2).join(", ") ?? "";
 
+        const allBadges = [releaseBadge, matchBadge].filter(Boolean).join(" ");
+
         versionChoices.push({
-          name: `${tagBadge} ${v.version_number}${badgeStr}  •  ${gvStr} (${loadersStr})`,
+          name: `${v.version_number}  •  ${gvStr} (${loadersStr})`,
           value: v.id,
-          hint: `⬇ ${formatNumber(v.downloads)}  •  ${v.date_published.split("T")[0]}`,
+          hint: `⬇ ${formatNumber(v.downloads)}  •  Rilis: ${v.date_published.split("T")[0]}`,
+          badge: allBadges,
         });
       }
     }
