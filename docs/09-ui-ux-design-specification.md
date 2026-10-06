@@ -179,6 +179,7 @@ flowchart TD
     Profile --> SwitchVer["🔄 Ganti Versi Game / Mod Loader"]
     Profile --> Snapshots["📦 Daftar Snapshot Profil"]
     Profile --> SwitchLauncher["🎮 Ganti ke Instance Launcher Lain"]
+    Profile --> ModpackVault["📦 Brankas Profil Modpack (List / Switch / Disable)"]
 ```
 
 ---
@@ -222,4 +223,4 @@ flowchart TD
 | **Fase 4** | Key-Value Nordic Detail Card & Deteksi Status Terpasang Cerdas | **Selesai (Completed)** |
 | **Fase 5** | Final Polish, Aksesibilitas WCAG AA & NO_COLOR, serta E2E Verification | **Selesai (Completed)** |
 
-Seluruh implementasi di atas telah terverifikasi melalui 20 berkas pengujian unit, integrasi, dan E2E (`npm test` 138/138 lulus) serta kompilasi bundel produksi (`npm run build`).
+Seluruh implementasi di atas telah terverifikasi melalui 21 berkas pengujian unit, integrasi, dan E2E (`npm test` 157/157 lulus) serta kompilasi bundel produksi (`npm run build`).

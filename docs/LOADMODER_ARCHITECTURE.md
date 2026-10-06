@@ -26,7 +26,7 @@ Platform modding CLI modern tidak boleh hanya sekadar "downloader file `.jar`". 
 
 ---
 
-## 2. Delapan Pilar Pengembangan Platform LoadModer
+## 2. Sembilan Pilar Rekayasa Platform LoadModer
 
 ### Pilar 1: Mesin Modpack Penuh (`.mrpack` Engine)
 Format modpack standar Modrinth adalah `.mrpack` (arsip ZIP terstruktur). LoadModer mengintegrasikan mesin unpacking (`src/core/modpack/unpacker.ts`) yang mampu:
@@ -49,7 +49,9 @@ LoadModer secara otomatis mendeteksi launcher (`src/core/instance/detector.ts`):
    - Membaca `profile.json` untuk mengetahui metadata versi secara instan.
 3. **CurseForge App**:
    - Membaca `minecraftinstance.json`.
-4. **Official Vanilla Launcher**:
+4. **TLauncher (Multi-Container)**:
+   - Membaca folder wadah `versions/mypack(...)` dan metadata `TLauncherAdditional.json`.
+5. **Official Vanilla Launcher**:
    - Membaca `.minecraft/launcher_profiles.json`.
 
 ### Pilar 3: Unified Multi-Asset Routing & Custom Filters
@@ -83,6 +85,12 @@ Satu perintah untuk semua tipe konten Modrinth dengan perutean direktori otomati
 * **Mod Toggle (`enable` / `disable`)**: Mengubah status mod (`.jar` $\leftrightarrow$ `.jar.disabled`) secara instan tanpa menghapus file.
 * **Automated Mod Bisect (`src/core/troubleshoot/bisect.ts`)**: `BisectRunner` mengisolasi mod penyebab crash dalam $O(\log_2 N)$ langkah uji menggunakan algoritma pencarian biner.
 
+### Pilar 9: Modpack Profile Vault & Container Isolation (`ModpackProfileManager`)
+* **Brankas Profil Terisolasi (`.loadmoder/profiles/<id>/`)**: Setiap wadah client menyimpan arsip modpack yang pernah diunduh sehingga pemain dapat berpindah antar modpack seketika tanpa kuota internet tambahan.
+* **Master MRPack Backup (`.loadmoder/downloads/`)**: Menyimpan berkas master `.mrpack` utuh untuk keperluan instalasi ulang atau pemulihan darurat.
+* **Clean State & Preservasi Mesin Launcher**: Fungsi `isPreservedEngineItem` memastikan file penting (`TLauncherAdditional.json`, `.fabric`, `logs`, `<wadah>.jar`, `<wadah>.json`) tidak pernah terhapus saat pembersihan wadah berlangsung.
+* **Active Download Guard & Resilient Engine**: Dialog pencegahan tumpang tindih profil aktif saat `lm install`, didukung mekanisme retry backoff eksponensial dan direct fallback ke Modrinth Version API.
+
 ---
 
 ## 3. Hierarki Perintah LoadModer CLI (Alias: `lm`)
@@ -102,6 +110,7 @@ loadmoder (alias: lm)
 ├── bisect <action>      # Wizard pencarian biner isolasi mod penyebab crash
 ├── watch                # Pantau folder mods secara real-time untuk sinkronisasi
 ├── profile <action>     # Kelola snapshot profil versi game (list | switch)
+├── modpack <action>     # Kelola profil modpack tersimpan (list | switch | disable)
 └── config <action>      # Pengaturan global & manajemen profil instance
 ```
 
@@ -150,7 +159,7 @@ loadmoder (alias: lm)
 Membaca `modrinth.index.json` secara streaming melalui `unzipper`, memproses folder `overrides/`, dan mengunduh seluruh file dependensi secara paralel dengan `p-limit`.
 
 ### B. Auto-Detector Launcher (`src/core/instance/detector.ts`)
-Memindai instance Prism, MultiMC, Modrinth App, CurseForge, dan Vanilla lintas OS secara paralel.
+Memindai instance Prism, MultiMC, Modrinth App, CurseForge, TLauncher, dan Vanilla lintas OS secara paralel.
 
 ### C. Automatic Dependency Resolver (`src/core/dependency/resolver.ts`)
 Menginspeksi dependensi required dari API dan regex deskripsi, memverifikasi file JAR lokal, dan menyematkan metadata ke lockfile.
@@ -160,6 +169,10 @@ Menyimpan dan merestorasi file mod per profil dan versi game secara bersih saat 
 
 ### E. Crash Bisect Runner (`src/core/troubleshoot/bisect.ts`)
 `BisectRunner` membagi kelompok mod aktif menjadi dua bagian dan mengisolasi mod penyebab crash dalam hitungan langkah biner.
+
+### F. Modpack Profile Vault Manager (`src/core/modpack/profileManager.ts`)
+Mengelola pendaftaran brankas profil modpack di wadah client, pergantian instan antar profil, pengarsipan otomatis, dan restorasi bersih tanpa merusak engine launcher.
+
 
 ---
 

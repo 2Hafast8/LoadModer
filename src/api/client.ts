@@ -184,6 +184,19 @@ export class ModrinthClient {
     return this.request(`/version/${encodeURIComponent(versionId)}`);
   }
 
+  async getVersionFileByHash(
+    hash: string,
+    algorithm: "sha512" | "sha1" = "sha512",
+  ): Promise<ModVersion | null> {
+    try {
+      return await this.request<ModVersion>(
+        `/version_file/${encodeURIComponent(hash)}?algorithm=${algorithm}`,
+      );
+    } catch {
+      return null;
+    }
+  }
+
   async getVersionsByHashes(sha1Hashes: string[]): Promise<Record<string, ModVersion>> {
     if (sha1Hashes.length === 0) return {};
     return this.request("/version_files", {
@@ -226,13 +239,25 @@ export class ModrinthClient {
   ): Promise<void> {
     await mkdir(path.dirname(dest), {recursive: true});
 
+    const controller = new AbortController();
+    let streamTimer: NodeJS.Timeout | null = null;
+    const resetWatchdog = (ms = 45000) => {
+      if (streamTimer) clearTimeout(streamTimer);
+      streamTimer = setTimeout(() => {
+        controller.abort(new Error("Unduhan terhenti: tidak ada aliran data selama 45 detik."));
+      }, ms);
+    };
+
     let res: Response;
     try {
+      resetWatchdog(30000);
       res = await fetch(url, {
         headers: {"User-Agent": this.userAgent},
-        signal: AbortSignal.timeout(60000),
+        signal: controller.signal,
       });
+      if (streamTimer) clearTimeout(streamTimer);
     } catch (netErr: any) {
+      if (streamTimer) clearTimeout(streamTimer);
       if (attempt < 2) {
         await sleep(1000 * Math.pow(2, attempt) + 250);
         return this.download(url, dest, opts, attempt + 1);
@@ -253,8 +278,10 @@ export class ModrinthClient {
     let received = 0;
     const hasher = opts.sha512 ? createHash("sha512") : null;
 
+    resetWatchdog(45000);
     const counter = new Transform({
       transform(chunk: Buffer, _enc, cb) {
+        resetWatchdog(45000);
         received += chunk.length;
         if (hasher) {
           hasher.update(chunk);
@@ -270,6 +297,7 @@ export class ModrinthClient {
         counter,
         createWriteStream(tmp),
       );
+      if (streamTimer) clearTimeout(streamTimer);
 
       if (opts.sha512 && hasher) {
         const actualSha512 = hasher.digest("hex");
@@ -280,7 +308,10 @@ export class ModrinthClient {
 
       await rename(tmp, dest);
     } catch (err) {
-      await rm(tmp, {force: true});
+      if (streamTimer) clearTimeout(streamTimer);
+      try {
+        await rm(tmp, {force: true});
+      } catch {}
       if (attempt < 2) {
         await sleep(1000 * Math.pow(2, attempt) + 250);
         return this.download(url, dest, opts, attempt + 1);

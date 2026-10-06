@@ -6,7 +6,7 @@
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-138%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-157%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 
@@ -17,6 +17,12 @@
 * **🎯 Operasi Dual-Mode (Nordic Clean TUI & Direct CLI)**:
   - **Interactive TUI Dashboard**: Header adaptif Figlet ASCII + 4-line Nordic Cyber Status Box, Live Badges navigasi instan, dan kontrol keyboard panah (`↑`/`↓` atau `j`/`k`).
   - **Direct CLI**: Jalankan `lm install`, `lm search`, `lm update` langsung dengan flag dan argumen untuk skrip otomasi maupun terminal.
+* **📦 TLauncher Modpack Profile Vault & Multi-Client Isolation**:
+  - **Wadah Client Terisolasi**: Pemisahan wadah client TLauncher per loader (`fabric`, `forge`) dan versi game (misal: `mypack(fabric)`, `mypack(forge)`, `mypack(fabric-1.21)`).
+  - **Brankas Profil Lokal (`.loadmoder/profiles/`)**: Beralih antar-modpack secara instan tanpa unduh ulang (`lm modpack switch`).
+  - **Active Modpack Download Guard**: Mencegah tumpang tindih profil aktif saat memasang modpack baru dengan pilihan *Jangan download (batal)* atau *Download & bersihkan wadah*.
+  - **Clean State & Global Disable**: Mengarsipkan seluruh modpack aktif ke brankas dan membersihkan wadah kerja kembali ke kondisi Vanilla awal (`lm modpack disable`).
+  - **Panduan Terintegrasi TLauncher**: Menu panduan interaktif pembuatan wadah client di TLauncher via menu **TL MODS** -> **Create**.
 * **🏷️ Browser Cepat & Horizontal Filter Chips**:
   - Filter chip bar 2 baris ringkas menggantikan tabel vertikal, menampilkan hasil pencarian pertama langsung di layar tanpa scroll.
 * **⚡ Validasi Status Terpasang Konkuren**:
@@ -30,7 +36,7 @@
   - Standar `NO_COLOR` dan mode `ACCESSIBLE=true` (preservasi buffer *scrollback* terminal).
   - Indikator ganda berbasis simbol teks (`✔`, `○`, `🌐`, `●`, `▲`, `✖`), tidak pernah mengandalkan warna semata.
 * **🎮 Multi-Drive Launcher Locator**:
-  - Mendeteksi launcher pihak ketiga (Prism, MultiMC, Modrinth App, CurseForge, Vanilla) di seluruh partisi drive Windows (`C:`, `D:`, `E:`, dll.) secara otomatis.
+  - Mendeteksi launcher pihak ketiga (Prism, MultiMC, Modrinth App, CurseForge, TLauncher, Vanilla) di seluruh partisi drive Windows (`C:`, `D:`, `E:`, dll.) secara otomatis.
 * **🧩 Resolusi Dependensi Otomatis & Lockfile DAG**:
   - Membaca dependensi wajib dari metadata API Modrinth dan membuat Directed Acyclic Graph (DAG) di `loadmoder.lock.json`.
   - Pelacakan referensi (`dependedBy`) dan pembersihan otomatis dependensi yatim (*orphan pruning*) saat mod induk dihapus via `lm remove --prune`.
@@ -90,6 +96,7 @@ lm
 | `lm disable <mod>` | Menonaktifkan mod tanpa menghapus file (`.jar` $\rightarrow$ `.jar.disabled`) | `lm disable sodium` |
 | `lm bisect <action>` | Pencarian biner isolasi mod penyebab crash (`start` \| `good` \| `bad` \| `reset`) | `lm bisect start` |
 | `lm watch` | Memantau folder mods secara real-time dan menyinkronkan data | `lm watch` |
+| `lm modpack <action>` | Mengelola profil modpack terisolasi (`list` \| `switch` \| `disable`) | `lm modpack switch zombie-apocalypse` |
 | `lm profile <action>` | Mengelola snapshot profil versi game (`list` \| `switch`) | `lm profile switch -v 1.21.1 -l fabric` |
 | `lm config <action>` | Menampilkan atau mengatur konfigurasi instance aktif | `lm config show` |
 
@@ -123,9 +130,10 @@ lm
 ┌───────────────────▼───────────────┐   ┌───────────▼────────────────────┐
 │        CORE DOMAIN ENGINES        │   │    INSTANCE & STATE DOMAIN     │
 │ • Modpack Engine (.mrpack unpack) │   │ • Launcher Auto-Discovery      │
-│ • Dependency Resolver & DAG Graph │   │ • Lockfile Manager (.lock.json)│
-│ • Dynamic Minecraft Versions API  │   │ • Profile Snapshot Manager     │
-│ • Environment Filter (Client/Srv) │   │ • Mod Disabler (.disabled)     │
+│ • Modpack Profile Vault & Manager │   │ • Lockfile Manager (.lock.json)│
+│ • Dependency Resolver & DAG Graph │   │ • Profile Snapshot Manager     │
+│ • Dynamic Minecraft Versions API  │   │ • Mod Disabler (.disabled)     │
+│ • Environment Filter (Client/Srv) │   │ • Multi-Drive Path Resolver    │
 └───────────────────┬───────────────┘   └───────────┬────────────────────┘
                     │                               │
 ┌───────────────────▼───────────────────────────────▼────────────────────┐
@@ -143,9 +151,9 @@ Dokumentasi arsitektur dan spesifikasi lengkap tersedia di folder [`docs/`](docs
 
 * [**01. Arsitektur & Visi Sistem**](docs/01-architecture-and-vision.md) — Struktur berlapis, alur data end-to-end, dan tata kelola kuota API.
 * [**02. Kurasi Tech Stack & Pustaka**](docs/02-tech-stack-and-libraries.md) — Pemilihan pustaka runtime, performa cold-start, dan batasan konkurensi.
-* [**03. Spesifikasi Perintah & UX CLI**](docs/03-cli-commands-and-ux.md) — Detail opsi perintah, flag global, dan tata letak visual TUI.
-* [**04. Mesin Modpack (.mrpack Engine)**](docs/04-modpack-engine.md) — Parsing spesifikasi `.mrpack`, ekstraksi streaming, dan pemisahan overrides.
-* [**05. Integrasi Multi-Launcher**](docs/05-multi-launcher-integration.md) — Auto-discovery Prism, MultiMC, Modrinth App, CurseForge, dan Vanilla.
+* [**03. Spesifikasi Perintah & UX CLI**](docs/03-cli-commands-and-ux.md) — Detail opsi perintah, flag global, perintah `lm modpack`, dan tata letak visual TUI.
+* [**04. Mesin Modpack (.mrpack Engine) & Profile Vault**](docs/04-modpack-engine.md) — Parsing spesifikasi `.mrpack`, ekstraksi streaming, brankas profil modpack, dan isolasi wadah TLauncher.
+* [**05. Integrasi Multi-Launcher & TLauncher**](docs/05-multi-launcher-integration.md) — Auto-discovery Prism, MultiMC, Modrinth App, CurseForge, Vanilla, dan wadah TLauncher.
 * [**06. Dependency Graph & Lockfile**](docs/06-dependency-graph-and-lockfile.md) — Resolusi dependensi otomatis, Directed Acyclic Graph, dan reference counting.
 * [**07. Diagnostik Crash & Bisect Engine**](docs/07-troubleshooting-and-bisect.md) — Algoritma pencarian biner isolasi crash dan toggle status mod.
 * [**08. Panduan Pengembang & API**](docs/08-developer-guide-and-api.md) — Struktur berkas, alur pengujian, variabel lingkungan, dan kompilasi.
@@ -176,7 +184,7 @@ npx vitest
 - `tests/security.test.ts` (8 tests)
 - `tests/minecraftVersions.test.ts` (10 tests)
 - `tests/snapshotManager.test.ts` (3 tests)
-- `tests/uiThemeA11y.test.ts` (19 tests)
+- `tests/uiThemeA11y.test.ts` (22 tests)
 - `tests/detailCard.test.ts` (5 tests)
 - `tests/e2eUiFlow.test.ts` (2 tests)
 - `tests/compatibility.test.ts` (5 tests)
@@ -186,10 +194,11 @@ npx vitest
 - `tests/searchFilters.test.ts` (6 tests)
 - `tests/performance.test.ts` (2 tests)
 - `tests/instanceDetector.test.ts` (2 tests)
-- `tests/modsWatcher.test.ts` (2 tests)
+- `tests/modsWatcher.test.ts` (3 tests)
 - `tests/cliJsonOutput.test.ts` (2 tests)
 - `tests/crypto.test.ts` (3 tests)
-- **Total: 20 test files, 138 tests passed (100%)**.
+- `tests/tlauncherModpackProfile.test.ts` (15 tests)
+- **Total: 21 test files, 157 tests passed (100%)**.
 
 ---
 

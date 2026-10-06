@@ -44,6 +44,7 @@ loadmoder (alias: lm)
 ├── bisect <action>          # Investigasi biner mod penyebab crash (start|good|bad|reset)
 ├── watch                    # Memantau folder mods secara real-time untuk sinkronisasi
 ├── profile <action>         # Kelola snapshot profil versi game (list | switch)
+├── modpack <action>         # Kelola profil modpack tersimpan (list | switch | disable)
 └── config <action>          # Pengaturan konfigurasi (show | use | set)
 ```
 
@@ -114,8 +115,9 @@ Memasang mod, modpack (`.mrpack`), atau URL proyek Modrinth:
 # Memasang mod dengan resolusi dependensi otomatis
 lm install sodium iris fabric-api
 
-# Memasang modpack dari file lokal atau slug
+# Memasang modpack dari file lokal atau slug Modrinth
 lm install fabulously-optimized.mrpack
+lm install zombie--apocalypse
 
 # Simulasi pemasangan tanpa menulis ke disk
 lm install sodium --dry-run
@@ -123,6 +125,16 @@ lm install sodium --dry-run
 # Melewati pengunduhan library dependensi
 lm install custom-mod --no-deps
 ```
+
+#### Perlindungan Unduh Modpack Aktif (Active Modpack Download Guard)
+Ketika pengguna mencoba memasang modpack baru sementara wadah client aktif sudah menjalankan suatu profil modpack, LoadModer memunculkan dialog pencegahan:
+1. **Batalkan Pemasangan Modpack**: Menghentikan proses unduh demi menjaga modpack yang sedang aktif agar tidak bercampur atau rusak.
+2. **Bersihkan Wadah & Pasang Modpack Baru**: Mengarsipkan profil modpack saat ini ke brankas `.loadmoder/profiles/<id>/`, membersihkan folder kerja wadah client ke kondisi *clean state* (hanya menyisakan file mesin engine seperti `.loadmoder`, `mypack*.*`, `TLauncherAdditional.json`), lalu memasang modpack baru secara bersih.
+
+#### Pilihan Mode Pemasangan Modpack
+Saat memasang modpack, pengguna dapat memilih salah satu dari dua mode:
+- **Full Modpack (Lengkap)**: Memasang seluruh komponen yang disediakan pembuat modpack (mods, overrides, configs, resourcepacks, shaders, dan defaultconfigs).
+- **Ringan / Esensial**: Hanya mengekstrak mod inti dan konfigurasi wajib, melewati resource pack atau shader berukuran besar untuk menghemat ruang disk dan RAM.
 
 ### 3.5 `lm update`
 Memeriksa versi mod lokal terhadap rilis terbaru di Modrinth:
@@ -142,7 +154,7 @@ lm remove iris --prune -y
 ```
 
 ### 3.7 `lm profile`
-Mengisolasi dan beralih antar kombinasi versi game:
+Mengisolasi dan beralih antar kombinasi versi game pada instance launcher standar:
 ```bash
 # Menampilkan daftar snapshot profil tersimpan
 lm profile list
@@ -172,3 +184,30 @@ Memantau folder `mods/` secara real-time dan menyinkronkan status lockfile saat 
 ```bash
 lm watch
 ```
+
+### 3.10 `lm modpack <action>`
+Mengelola brankas profil modpack pada wadah client aktif (`.loadmoder/profiles/`):
+```bash
+# Menampilkan tabel profil modpack tersimpan di wadah aktif beserta status aktif
+lm modpack list
+
+# Beralih ke profil modpack lain dari brankas secara instan tanpa mengunduh ulang
+lm modpack switch <profile-id>
+
+# Mengarsipkan modpack yang sedang aktif ke brankas dan membersihkan wadah kerja (clean state)
+lm modpack disable
+```
+
+### 3.11 `lm config <action>`
+Menampilkan atau mengubah konfigurasi lokal LoadModer:
+```bash
+# Menampilkan konfigurasi instance aktif saat ini
+lm config show
+
+# Mengarahkan LoadModer ke ID instance tertentu
+lm config use <instance-id>
+
+# Mengatur opsi konfigurasi global
+lm config set defaultLoader fabric
+```
+

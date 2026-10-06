@@ -1,4 +1,4 @@
-export type LauncherType = 'Prism' | 'MultiMC' | 'Modrinth' | 'CurseForge' | 'Vanilla' | 'Custom';
+export type LauncherType = 'Prism' | 'MultiMC' | 'Modrinth' | 'CurseForge' | 'Vanilla' | 'Custom' | 'TLauncher';
 export type LoaderType = 'fabric' | 'forge' | 'neoforge' | 'quilt';
 
 export interface MinecraftInstance {

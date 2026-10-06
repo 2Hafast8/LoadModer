@@ -47,14 +47,15 @@ export class InstanceDetector {
   async scanAll(): Promise<MinecraftInstance[]> {
     const results: MinecraftInstance[] = [];
 
-    const [prism, modrinth, curseforge, vanilla] = await Promise.all([
+    const [prism, modrinth, curseforge, vanilla, tlauncher] = await Promise.all([
       this.scanPrismAndMultiMC(),
       this.scanModrinthApp(),
       this.scanCurseForge(),
       this.scanVanilla(),
+      this.scanTLauncherModpacks(),
     ]);
 
-    results.push(...prism, ...modrinth, ...curseforge);
+    results.push(...prism, ...modrinth, ...curseforge, ...tlauncher);
     if (vanilla) results.push(vanilla);
 
     return deduplicateInstances(results);
@@ -198,11 +199,74 @@ export class InstanceDetector {
     } catch {
       return null;
     }
+
+    let isTLauncher = false;
+    try {
+      await stat(path.join(this.appData, ".tlauncher"));
+      isTLauncher = true;
+    } catch {}
+    if (!isTLauncher) {
+      try {
+        await stat(path.join(mcDir, "tlauncher.properties"));
+        isTLauncher = true;
+      } catch {}
+    }
+
     return this.inspectGameDir(mcDir, {
-      id: "vanilla-default",
-      name: "Official Minecraft (Default)",
-      launcher: "Vanilla",
+      id: isTLauncher ? "tlauncher-default" : "vanilla-default",
+      name: isTLauncher ? "TLauncher (Default)" : "Official Minecraft (Default)",
+      launcher: isTLauncher ? "TLauncher" : "Vanilla",
     });
+  }
+
+  private async scanTLauncherModpacks(): Promise<MinecraftInstance[]> {
+    const instances: MinecraftInstance[] = [];
+    const mcDir = this.isWin
+      ? path.join(this.appData, ".minecraft")
+      : this.isMac
+        ? path.join(this.home, "Library", "Application Support", "minecraft")
+        : path.join(this.home, ".minecraft");
+
+    const versionsDir = path.join(mcDir, "versions");
+    try {
+      const dirs = await readdir(versionsDir, {withFileTypes: true});
+      for (const d of dirs) {
+        if (!d.isDirectory()) continue;
+        const versionDir = path.join(versionsDir, d.name);
+        const tlJsonPath = path.join(versionDir, "TLauncherAdditional.json");
+        try {
+          const raw = await readFile(tlJsonPath, "utf8");
+          const tlJson = JSON.parse(raw);
+          if (tlJson && typeof tlJson === "object" && tlJson.modpack) {
+            const packName = tlJson.modpack.name ?? d.name;
+            const mcVer = tlJson.modpack.version?.gameVersionDTO?.name;
+            const loaderTypes = tlJson.modpack.version?.minecraftVersionTypes;
+            let loader: LoaderType | undefined;
+            if (Array.isArray(loaderTypes)) {
+              for (const lt of loaderTypes) {
+                const name = lt.name?.toLowerCase() ?? "";
+                if (name.includes("fabric")) loader = "fabric";
+                else if (name.includes("forge")) loader = "forge";
+                else if (name.includes("neoforge")) loader = "neoforge";
+                else if (name.includes("quilt")) loader = "quilt";
+              }
+            }
+
+            instances.push({
+              id: `tlauncher-${d.name.toLowerCase()}`,
+              name: `TLauncher: ${packName}`,
+              launcher: "TLauncher",
+              rootDir: versionDir,
+              modsDir: path.join(versionDir, "mods"),
+              gameVersion: mcVer,
+              loader,
+            });
+          }
+        } catch {}
+      }
+    } catch {}
+
+    return instances;
   }
 
   async scanOtherDrives(

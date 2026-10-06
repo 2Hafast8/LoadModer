@@ -262,3 +262,82 @@ Ketika versi baru dari modpack dirilis di Modrinth (misal `Fabulously Optimized 
 1. **Removed Files**: File yang ada di manifes lama tetapi sudah dihapus di manifes baru akan dibersihkan dari folder `mods/`.
 2. **Changed Versions**: File yang versinya berubah akan diunduh versi barunya dan versi lama dihapus.
 3. **Protected Local Configs**: LoadModer tidak menimpa file konfigurasi lokal milik pemain yang sudah diubah secara sengaja (seperti kontrol tombol keybind atau opsi grafis) kecuali jika pengguna menambahkan flag `--force-configs`.
+
+---
+
+## 6. Arsitektur Brankas Profil Modpack (`ModpackProfileManager`)
+
+Untuk launcher berbasis wadah versi per folder seperti TLauncher (`versions/mypack(fabric)`, `versions/mypack(forge)`), LoadModer mengisolasi setiap modpack ke dalam brankas profil terdedikasi (`.loadmoder/profiles/`).
+
+### A. Struktur Direktori Brankas & Master Download
+
+```text
+<container_root>/               # Misal: .minecraft/versions/mypack(fabric)/
+├── .loadmoder/
+│   ├── downloads/
+│   │   └── Zombie Apocalypse 1.1.mrpack   # Master .mrpack permanen
+│   └── profiles/
+│       └── zombie-apocalypse-1-1/
+│           ├── manifest.json              # Metadata modpack & daftar berkas
+│           └── files/                     # Arsip berkas (mods/, config/, dll.)
+│               ├── mods/
+│               │   └── voicechat-fabric-1.20.1.jar
+│               └── config/
+├── mods/                                  # Folder kerja aktif instance
+├── config/
+├── TLauncherAdditional.json               # Berkas mesin launcher (terproteksi)
+├── mypack(fabric).jar                     # Berkas engine game (terproteksi)
+└── mypack(fabric).json                    # Berkas library game (terproteksi)
+```
+
+### B. Proteksi Berkas Mesin Launcher (`isPreservedEngineItem`)
+
+Ketika wadah client dibersihkan saat menonaktifkan modpack (`lm modpack disable`) atau berganti modpack (`lm modpack switch`), LoadModer **tidak pernah menghapus seluruh folder wadah secara membabi-buta**.
+
+Fungsi `isPreservedEngineItem` menjamin berkas-berkas mesin launcher berikut selalu aman dan dipertahankan:
+* Direktori internal `.loadmoder/`
+* Direktori cache `.fabric/` (pada loader Fabric)
+* Folder `logs/`
+* Berkas konfigurasi launcher: `TLauncherAdditional.json`
+* Berkas engine game: `<containerName>.jar`, `<containerName>.json`
+* Seluruh berkas berekstensi `.jar` atau `.json` yang berawalan nama wadah (misal `mypack*.*`)
+
+### C. Alur Kerja Brankas Profil: Switch & Clean State
+
+```mermaid
+flowchart TD
+    Action["Pengguna Menjalankan: lm modpack disable atau switch"]
+    ScanActive["Deteksi Modpack yang Sedang Aktif"]
+    Backup["Arsipkan Mod & Config Aktif ke Brankas .loadmoder/profiles/<id>/"]
+    CleanWadah["Bersihkan Wadah Kerja (Kecualikan File Mesin Preserved)"]
+    
+    Action --> ScanActive
+    ScanActive --> Backup
+    Backup --> CleanWadah
+    
+    CleanWadah --> Choice{"Aksi Selanjutnya?"}
+    Choice -- "Disable" --> CleanState["Wadah Bersih Total (Siap Pakai / Siap Modpack Lain)"]
+    Choice -- "Switch <id>" --> Restore["Salin Berkas Profil Target dari Brankas ke Folder Kerja"]
+    Restore --> Done["Modpack Target Aktif Instan (Tanpa Download Ulang)"]
+```
+
+### D. Mode Pemasangan: Full vs Ringan
+
+Saat memasang modpack, LoadModer menyediakan dua mode pemasangan:
+1. **Full Modpack (Lengkap)**:
+   - Mengekstrak semua mod wajib & opsional.
+   - Mengunduh shader pack, resource pack, serta direktori konfigurasi `overrides/`.
+2. **Ringan / Esensial**:
+   - Hanya mengekstrak mod inti dan konfigurasi utama.
+   - Melewati shader atau resource pack resolusi tinggi untuk menghemat kuota internet dan RAM.
+
+### E. Mesin Pengunduhan Tangguh (Resilient Download Engine)
+
+Mesin pengunduhan modpack dilengkapi tiga lapisan keandalan:
+1. **Retry dengan Exponential Backoff & Jitter**:
+   - Jika koneksi CDN timeout atau terputus sementara, permintaan diulang hingga 3 kali dengan jeda eksponensial acak untuk mencegah penumpukan request.
+2. **Fallback Langsung ke Modrinth API v2**:
+   - Jika mirror URL CDN di `modrinth.index.json` mengembalikan error HTTP 404/410/500, LoadModer otomatis mengueri endpoint `/v2/version/<id>` untuk mendapatkan direct download link resmi yang masih aktif.
+3. **Pembersihan Event Listener Tanpa Memory Leak**:
+   - Signal handler `SIGINT` dan `SIGTERM` dibersihkan secara rapi pada siklus pembatalan unduhan paralel, mencegah peringatan `MaxListenersExceededWarning` pada runtime Node.js.
+

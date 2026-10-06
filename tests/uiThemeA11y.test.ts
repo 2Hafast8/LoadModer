@@ -9,6 +9,7 @@ import {
 } from "../src/ui/theme.js";
 import {ui, renderFooter} from "../src/ui/interactive.js";
 import {createModsTable, createSearchTable} from "../src/ui/tables.js";
+import {p} from "../src/ui/prompts.js";
 
 describe("UI/UX & Accessibility (Theme & Responsive)", () => {
   const originalEnv = {...process.env};
@@ -237,6 +238,45 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
       const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
       expect(output).toContain("Compact Pack");
       expect(output).toContain("neoforge 1.21");
+    });
+  });
+
+  describe("safeSpinner Listener Lifecycle & Leak Prevention", () => {
+    it("membersihkan listener SIGINT dan SIGTERM dari process saat stop() dipanggil", () => {
+      const initialSigint = process.listenerCount("SIGINT");
+      const initialSigterm = process.listenerCount("SIGTERM");
+
+      const s = p.spinner();
+      s.start("testing spinner");
+      s.stop("done spinner");
+
+      expect(process.listenerCount("SIGINT")).toBe(initialSigint);
+      expect(process.listenerCount("SIGTERM")).toBe(initialSigterm);
+    });
+
+    it("tidak mengakumulasi listener saat membuat dan menghentikan lebih dari 15 spinner berturut-turut", () => {
+      const initialSigint = process.listenerCount("SIGINT");
+      const initialSigterm = process.listenerCount("SIGTERM");
+
+      for (let i = 0; i < 15; i++) {
+        const s = p.spinner();
+        s.start(`spinner step ${i}`);
+        s.stop(`done step ${i}`);
+      }
+
+      expect(process.listenerCount("SIGINT")).toBe(initialSigint);
+      expect(process.listenerCount("SIGTERM")).toBe(initialSigterm);
+    });
+
+    it("otomatis membersihkan listener sebelumnya jika spinner baru dibuat tanpa stop manual", () => {
+      const initialSigint = process.listenerCount("SIGINT");
+
+      p.spinner(); // Dibuat tanpa stop manual
+      const s2 = p.spinner();
+      s2.start("step 2");
+      s2.stop("done 2");
+
+      expect(process.listenerCount("SIGINT")).toBe(initialSigint);
     });
   });
 });

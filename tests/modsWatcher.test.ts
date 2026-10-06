@@ -53,4 +53,21 @@ describe("ModsWatcher", () => {
     expect(syncEvent.unregistered).toContain("deleted-mod");
     expect(syncEvent.orphanedSlugs).toEqual([]);
   });
+
+  it("tidak boleh melempar error atau crash jika modsDir tidak ada di disk (clean state)", async () => {
+    const {mkdir} = await import("node:fs/promises");
+    const missingDir = path.join(tmpDir, "missing_mods");
+    const safeWatcher = new ModsWatcher(missingDir, tmpDir);
+
+    expect(safeWatcher.running).toBe(false);
+    expect(() => safeWatcher.start()).not.toThrow();
+    expect(safeWatcher.running).toBe(false);
+
+    // Setelah direktori dibuat, watcher harus bisa dimulai normal
+    await mkdir(missingDir, {recursive: true});
+    safeWatcher.start();
+    expect(safeWatcher.running).toBe(true);
+    safeWatcher.stop();
+    expect(safeWatcher.running).toBe(false);
+  });
 });

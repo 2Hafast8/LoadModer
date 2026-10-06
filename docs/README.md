@@ -10,9 +10,9 @@ Pusat dokumentasi arsitektur, spesifikasi teknis, dan panduan pengembang **LoadM
 | :--- | :--- |
 | **[01. Arsitektur & Visi Sistem](01-architecture-and-vision.md)** | Arsitektur berlapis, domain engines (Dynamic Versions, Auto-Resolver, Profile Snapshots), alur data, dan penanganan rate limit API. |
 | **[02. Kurasi Tech Stack & Pustaka](02-tech-stack-and-libraries.md)** | Rationale pemilihan pustaka (Commander, Inquirer Prompts, Clack Prompts, Vitest, Picocolors, P-Limit, Unzipper, Zod, Tsup). |
-| **[03. Spesifikasi Perintah & UX CLI](03-cli-commands-and-ux.md)** | Hierarki perintah lengkap (`init`, `search`, `install`, `list`, `update`, `remove`, `enable`/`disable`, `bisect`, `watch`, `profile`, `config`, `home`) dan flag CLI. |
-| **[04. Mesin Modpack (.mrpack Engine)](04-modpack-engine.md)** | Standar format `.mrpack`, parsing streaming `modrinth.index.json`, penanganan `overrides/`, filtering client vs server, dan rollback atomik. |
-| **[05. Integrasi Multi-Launcher](05-multi-launcher-integration.md)** | Algoritma auto-discovery Prism Launcher, MultiMC, Modrinth App (Theseus), CurseForge, dan Vanilla. Isolasi mod antar profil dan versi game. |
+| **[03. Spesifikasi Perintah & UX CLI](03-cli-commands-and-ux.md)** | Hierarki perintah lengkap (`init`, `search`, `install`, `list`, `update`, `remove`, `enable`/`disable`, `bisect`, `watch`, `modpack`, `profile`, `config`, `home`) dan flag CLI. |
+| **[04. Mesin Modpack (.mrpack Engine) & Profile Vault](04-modpack-engine.md)** | Standar format `.mrpack`, parsing streaming `modrinth.index.json`, penanganan `overrides/`, brankas profil modpack (`.loadmoder/profiles/`), Active Download Guard, dan isolasi wadah TLauncher. |
+| **[05. Integrasi Multi-Launcher & TLauncher](05-multi-launcher-integration.md)** | Algoritma auto-discovery Prism Launcher, MultiMC, Modrinth App (Theseus), CurseForge, Vanilla, dan wadah client TLauncher (`mypack(...)`). Isolasi mod antar profil dan versi game. |
 | **[06. Dependency Graph & Lockfile](06-dependency-graph-and-lockfile.md)** | Resolusi dependensi otomatis (`resolver.ts`), struktur `loadmoder.lock.json`, Directed Acyclic Graph (DAG), reference counting, dan *orphan pruning*. |
 | **[07. Diagnostik Crash & Bisect Engine](07-troubleshooting-and-bisect.md)** | Sistem isolasi mod (`.disabled`) dan algoritma pencarian biner ($O(\log_2 N)$) untuk melacak mod penyebab crash. |
 | **[08. Panduan Pengembang & API](08-developer-guide-and-api.md)** | Struktur direktori proyek, skrip npm, variabel lingkungan, konfigurasi build tsup, dan panduan pengujian Vitest. |
@@ -38,3 +38,5 @@ Pusat dokumentasi arsitektur, spesifikasi teknis, dan panduan pengembang **LoadM
    - Silsilah dependensi dicatat dalam `loadmoder.lock.json`. Menghapus mod utama dengan opsi `--prune` akan membersihkan library yang tidak lagi dirujuk oleh mod lain.
 5. **Integritas File**:
    - Pengunduhan berkas selalu diverifikasi melalui checksum SHA-512 streaming dan penamaan atomik `.part` $\rightarrow$ `.jar` untuk mencegah kerusakan berkas akibat koneksi terputus.
+6. **Brankas Profil Modpack & Isolasi Wadah (Vault Isolation)**:
+   - Modpack disimpan secara terisolasi di `.loadmoder/profiles/<id>/` pada setiap wadah client. Beralih modpack dapat dilakukan secara instan tanpa mengunduh ulang master pack, dan pembersihan menyeluruh mengembalikan wadah ke kondisi awal Vanilla tanpa merusak arsip tersimpan.

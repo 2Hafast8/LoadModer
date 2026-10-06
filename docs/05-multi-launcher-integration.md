@@ -12,6 +12,7 @@ Dokumen ini mendokumentasikan mekanisme pendeteksian otomatis (*auto-discovery*)
 | **MultiMC** | `%APPDATA%\MultiMC\instances` | `~/Library/Application Support/MultiMC/instances` | `~/.local/share/MultiMC/instances` |
 | **Modrinth App** | `%APPDATA%\com.modrinth.theseus\profiles` | `~/Library/Application Support/com.modrinth.theseus/profiles` | `~/.config/ModrinthApp/profiles` |
 | **CurseForge** | `%USERPROFILE%\curseforge\minecraft\Instances` | `~/Documents/curseforge/minecraft/Instances` | `~/curseforge/minecraft/Instances` |
+| **TLauncher** | `%APPDATA%\.minecraft\versions` | `~/Library/Application Support/minecraft/versions` | `~/.minecraft/versions` |
 | **Official Vanilla** | `%APPDATA%\.minecraft` | `~/Library/Application Support/minecraft` | `~/.minecraft` |
 
 ---
@@ -62,6 +63,22 @@ Setiap launcher menyimpan informasi versi Minecraft, mod loader, dan konfigurasi
 ### D. Official Vanilla Launcher
 * **Direktori**: `.minecraft/versions` dan `.minecraft/mods`
 * Sistem memindai file `.json` di tiap folder versi (`.minecraft/versions/<version>/<version>.json`) dan memeriksa nama file `.jar` yang ada di folder `mods/` untuk menentukan loader dan versi game aktif.
+
+### E. TLauncher & Wadah Versi Mandiri (`versions/<container>/`)
+* **Pola Wadah Client**: Setiap instalasi atau modpack TLauncher dibuat sebagai folder terpisah di `.minecraft/versions/<container_name>/` (misalnya `mypack(fabric)`, `mypack(forge)`, `mypack(fabric-1.21)`).
+* **Metadata Konfigurasi**:
+  * `TLauncherAdditional.json`: Metadata modpack TL MODS. Versi Minecraft dibaca dari `modpack.version.gameVersionDTO.name` atau `minecraftVersionTypes[0].name`.
+  * `<container_name>.json`: Metadata versi engine launcher yang mencatat `inheritsFrom` dan dependencies engine.
+* **Filosofi Integrasi Non-Intrusif (Read-Only Version & Wadah TLauncher)**:
+  * Wadah baru dan pemilihan versi/loader dikelola langsung oleh pemain di aplikasi TLauncher melalui tombol **TL MODS** $\rightarrow$ **Create Modpack**.
+  * TLauncher memiliki sistem registrasi internal yang ketat terhadap folder versi baru. Untuk menjamin stabilitas dan kompatibilitas 100%, LoadModer tidak memodifikasi atau membuat file engine secara paksa dari luar, melainkan membaca metadata secara akurat (*read-only*) dan mengelola ekosistem mod di dalam wadah tersebut.
+* **Path Folder Mods & Brankas**:
+  * Root wadah: `.minecraft/versions/<container_name>/`
+  * Folder mods kerja: `.minecraft/versions/<container_name>/mods/`
+  * Brankas profil modpack: `.minecraft/versions/<container_name>/.loadmoder/profiles/`
+* **Preservasi File Mesin Launcher (`isPreservedEngineItem`)**:
+  * Saat pembersihan wadah dilakukan, seluruh file engine launcher dipertahankan secara utuh (`TLauncherAdditional.json`, `<cName>.jar`, `<cName>.json`, direktori `.fabric`, `.loadmoder`, dan `logs`).
+
 
 ---
 

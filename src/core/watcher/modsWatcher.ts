@@ -1,4 +1,4 @@
-import {watch, type FSWatcher} from "node:fs";
+import {watch, existsSync, type FSWatcher} from "node:fs";
 import {EventEmitter} from "node:events";
 import {DependencyGraph} from "../dependency/graph.js";
 
@@ -26,8 +26,19 @@ export class ModsWatcher extends EventEmitter {
     super();
   }
 
+  private emitError(err: unknown): void {
+    if (this.listenerCount("error") > 0) {
+      this.emit("error", err);
+    }
+  }
+
   start(): void {
     if (this.isWatching) return;
+
+    if (!existsSync(this.modsDir)) {
+      this.isWatching = false;
+      return;
+    }
 
     try {
       this.watcher = watch(this.modsDir, (eventType, filename) => {
@@ -54,10 +65,16 @@ export class ModsWatcher extends EventEmitter {
         }, 300);
       });
 
+      this.watcher.on("error", (err) => {
+        this.stop();
+        this.emitError(err);
+      });
+
       this.isWatching = true;
       this.emit("started", {modsDir: this.modsDir});
     } catch (err) {
-      this.emit("error", err);
+      this.isWatching = false;
+      this.emitError(err);
     }
   }
 
@@ -90,6 +107,7 @@ export class ModsWatcher extends EventEmitter {
     }
     this.isWatching = false;
     this.emit("stopped");
+    this.removeAllListeners();
   }
 
   get running(): boolean {

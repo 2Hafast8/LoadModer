@@ -17,6 +17,7 @@ LoadModer/
 │   │   ├── init.ts            # Wizard pendeteksi launcher & inisialisasi instance
 │   │   ├── install.ts         # Pemasangan mod & modpack (.mrpack)
 │   │   ├── list.ts            # Daftar mod terpasang & status lockfile
+│   │   ├── modpack.ts         # Kelola profil modpack tersimpan di brankas
 │   │   ├── profile.ts         # Manajemen profil versi Minecraft & loader
 │   │   ├── remove.ts          # Penghapusan mod & orphan pruning
 │   │   ├── search.ts          # Pencarian multi-kategori & filter kustom
@@ -29,10 +30,11 @@ LoadModer/
 │   │   │   └── resolver.ts    # Resolusi dependensi otomatis (API metadata & deskripsi)
 │   │   ├── instance/
 │   │   │   ├── config.ts      # Konfigurasi persistent (~/.loadmoder/config.json)
-│   │   │   └── detector.ts    # Pemindai Prism, MultiMC, Modrinth, CurseForge, Vanilla
+│   │   │   └── detector.ts    # Pemindai Prism, MultiMC, Modrinth, CurseForge, Vanilla, TLauncher
 │   │   ├── minecraft/
 │   │   │   └── versions.ts    # Dynamic Minecraft versions API (>= 1.16, TTL cache 1 jam)
 │   │   ├── modpack/
+│   │   │   ├── profileManager.ts # Brankas profil modpack, isolasi wadah & clean state
 │   │   │   └── unpacker.ts    # Ekstraktor streaming .mrpack, overrides, dan env filter
 │   │   ├── profile/
 │   │   │   └── snapshotManager.ts # Isolasi mod per profil & versi game
@@ -66,13 +68,14 @@ LoadModer/
 │   │   └── markdown.ts
 │   ├── constants.ts           # Metadata aplikasi, versi, dan konfigurasi path
 │   └── index.ts               # Titik masuk utama CLI (Entry Point)
-├── tests/                     # Pengujian unit & integrasi (Vitest)
+├── tests/                     # Pengujian unit & integrasi (Vitest: 21 files, 157 tests)
 │   ├── crypto.test.ts         # Uji fungsi hashing SHA-1, SHA-512, dan hashFile
 │   ├── dependencyGraph.test.ts# Uji DAG reference counting & orphan pruning
 │   ├── dependencyResolver.test.ts # Uji deteksi library API & regex deskripsi
 │   ├── minecraftVersions.test.ts  # Uji fetching versi dinamis & cache TTL
 │   ├── searchFilters.test.ts  # Uji filter kustom pencarian & query facets
-│   └── snapshotManager.test.ts# Uji isolasi profil & pergantian versi mod
+│   ├── snapshotManager.test.ts# Uji isolasi profil & pergantian versi mod
+│   └── tlauncherModpackProfile.test.ts # Uji brankas profil modpack & isolasi wadah
 ├── tsup.config.ts             # Konfigurasi bundler esbuild
 ├── package.json
 └── tsconfig.json

@@ -23,7 +23,7 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 │ Normalisasi Path      │ pathe                               │
 │ State Lockfile        │ write-file-atomic                   │
 │ File Watcher          │ node:fs native watch + debounce     │
-│ Pengujian Otomatis    │ vitest (36 tests)                   │
+│ Pengujian Otomatis    │ vitest (157 tests / 21 files)       │
 │ Bundler & Kompilasi   │ tsup (esbuild engine)               │
 └───────────────────────┴─────────────────────────────────────┘
 ```

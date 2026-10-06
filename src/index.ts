@@ -2,6 +2,8 @@
 import {Command} from "commander";
 import {APP_NAME, APP_VERSION} from "./constants.js";
 
+process.setMaxListeners(50);
+
 const program = new Command();
 
 program
@@ -70,6 +72,8 @@ program
   .option("--dry-run", "Simulasi instalasi tanpa mengubah berkas di disk")
   .option("--no-deps", "Lewati pemasangan dependensi otomatis")
   .option("-y, --yes", "Otomatis setujui semua prompt")
+  .option("--mods-only", "Hanya pasang mods dari modpack, abaikan overrides/config")
+  .option("--full", "Pasang seluruh modpack termasuk overrides/config")
   .action(
     handleAction(async (targets: string[], opts) => {
       const {installCommand} = await import("./commands/install.js");
@@ -231,6 +235,71 @@ profileCmd
     }),
   );
 
+const modpackCmd = program
+  .command("modpack")
+  .description("Kelola profil modpack, pergantian aktif, dan penonaktifan wadah game");
+
+modpackCmd
+  .command("list")
+  .alias("profiles")
+  .description("Menampilkan daftar profil modpack yang tersimpan di wadah aktif")
+  .option("-d, --dir <path>", "Folder instance atau wadah")
+  .action(
+    handleAction(async (opts) => {
+      const {modpackListProfilesCommand} = await import("./commands/modpack.js");
+      await modpackListProfilesCommand(opts);
+    }),
+  );
+
+modpackCmd
+  .command("switch")
+  .description("Mengalihkan modpack yang sedang aktif di wadah game")
+  .argument("[profileId]", "ID atau nama profil modpack yang ingin diaktifkan")
+  .option("-d, --dir <path>", "Folder instance atau wadah")
+  .action(
+    handleAction(async (profileId?: string, opts?: {dir?: string}) => {
+      const {modpackSwitchCommand} = await import("./commands/modpack.js");
+      await modpackSwitchCommand(profileId, opts);
+    }),
+  );
+
+modpackCmd
+  .command("disable")
+  .description("Menonaktifkan modpack dan mengosongkan wadah game kembali ke status bersih/vanilla")
+  .option("-d, --dir <path>", "Folder instance atau wadah")
+  .action(
+    handleAction(async (opts) => {
+      const {modpackDisableCommand} = await import("./commands/modpack.js");
+      await modpackDisableCommand(opts);
+    }),
+  );
+
+modpackCmd
+  .command("enable")
+  .description("Mengaktifkan kembali profil modpack yang tersimpan ke wadah game")
+  .argument("[profileId]", "ID atau nama profil modpack yang ingin diaktifkan")
+  .option("-d, --dir <path>", "Folder instance atau wadah")
+  .action(
+    handleAction(async (profileId?: string, opts?: {dir?: string}) => {
+      const {modpackEnableCommand} = await import("./commands/modpack.js");
+      await modpackEnableCommand(profileId, opts);
+    }),
+  );
+
+modpackCmd
+  .command("remove")
+  .alias("rm")
+  .description("Menghapus profil modpack dari penyimpanan")
+  .argument("<profileId>", "ID profil modpack yang ingin dihapus")
+  .option("-d, --dir <path>", "Folder instance atau wadah")
+  .option("-y, --yes", "Konfirmasi penghapusan otomatis")
+  .action(
+    handleAction(async (profileId: string, opts: {dir?: string; yes?: boolean}) => {
+      const {modpackRemoveCommand} = await import("./commands/modpack.js");
+      await modpackRemoveCommand(profileId, opts);
+    }),
+  );
+
 program
   .command("home")
   .description("Buka antarmuka interaktif dashboard LoadModer")
@@ -242,8 +311,13 @@ program
   );
 
 if (process.argv.length <= 2) {
-  const {launchHomeDashboard} = await import("./ui/dashboard/home.js");
-  await launchHomeDashboard();
+  try {
+    const {launchHomeDashboard} = await import("./ui/dashboard/home.js");
+    await launchHomeDashboard();
+  } catch (err) {
+    console.error(`\x1b[31m\n❌ Kesalahan: ${(err as Error).message}\x1b[0m`);
+    process.exitCode = 1;
+  }
 } else {
   await program.parseAsync(process.argv);
 }

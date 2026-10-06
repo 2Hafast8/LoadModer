@@ -1,3 +1,4 @@
+import {existsSync} from "node:fs";
 import {readdir, stat} from "node:fs/promises";
 import path from "node:path";
 import {
@@ -18,6 +19,8 @@ import {runInteractiveProfileSwitcher} from "./profileSwitcher.js";
 import {DependencyGraph} from "../../core/dependency/graph.js";
 import {ModsWatcher} from "../../core/watcher/modsWatcher.js";
 import {formatBytes} from "../../utils/format.js";
+import {ModpackProfileManager} from "../../core/modpack/profileManager.js";
+import {runInteractiveModpackProfileManager} from "./modpackProfileManager.js";
 
 interface CachedInstanceStats {
   dir: string;
@@ -89,14 +92,20 @@ export async function launchHomeDashboard(): Promise<void> {
           lastReconcileTime = now;
         }
 
-        if (active.modsDir !== lastWatchedModsDir) {
+        const shouldWatch = existsSync(active.modsDir);
+        if (active.modsDir !== lastWatchedModsDir || (shouldWatch && !activeWatcher?.running)) {
           cleanupWatcher();
-          activeWatcher = new ModsWatcher(active.modsDir, instanceDir);
-          activeWatcher.start();
+          if (shouldWatch) {
+            activeWatcher = new ModsWatcher(active.modsDir, instanceDir);
+            activeWatcher.on("error", () => {});
+            activeWatcher.start();
+          }
           lastWatchedModsDir = active.modsDir;
         }
       }
 
+      const containerDir = active?.rootDir ?? (active?.modsDir ? path.dirname(active.modsDir) : "");
+      const activeModpack = containerDir ? await ModpackProfileManager.getActiveProfile(containerDir) : null;
       const stats = await getInstanceStats(active?.modsDir);
 
       const homeChoices: InteractiveChoice[] = [
@@ -145,6 +154,16 @@ export async function launchHomeDashboard(): Promise<void> {
           badge: formatBadge("Periksa", "primary"),
         },
         {
+          name: "📦  Kelola Profil Modpack (TLauncher)",
+          value: "modpack_profiles",
+          hint: activeModpack?.activeProfile
+            ? `Aktif: ${activeModpack.name ?? activeModpack.activeProfile} (${active?.loader?.toUpperCase() ?? "CLIENT"}) • Beralih atau kelola profil`
+            : "Wadah bersih (Vanilla) • Pilih client untuk bermain atau pasang modpack",
+          badge: activeModpack?.activeProfile
+            ? formatBadge(activeModpack.name ?? "Modpack", "success")
+            : formatBadge("Clean State", "muted"),
+        },
+        {
           name: "⚙️   Kelola Profil & Versi Game",
           value: "switch_instance",
           hint: `Instance: ${active?.name ?? "Default"} (${active?.loader ?? "-"} ${active?.gameVersion ?? "-"})`,
@@ -181,6 +200,9 @@ export async function launchHomeDashboard(): Promise<void> {
             modsCount: stats.modsCount,
             activeCount: stats.activeCount,
             storageUsage: stats.storageUsage,
+            statusText: activeModpack?.activeProfile
+              ? `● Modpack: ${activeModpack.name ?? activeModpack.activeProfile}`
+              : "● Siap (Clean State)",
           });
         },
         {
@@ -237,6 +259,12 @@ export async function launchHomeDashboard(): Promise<void> {
             skipBanner: true,
           });
           await ask("Tekan Enter untuk kembali ke dashboard...");
+          break;
+        }
+
+        case "modpack_profiles": {
+          clearScreen();
+          await runInteractiveModpackProfileManager();
           break;
         }
 
