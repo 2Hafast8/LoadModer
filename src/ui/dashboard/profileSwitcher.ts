@@ -15,6 +15,7 @@ import type {SavedInstanceConfig} from "../../types/instance.js";
 import {initCommand} from "../../commands/init.js";
 import {runInteractiveModeSwitcher} from "./modeSwitcher.js";
 import {theme, formatBadge} from "../theme.js";
+import {getLauncherCapabilities} from "../../core/instance/capabilities.js";
 
 export async function runInteractiveProfileSwitcher(activeInstanceKey?: string): Promise<void> {
   await instanceConfig.load();
@@ -47,6 +48,7 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
     } catch {}
 
     const snapshots = await profileSnapshotManager.listSnapshots(instance);
+    const caps = getLauncherCapabilities(instance.launcher);
 
     const choices: InteractiveChoice[] = [
       {
@@ -59,11 +61,17 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
         value: "snapshots",
         hint: `${snapshots.length} snapshot tersimpan`,
       },
-      {
+    ];
+
+    if (caps.supportsModeSwitch) {
+      choices.push({
         name: "🔀  Ganti Mode / Wadah Target (Default ↔ Modpack)",
         value: "switch_mode",
         hint: `Saat ini: ${instance.mode === "modpack" ? `Modpack (${instance.activeContainer ?? "-"})` : "Default (.minecraft)"}`,
-      },
+      });
+    }
+
+    choices.push(
       {
         name: "🎮  Ganti ke Instance Launcher Lain",
         value: "change_instance",
@@ -71,7 +79,7 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
       },
       {name: "──────────────────", value: "sep"},
       {name: "[Kembali ke Dashboard Utama]", value: "back"},
-    ];
+    );
 
     const selected = await askInteractiveMenu(
       `KELOLA PROFIL & VERSI: ${instance.name.toUpperCase()}`,
@@ -81,7 +89,9 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
           instance.name,
           true,
           false,
-          `Mode: ${instance.mode === "modpack" ? `modpack (${instance.activeContainer ?? "-"})` : "default"} • ${instance.loader?.toUpperCase() ?? "-"} ${instance.gameVersion ?? "-"}`,
+          caps.supportsContainers
+            ? `Mode: ${instance.mode === "modpack" ? `modpack (${instance.activeContainer ?? "-"})` : "default"} • ${instance.loader?.toUpperCase() ?? "-"} ${instance.gameVersion ?? "-"}`
+            : `${instance.loader?.toUpperCase() ?? "-"} ${instance.gameVersion ?? "-"}`,
         );
 
         const modeDisplay = instance.mode === "modpack"
@@ -99,11 +109,13 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
           "\n" +
           chalk.hex(theme.textMuted)("Mod Loader : ") +
           chalk.hex(theme.secondary).bold(`${instance.loader?.toUpperCase() ?? "-"} ${instance.gameVersion ?? "-"}`) +
-          "   " +
-          chalk.hex(theme.muted)("•") +
-          "   " +
-          chalk.hex(theme.textMuted)("Mode : ") +
-          modeDisplay +
+          (caps.supportsContainers
+            ? "   " +
+              chalk.hex(theme.muted)("•") +
+              "   " +
+              chalk.hex(theme.textMuted)("Mode : ") +
+              modeDisplay
+            : "") +
           "\n" +
           chalk.hex(theme.textMuted)("Folder Mods: ") +
           chalk.hex(theme.textMuted)(instance.modsDir) +

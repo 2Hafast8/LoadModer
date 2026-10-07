@@ -23,14 +23,14 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
     clearScreen();
     showBanner(active.name, true);
 
-    // Auto-discover containers across versions/
-    let containers = await ModpackProfileManager.discoverClientContainers(baseDir);
+    // Auto-discover containers across launcher workspace
+    let containers = await ModpackProfileManager.discoverClientContainers(baseDir, active.launcher);
 
     // If none found, create default Fabric and Forge containers
     if (containers.length === 0) {
-      await ModpackProfileManager.resolveContainerForLoader(baseDir, "fabric");
-      await ModpackProfileManager.resolveContainerForLoader(baseDir, "forge");
-      containers = await ModpackProfileManager.discoverClientContainers(baseDir);
+      await ModpackProfileManager.resolveContainerForLoader(baseDir, "fabric", undefined, active.launcher);
+      await ModpackProfileManager.resolveContainerForLoader(baseDir, "forge", undefined, active.launcher);
+      containers = await ModpackProfileManager.discoverClientContainers(baseDir, active.launcher);
     }
 
     const launcherName = active.launcher ?? active.name ?? "Launcher";
@@ -114,7 +114,11 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
     );
 
     if (selectedContainerDir === "guide") {
-      await renderTLauncherContainerGuide();
+      if (active?.launcher === "Legacy") {
+        await renderLegacyContainerGuide();
+      } else {
+        await renderTLauncherContainerGuide();
+      }
       continue;
     }
 
@@ -126,10 +130,10 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
 
       if (confirmed) {
         const s = p.spinner();
-        s.start("Menyimpan modpack aktif ke profil & membersihkan seluruh wadah mypack...");
+        s.start(`Menyimpan modpack aktif ke profil & membersihkan seluruh wadah ${launcherName}...`);
         try {
-          const results = await ModpackProfileManager.disableAllModpackContainers(baseDir);
-          s.stop(pc.green("Semua wadah mypack berhasil dibersihkan total dan kembali ke kondisi awal TLauncher!"));
+          const results = await ModpackProfileManager.disableAllModpackContainers(baseDir, active?.launcher);
+          s.stop(pc.green(`Semua wadah ${launcherName} berhasil dibersihkan total dan kembali ke kondisi awal!`));
 
           for (const res of results) {
             if (res.disabledProfile) {
@@ -547,3 +551,48 @@ async function renderTLauncherContainerGuide(): Promise<void> {
 
   await ask("Tekan Enter untuk kembali ke menu client...");
 }
+
+async function renderLegacyContainerGuide(): Promise<void> {
+  clearScreen();
+  showBanner("Panduan Wadah Legacy Launcher", true);
+
+  const guideText = [
+    chalk.hex(theme.primary).bold("📌 ARSITEKTUR DUAL-PATH LEGACY LAUNCHER"),
+    chalk.hex(theme.text)(
+      "Legacy Launcher memisahkan file sistem engine dan wadah profil:\n" +
+      chalk.hex(theme.info)("  • game/versions/<version>/  : Tempat engine jar & json yang diunduh\n") +
+      chalk.hex(theme.info)("  • game/home/<profile>/      : Wadah profil permainan, mods, & modpack\n") +
+      "LoadModer menempatkan dan mengelola seluruh modpack di dalam folder " +
+      chalk.hex(theme.warning).bold("game/home/<profile>/mods") + "."
+    ),
+    "",
+    chalk.hex(theme.secondary).bold("🎮 CARA MEMILIH / MENGUBAH VERSI DI LEGACY LAUNCHER"),
+    chalk.hex(theme.text)(
+      "1. Buka aplikasi Legacy Launcher di komputer Anda.\n" +
+      "2. Pada menu pemilihan versi di layar utama, pilih versi ModLoader yang diinginkan (misal Fabric 26.2).\n" +
+      "3. Legacy Launcher otomatis menyiapkan engine di " + chalk.hex(theme.info)("game/versions/") + " dan wadah di " + chalk.hex(theme.info)("game/home/") + ".\n" +
+      "4. LoadModer otomatis membaca profil aktif dari konfigurasi Legacy Launcher (" + chalk.hex(theme.muted)("tl.properties") + ")."
+    ),
+    "",
+    chalk.hex(theme.success).bold("🛡️  PENANGANAN MODPACK AKTIF (TANPA OVERWRITE)"),
+    chalk.hex(theme.textMuted)(
+      "LoadModer tidak mendukung penimpaan langsung (overwrite) modpack untuk mencegah konflik file.\n" +
+      "Jika versi wadah sudah memiliki modpack aktif dan Anda ingin memasang modpack baru,\n" +
+      "pilih 'Clean Install' agar modpack lama diamankan ke brankas profil dan wadah dibersihkan secara bersih."
+    ),
+  ].join("\n");
+
+  console.log(
+    boxen(guideText, {
+      padding: {top: 1, bottom: 1, left: 2, right: 2},
+      margin: {top: 0, bottom: 1, left: 0, right: 0},
+      borderStyle: "round",
+      borderColor: theme.border,
+      title: chalk.hex(theme.primary).bold(" ❖ PANDUAN WADAH DUAL-PATH LEGACY LAUNCHER ❖ "),
+      titleAlignment: "center",
+    }),
+  );
+
+  await ask("Tekan Enter untuk kembali ke menu client...");
+}
+

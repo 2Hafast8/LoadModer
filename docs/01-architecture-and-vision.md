@@ -71,8 +71,8 @@ Sistem dibagi menjadi empat lapisan dengan pemisahan tanggung jawab yang tegas:
   Mendeteksi library yang dibutuhkan melalui metadata resmi API Modrinth dan parsing deskripsi mod, lalu mengunduh versi yang cocok untuk loader dan versi game aktif.
 * **Modpack Engine** (`src/core/modpack/unpacker.ts`):
   Membaca dan mengekstrak berkas `.mrpack`, memvalidasi manifest `modrinth.index.json` via Zod, memproses folder `overrides/`, dan memfilter komponen sesuai target `client` atau `server`.
-* **Modpack Profile Vault Manager** (`src/core/modpack/profileManager.ts`):
-  Mengisolasi profil modpack ke dalam brankas `.loadmoder/profiles/<id>/` pada setiap wadah client, memfasilitasi pertukaran modpack instan tanpa unduh ulang, serta membersihkan wadah kerja (*clean state*) dengan proteksi file engine launcher.
+* **Modpack Profile Vault & Baseline Manager** (`src/core/modpack/profileManager.ts` & `src/core/modpack/baselineManager.ts`):
+  Mengisolasi profil modpack ke dalam brankas `.loadmoder/profiles/<id>/` pada setiap wadah client (TLauncher `versions/` maupun Legacy `home/`), mencadangkan kondisi asli wadah ke baseline permanen (`.loadmoder/baseline/`), memfasilitasi pertukaran modpack instan tanpa unduh ulang, serta membersihkan wadah kerja (*clean state*) dengan pemulihan baseline otomatis dan proteksi file engine launcher.
 * **Profile Snapshot Manager** (`src/core/profile/snapshotManager.ts`):
   Mengarsipkan dan memulihkan berkas mod ke folder snapshot saat pengguna berganti konfigurasi via `lm profile switch`.
 * **Dependency DAG & Lockfile Manager** (`src/core/dependency/graph.ts`):

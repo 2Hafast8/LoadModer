@@ -153,30 +153,40 @@ TLauncher memakai dua lokasi: game di `.minecraft`, konfigurasi launcher di `.tl
 
 ---
 
-## 5. Legacy Launcher (dulu TL Legacy) ⚠️
+## 5. Legacy Launcher (dulu TL Legacy) ✅
 
-Kedua versi sebelumnya **tidak cocok** dengan bukti yang saya temukan. Folder `.tla` dan `.legacylauncher` tidak ditemukan di sumber mana pun, dan Legacy Launcher **tidak** memakai `.minecraft` bawaan.
+Struktur folder Legacy Launcher telah **terkonfirmasi secara penuh** dengan arsitektur Dual-Path yang memisahkan engine game dari wadah profil mod:
 
-Log peluncuran nyata (Desember 2022, saat masih bernama TL Legacy) menunjukkan:
+**Lokasi Root:** `%appdata%\.tlauncher\legacy\Minecraft\game`  
+**Konfigurasi Versi Aktif:** `%appdata%\.tlauncher\legacy\Minecraft\tl.properties` (kunci `login.version`)
 
 ```text
 %appdata%/
 └── .tlauncher/
     └── legacy/
         └── Minecraft/
-            └── files/             # Folder game (--gameDir)
-                ├── assets/        # Terkonfirmasi (--assetsDir)
-                ├── versions/      # Umumnya ada
-                ├── libraries/     # Umumnya ada
-                ├── mods/          # Dibuat saat memasang mod
-                ├── resourcepacks/
-                ├── saves/
-                └── options.txt
+            ├── tl.properties          # Konfigurasi versi aktif (login.version=Fabric 1.21.1)
+            └── game/                  # Root instance game
+                ├── versions/          # Engine jar/json versi game (read-only/shared)
+                │   └── <version>/     # e.g. Fabric 1.21.1/Fabric 1.21.1.jar & .json
+                └── home/              # Wadah profil tempat modpack & aset pengguna
+                    └── <profile>/     # e.g. Fabric 1.21.1/ atau profil kustom
+                        ├── mods/          # Mod (.jar)
+                        ├── config/        # Konfigurasi mod
+                        ├── options.txt    # Pengaturan grafis per-profil
+                        ├── resourcepacks/ # Paket tekstur
+                        ├── shaderpacks/   # Shader pack
+                        ├── saves/         # Dunia permainan
+                        └── .loadmoder/    # Metadata wadah LoadModer
+                            ├── lockfile.json
+                            ├── baseline/  # One-Time Golden Baseline snapshot
+                            └── profiles/  # Brankas arsip profil modpack
 ```
 
-> **Catatan:**
-> - Hanya `files/` dan `files/assets/` yang terkonfirmasi dari log. Isi lainnya mengikuti struktur folder game Minecraft standar.
-> - Launcher ini berganti nama dari TL Legacy menjadi Legacy Launcher pada 2023, jadi lokasinya mungkin berubah di versi terbaru. Cara paling pasti: buka Legacy Launcher lalu klik ikon folder untuk membuka direktori game.
+> **Catatan Teknis Arsitektur Dual-Path:**
+> - `game/versions/`: Hanya berisi berkas binary core engine Minecraft (jar dan json).
+> - `game/home/<profile>/`: Wadah kerja riil tempat LoadModer beroperasi memasang mod, modpack, konfigurasi, dan isolasi options.txt.
+> - LoadModer mendeteksi Legacy Launcher secara otomatis berdasarkan substring `.tlauncher/legacy` pada path yang terdeteksi dari Roaming (Disk C) maupun root disk non-C.
 
 ---
 

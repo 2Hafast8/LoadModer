@@ -10,6 +10,7 @@ import {
   type DriveScanOptions,
   type DriveScanResult,
 } from "./driveScanner.js";
+import {getLegacyActiveVersion} from "../modpack/legacy/legacyStrategy.js";
 
 export function deduplicateInstances(instances: MinecraftInstance[]): MinecraftInstance[] {
   const seenIds = new Set<string>();
@@ -33,6 +34,207 @@ export function deduplicateInstances(instances: MinecraftInstance[]): MinecraftI
   }
 
   return unique;
+}
+
+export interface DetectedLauncherInfo {
+  launcher: LauncherType;
+  name: string;
+  id: string;
+  notes?: string;
+}
+
+export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo {
+  const norm = path.resolve(targetPath);
+  const isWindows = process.platform === "win32";
+  const isDriveC = isWindows && /^[c][:]/i.test(norm);
+
+  // 1. Jika di Local Disk C (analisis segmen setelah AppData/Roaming)
+  if (isDriveC) {
+    const roamingMatch = norm.match(/[\\/]AppData[\\/]Roaming[\\/](.+)$/i);
+    if (roamingMatch) {
+      const rel = roamingMatch[1].toLowerCase();
+
+      // Legacy Launcher (.tlauncher/legacy/Minecraft/game atau files atau subfolder lainnya)
+      if (
+        rel.includes(".tlauncher\\legacy") ||
+        rel.includes(".tlauncher/legacy") ||
+        rel.includes("legacy\\minecraft") ||
+        rel.includes("legacy/minecraft") ||
+        rel.includes("legacylauncher")
+      ) {
+        const sub = path.basename(norm);
+        return {
+          launcher: "Legacy",
+          name: `Legacy Launcher (${sub})`,
+          id: `legacy-${sub.toLowerCase()}`,
+        };
+      }
+
+      // TLauncher (.tlauncher biasa tanpa legacy)
+      if (rel.includes(".tlauncher")) {
+        return {
+          launcher: "TLauncher",
+          name: "TLauncher (Default)",
+          id: "tlauncher-default",
+        };
+      }
+
+      // SKLauncher (.sklauncher)
+      if (rel.includes(".sklauncher")) {
+        const sub = path.basename(norm);
+        return {
+          launcher: "SKLauncher",
+          name: `SKLauncher (${sub})`,
+          id: `sklauncher-${sub.toLowerCase()}`,
+        };
+      }
+
+      // Prism Launcher
+      if (rel.includes("prismlauncher")) {
+        const sub = path.basename(norm);
+        return {
+          launcher: "Prism",
+          name: `Prism (${sub})`,
+          id: `prism-${sub.toLowerCase()}`,
+        };
+      }
+
+      // MultiMC
+      if (rel.includes("multimc")) {
+        const sub = path.basename(norm);
+        return {
+          launcher: "MultiMC",
+          name: `MultiMC (${sub})`,
+          id: `multimc-${sub.toLowerCase()}`,
+        };
+      }
+
+      // Modrinth App
+      if (rel.includes("com.modrinth.theseus") || rel.includes("modrinthapp")) {
+        const sub = path.basename(norm);
+        return {
+          launcher: "Modrinth",
+          name: `Modrinth (${sub})`,
+          id: `modrinth-${sub.toLowerCase()}`,
+        };
+      }
+
+      // CurseForge
+      if (rel.includes("curseforge")) {
+        const sub = path.basename(norm);
+        return {
+          launcher: "CurseForge",
+          name: `CurseForge (${sub})`,
+          id: `cf-${sub.toLowerCase()}`,
+        };
+      }
+
+      // Official Minecraft / Vanilla (.minecraft)
+      if (rel.includes(".minecraft")) {
+        return {
+          launcher: "Vanilla",
+          name: "Official Minecraft (Default)",
+          id: "vanilla-default",
+        };
+      }
+    }
+  }
+
+  // 2. Jika selain Local Disk C (D:, E:, portable, linux/mac) atau di Disk C di luar Roaming:
+  // Analisis dari path awal / seluruh path
+  const fullLower = norm.toLowerCase();
+
+  // Prism Launcher
+  if (fullLower.includes("prismlauncher") || fullLower.includes("prism")) {
+    const sub = path.basename(norm);
+    return {
+      launcher: "Prism",
+      name: `Prism (${sub})`,
+      id: instanceIdFromPath(norm),
+    };
+  }
+
+  // MultiMC
+  if (fullLower.includes("multimc")) {
+    const sub = path.basename(norm);
+    return {
+      launcher: "MultiMC",
+      name: `MultiMC (${sub})`,
+      id: instanceIdFromPath(norm),
+    };
+  }
+
+  // Legacy Launcher (misal D:\Games\LegacyLauncher\... atau D:\.tlauncher\legacy\...)
+  if (
+    fullLower.includes("legacylauncher") ||
+    fullLower.includes("legacy\\minecraft") ||
+    fullLower.includes("legacy/minecraft") ||
+    (fullLower.includes(".tlauncher") && fullLower.includes("legacy"))
+  ) {
+    const sub = path.basename(norm);
+    return {
+      launcher: "Legacy",
+      name: `Legacy Launcher (${sub})`,
+      id: instanceIdFromPath(norm),
+    };
+  }
+
+  // TLauncher
+  if (fullLower.includes(".tlauncher") || fullLower.includes("tlauncher")) {
+    const sub = path.basename(norm);
+    return {
+      launcher: "TLauncher",
+      name: `TLauncher (${sub})`,
+      id: instanceIdFromPath(norm),
+    };
+  }
+
+  // SKLauncher
+  if (fullLower.includes("sklauncher")) {
+    const sub = path.basename(norm);
+    return {
+      launcher: "SKLauncher",
+      name: `SKLauncher (${sub})`,
+      id: instanceIdFromPath(norm),
+    };
+  }
+
+  // CurseForge
+  if (fullLower.includes("curseforge")) {
+    const sub = path.basename(norm);
+    return {
+      launcher: "CurseForge",
+      name: `CurseForge (${sub})`,
+      id: instanceIdFromPath(norm),
+    };
+  }
+
+  // Modrinth
+  if (fullLower.includes("modrinth")) {
+    const sub = path.basename(norm);
+    return {
+      launcher: "Modrinth",
+      name: `Modrinth (${sub})`,
+      id: instanceIdFromPath(norm),
+    };
+  }
+
+  // Official / Standard Minecraft
+  if (fullLower.endsWith(".minecraft") || fullLower.endsWith("minecraft")) {
+    const rootLetter = path.parse(norm).root.replace(/[\\/]+$/, "") || "/";
+    return {
+      launcher: "Vanilla",
+      name: `Minecraft (${rootLetter})`,
+      id: instanceIdFromPath(norm),
+    };
+  }
+
+  // Fallback Kustom
+  return {
+    launcher: "Custom",
+    name: `Custom (${path.basename(norm)})`,
+    id: instanceIdFromPath(norm),
+  };
 }
 
 export class InstanceDetector {
@@ -227,6 +429,12 @@ export class InstanceDetector {
     } catch {}
     if (!isTLauncher) {
       try {
+        await stat(path.join(mcDir, "tlauncher-2.0.properties"));
+        isTLauncher = true;
+      } catch {}
+    }
+    if (!isTLauncher) {
+      try {
         await stat(path.join(mcDir, "tlauncher.properties"));
         isTLauncher = true;
       } catch {}
@@ -234,6 +442,12 @@ export class InstanceDetector {
     if (!isTLauncher) {
       try {
         await stat(path.join(mcDir, "TlauncherProfiles.json"));
+        isTLauncher = true;
+      } catch {}
+    }
+    if (!isTLauncher) {
+      try {
+        await stat(path.join(mcDir, "logs", "tlauncher"));
         isTLauncher = true;
       } catch {}
     }
@@ -274,16 +488,30 @@ export class InstanceDetector {
 
   private async scanLegacyLauncher(): Promise<MinecraftInstance[]> {
     const instances: MinecraftInstance[] = [];
+    const baseLegacyMinecraft = this.isWin
+      ? path.join(this.appData, ".tlauncher", "legacy", "Minecraft")
+      : this.isMac
+        ? path.join(this.home, "Library", "Application Support", "tlauncher", "legacy", "Minecraft")
+        : path.join(this.home, ".tlauncher", "legacy", "Minecraft");
+
     const candidatePaths = [
-      this.isWin
-        ? path.join(this.appData, ".tlauncher", "legacy", "Minecraft", "files")
-        : this.isMac
-          ? path.join(this.home, "Library", "Application Support", "tlauncher", "legacy", "Minecraft", "files")
-          : path.join(this.home, ".tlauncher", "legacy", "Minecraft", "files"),
+      path.join(baseLegacyMinecraft, "game"),
+      path.join(baseLegacyMinecraft, "files"),
       this.isWin
         ? path.join(this.appData, "LegacyLauncher")
         : path.join(this.home, ".legacylauncher"),
     ];
+
+    try {
+      const entries = await readdir(baseLegacyMinecraft, {withFileTypes: true});
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const subPath = path.join(baseLegacyMinecraft, entry.name);
+        if (!candidatePaths.includes(subPath)) {
+          candidatePaths.push(subPath);
+        }
+      }
+    } catch {}
 
     for (const cPath of candidatePaths) {
       try {
@@ -294,6 +522,26 @@ export class InstanceDetector {
             name: "Legacy Launcher",
             launcher: "Legacy",
           });
+
+          // Periksa apakah ada folder home/<profile> yang aktif berdasarkan tl.properties
+          const homeDir = path.join(cPath, "home");
+          try {
+            const hs = await stat(homeDir);
+            if (hs.isDirectory()) {
+              const activeVer = await getLegacyActiveVersion(cPath);
+              if (activeVer) {
+                const normActive = activeVer.replace(/\s+/g, "-");
+                const activeModsCand = path.join(homeDir, normActive, "mods");
+                try {
+                  const ms = await stat(activeModsCand);
+                  if (ms.isDirectory()) {
+                    inst.modsDir = activeModsCand;
+                  }
+                } catch {}
+              }
+            }
+          } catch {}
+
           instances.push(inst);
           break;
         }
@@ -410,11 +658,12 @@ export class InstanceDetector {
       known.add(parentKey);
       known.add(candidateModsKey);
 
+      const detected = detectLauncherFromPath(dir);
       instances.push(
         await this.inspectGameDir(dir, {
-          id: instanceIdFromPath(dir),
-          name: `${path.basename(dir)} (${path.parse(dir).root.replace(/[\\/]+$/, "") || "/"})`,
-          launcher: "Vanilla",
+          id: detected.id,
+          name: detected.name,
+          launcher: detected.launcher,
         }),
       );
     }

@@ -6,8 +6,19 @@ import unzipper from "unzipper";
 import {MrpackIndexSchema} from "../../types/mrpack.js";
 import {isTLauncherPreservedEngineItem} from "./tlauncher/preservedItems.js";
 import {discoverTLauncherContainers, resolveTLauncherContainerForLoader} from "./tlauncher/tlauncherStrategy.js";
+import {isLegacyPreservedItem} from "./legacy/preservedItems.js";
+import {discoverLegacyContainers, resolveLegacyContainerForLoader} from "./legacy/legacyStrategy.js";
+import {BaselineManager} from "./baselineManager.js";
 
-export {isTLauncherPreservedEngineItem, discoverTLauncherContainers, resolveTLauncherContainerForLoader};
+export {
+  isTLauncherPreservedEngineItem,
+  discoverTLauncherContainers,
+  resolveTLauncherContainerForLoader,
+  isLegacyPreservedItem,
+  discoverLegacyContainers,
+  resolveLegacyContainerForLoader,
+  BaselineManager,
+};
 
 export interface ProfileSaveOptions {
   onProgress?: (copied: number, total: number, file: string) => void;
@@ -142,7 +153,52 @@ export class ModpackProfileManager {
     return this.listProfiles(containerDir);
   }
 
-  static async discoverClientContainers(baseDir?: string): Promise<ClientContainerInfo[]> {
+  static async discoverClientContainers(
+    baseDir?: string,
+    launcher?: string,
+  ): Promise<ClientContainerInfo[]> {
+    const lName = (launcher ?? "").toLowerCase();
+
+    // 1. Jika secara eksplisit launcher TLauncher (dan bukan legacy)
+    if (lName.includes("tlauncher") && !lName.includes("legacy")) {
+      return discoverTLauncherContainers(
+        baseDir,
+        (d) => this.syncProfilesFromDownloads(d),
+        (d) => this.listProfiles(d),
+        (d) => this.getActiveProfile(d),
+      );
+    }
+
+    // 2. Jika secara eksplisit launcher Legacy
+    if (lName.includes("legacy")) {
+      return discoverLegacyContainers(
+        baseDir,
+        (d) => this.syncProfilesFromDownloads(d),
+        (d) => this.listProfiles(d),
+        (d) => this.getActiveProfile(d),
+      );
+    }
+
+    // 3. Fallback deteksi dari struktur folder disk spesifik Legacy
+    if (baseDir) {
+      const norm = baseDir.toLowerCase();
+      const isLegacyPath =
+        norm.includes(".tlauncher\\legacy") ||
+        norm.includes(".tlauncher/legacy") ||
+        norm.includes("legacy\\minecraft") ||
+        norm.includes("legacy/minecraft") ||
+        norm.includes("legacylauncher");
+
+      if (isLegacyPath) {
+        return discoverLegacyContainers(
+          baseDir,
+          (d) => this.syncProfilesFromDownloads(d),
+          (d) => this.listProfiles(d),
+          (d) => this.getActiveProfile(d),
+        );
+      }
+    }
+
     return discoverTLauncherContainers(
       baseDir,
       (d) => this.syncProfilesFromDownloads(d),
@@ -155,7 +211,27 @@ export class ModpackProfileManager {
     baseInstanceDir: string,
     loader?: string,
     gameVersion?: string,
+    launcher?: string,
   ): Promise<ResolvedContainer> {
+    const lName = (launcher ?? "").toLowerCase();
+    const norm = baseInstanceDir.toLowerCase();
+    const isLegacy =
+      lName.includes("legacy") ||
+      norm.includes(".tlauncher\\legacy") ||
+      norm.includes(".tlauncher/legacy") ||
+      norm.includes("legacy\\minecraft") ||
+      norm.includes("legacy/minecraft") ||
+      norm.includes("legacylauncher");
+
+    if (isLegacy) {
+      const res = await resolveLegacyContainerForLoader(
+        baseInstanceDir,
+        (loader as any) ?? "fabric",
+        gameVersion,
+      );
+      if (res) return res;
+    }
+
     return resolveTLauncherContainerForLoader(baseInstanceDir, loader, gameVersion);
   }
 
@@ -240,6 +316,10 @@ export class ModpackProfileManager {
   }
 
   static isPreservedEngineItem(entryName: string, containerDir: string): boolean {
+    const norm = containerDir.toLowerCase();
+    if (norm.includes("legacy") || norm.includes("home")) {
+      return isLegacyPreservedItem(entryName, containerDir);
+    }
     return isTLauncherPreservedEngineItem(entryName, containerDir);
   }
 
@@ -331,8 +411,9 @@ export class ModpackProfileManager {
 
   static async disableAllModpackContainers(
     baseDir?: string,
+    launcher?: string,
   ): Promise<Array<{containerName: string; containerDir: string; disabledProfile: string | null}>> {
-    const containers = await this.discoverClientContainers(baseDir);
+    const containers = await this.discoverClientContainers(baseDir, launcher);
     const results: Array<{containerName: string; containerDir: string; disabledProfile: string | null}> = [];
 
     for (const c of containers) {
@@ -424,6 +505,7 @@ export class ModpackProfileManager {
     }
 
     await this.clearContainerLiveFiles(containerDir);
+    await BaselineManager.restoreBaseline(containerDir);
 
     await this.setActiveProfileInfo(containerDir, {
       activeProfile: null,

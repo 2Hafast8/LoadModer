@@ -265,58 +265,82 @@ Ketika versi baru dari modpack dirilis di Modrinth (misal `Fabulously Optimized 
 
 ---
 
-## 6. Arsitektur Brankas Profil Modpack (`ModpackProfileManager`)
+## 6. Arsitektur Brankas Profil Modpack (`ModpackProfileManager` & `BaselineManager`)
 
-Untuk launcher berbasis wadah versi per folder seperti TLauncher (`versions/mypack(fabric)`, `versions/mypack(forge)`), LoadModer mengisolasi setiap modpack ke dalam brankas profil terdedikasi (`.loadmoder/profiles/`).
+LoadModer mendukung isolasi modpack penuh untuk launcher berbasis wadah client terisolasi:
+1. **TLauncher**: Wadah client per versi di `.minecraft/versions/<container>/` (misal `versions/mypack(fabric)`).
+2. **Legacy Launcher (TL Legacy)**: Arsitektur Dual-Path yang memisahkan engine di `game/versions/<version>/` dan wadah profil modpack di `game/home/<profile>/`.
 
 ### A. Struktur Direktori Brankas & Master Download
 
 ```text
-<container_root>/               # Misal: .minecraft/versions/mypack(fabric)/
+<container_root>/               # TLauncher: versions/mypack/ | Legacy: game/home/Fabric-26.2/
 ├── .loadmoder/
+│   ├── baseline/                                  # Master Baseline Satu Kali (Golden Snapshot)
+│   │   ├── manifest.json                          # Metadata snapshot baseline
+│   │   └── options.txt                            # options.txt asli sebelum tersentuh modpack
 │   ├── downloads/
-│   │   └── Zombie Apocalypse 1.1.mrpack   # Master .mrpack permanen
-│   └── profiles/
-│       └── zombie-apocalypse-1-1/
-│           ├── manifest.json              # Metadata modpack & daftar berkas
-│           └── files/                     # Arsip berkas (mods/, config/, dll.)
-│               ├── mods/
-│               │   └── voicechat-fabric-1.20.1.jar
-│               └── config/
-├── mods/                                  # Folder kerja aktif instance
+│   │   └── Zombie Apocalypse 1.1.mrpack           # Master .mrpack permanen
+│   ├── profiles/
+│   │   └── zombie-apocalypse-1-1/
+│   │       ├── manifest.json                      # Metadata modpack & daftar berkas
+│   │       └── files/                             # Arsip berkas (mods/, config/, options.txt, dll.)
+│   └── active-profile.json                        # Pointer profil aktif saat ini
+├── mods/                                          # Folder kerja aktif instance (hanya ada saat modpack aktif)
 ├── config/
-├── TLauncherAdditional.json               # Berkas mesin launcher (terproteksi)
-├── mypack(fabric).jar                     # Berkas engine game (terproteksi)
-└── mypack(fabric).json                    # Berkas library game (terproteksi)
+├── options.txt                                    # Live options (dipulihkan dari baseline saat bersih)
+├── saves/                                         # Dunia pemain (terlindungi in-place)
+└── servers.dat                                    # Server multiplayer pemain (terlindungi in-place)
 ```
 
 ### B. Proteksi Berkas Mesin Launcher (`isPreservedEngineItem`)
 
 Ketika wadah client dibersihkan saat menonaktifkan modpack (`lm modpack disable`) atau berganti modpack (`lm modpack switch`), LoadModer **tidak pernah menghapus seluruh folder wadah secara membabi-buta**.
 
-Fungsi `isPreservedEngineItem` menjamin berkas-berkas mesin launcher berikut selalu aman dan dipertahankan:
-* Direktori internal `.loadmoder/`
-* Direktori cache `.fabric/` (pada loader Fabric)
-* Folder `logs/`
-* Berkas konfigurasi launcher: `TLauncherAdditional.json`
-* Berkas engine game: `<containerName>.jar`, `<containerName>.json`
-* Seluruh berkas berekstensi `.jar` atau `.json` yang berawalan nama wadah (misal `mypack*.*`)
+Daftar berkas yang dipertahankan berdasarkan strategi launcher:
+* **TLauncher (`isTLauncherPreservedEngineItem`)**:
+  * Direktori internal `.loadmoder/`
+  * Direktori cache `.fabric/` (pada loader Fabric)
+  * Folder `logs/`
+  * Berkas konfigurasi launcher: `TLauncherAdditional.json`
+  * Berkas engine game: `<containerName>.jar`, `<containerName>.json`
+  * Seluruh berkas berekstensi `.jar` atau `.json` yang berawalan nama wadah (misal `mypack*.*`)
+* **Legacy Launcher (`isLegacyPreservedItem`)**:
+  * Direktori internal `.loadmoder/`
+  * Direktori cache `.fabric/`
+  * Folder `logs/` dan `saves/` (dunia pemain aman in-place)
+  * Berkas `servers.dat` dan `servers.dat.bak`
+  * Folder `server-resource-packs/`
 
-### C. Alur Kerja Brankas Profil: Switch & Clean State
+### C. Sistem Cadangan Baseline Satu Kali (`BaselineManager`)
+
+Untuk mengatasi masalah modpack yang sering memodifikasi `options.txt` atau konfigurasi dasar:
+1. **One-Time Golden Snapshot (`createBaselineOnce`)**: Sebelum modpack pertama kali diekstrak ke wadah versi, LoadModer mengambil snapshot dari seluruh berkas & folder dasar (termasuk `options.txt` awal) ke dalam `.loadmoder/baseline/`.
+2. **Permanent Master (Zero-Delete Policy)**: Folder `.loadmoder/baseline/` tidak pernah dihapus dan tidak pernah ditimpa ulang.
+3. **Restorasi Bersih Otomatis (`restoreBaseline`)**: Saat modpack dinonaktifkan (`activeProfile: null`), wadah live dibersihkan dari modpack dan berkas baseline asli disalin kembali ke wadah, mengembalikan game ke kondisi awal pemain.
+
+### D. Zero-Overwrite Active Modpack Guard
+
+LoadModer secara ketat melarang penimpaan langsung saat modpack aktif di wadah yang sama:
+* **`❌ Cancel` (Batalkan)**: Menghentikan proses unduh tanpa menyentuh disk sama sekali.
+* **`🧹 Clean Install` (Bersihkan & Pasang Baru)**: Mengarsipkan modpack aktif ke `.loadmoder/profiles/<id>/`, membersihkan wadah live secara total, lalu memasang modpack baru secara bersih tanpa bentrok berkas sisa.
+
+### E. Alur Kerja Brankas Profil: Switch & Clean State
 
 ```mermaid
 flowchart TD
     Action["Pengguna Menjalankan: lm modpack disable atau switch"]
     ScanActive["Deteksi Modpack yang Sedang Aktif"]
-    Backup["Arsipkan Mod & Config Aktif ke Brankas .loadmoder/profiles/<id>/"]
-    CleanWadah["Bersihkan Wadah Kerja (Kecualikan File Mesin Preserved)"]
+    Backup["Arsipkan Mod & Config Aktif ke Brankas .loadmoder/profiles/<id>/files/"]
+    CleanWadah["Bersihkan Wadah Kerja (Kecualikan File Mesin & Data Terproteksi)"]
     
     Action --> ScanActive
     ScanActive --> Backup
     Backup --> CleanWadah
     
     CleanWadah --> Choice{"Aksi Selanjutnya?"}
-    Choice -- "Disable" --> CleanState["Wadah Bersih Total (Siap Pakai / Siap Modpack Lain)"]
+    Choice -- "Disable" --> RestoreBase["Pulihkan Berkas dari .loadmoder/baseline/"]
+    RestoreBase --> CleanState["Wadah Bersih Total (Vanilla / Setelan Asli Pulih)"]
     Choice -- "Switch <id>" --> Restore["Salin Berkas Profil Target dari Brankas ke Folder Kerja"]
     Restore --> Done["Modpack Target Aktif Instan (Tanpa Download Ulang)"]
 ```

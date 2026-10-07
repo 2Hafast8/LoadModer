@@ -11,6 +11,8 @@ import {resolveAndInstallDependencies} from "../core/dependency/resolver.js";
 import {p, pc, showBanner, exitIfCancel} from "../ui/prompts.js";
 import {formatBytes} from "../utils/format.js";
 import type {ModVersion, ModProject} from "../types/modrinth.js";
+import {getLauncherCapabilities} from "../core/instance/capabilities.js";
+import {BaselineManager} from "../core/modpack/baselineManager.js";
 
 interface InstallOptions {
   type?: string;
@@ -66,6 +68,19 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
 
   for (const target of targets) {
     if (target.endsWith(".mrpack") || opts.type === "modpack") {
+      const caps = getLauncherCapabilities(activeInst?.launcher);
+      if (!caps.supportsModpack) {
+        p.log.error(
+          caps.incompatibilityReason ??
+            `Launcher "${activeInst?.launcher ?? "Official Minecraft"}" tidak mendukung format .mrpack secara langsung.`,
+        );
+        p.log.info(
+          "Tips: Launcher resmi tidak memiliki isolasi modpack. Pasang mod individual (.jar) atau gunakan launcher pihak ketiga.",
+        );
+        process.exitCode = 1;
+        continue;
+      }
+
       p.log.step(pc.magenta(`Memproses modpack: ${target}`));
       const unpacker = new ModpackUnpacker(modrinthClient);
 
@@ -132,13 +147,18 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
         instanceDir,
         packLoader ?? activeInst?.loader,
         packGameVersion ?? activeInst?.gameVersion,
+        activeInst?.launcher,
       );
 
       if (container.containerDir !== instanceDir) {
+        const launcherLabel = activeInst?.launcher === "Legacy" ? "Legacy Launcher" : "TLauncher";
         p.log.info(
-          `Wadah TLauncher disesuaikan: ${pc.bold(container.containerName)} (${pc.cyan(container.matchedLoader)}) di ${pc.dim(container.containerDir)}`,
+          `Wadah ${launcherLabel} disesuaikan: ${pc.bold(container.containerName)} (${pc.cyan(container.matchedLoader)}) di ${pc.dim(container.containerDir)}`,
         );
       }
+
+      // One-time golden baseline snapshot before any modpack modifications
+      await BaselineManager.createBaselineOnce(container.containerDir);
 
       // ACTIVE MODPACK DOWNLOAD GUARD:
       const activeProfileCheck = await ModpackProfileManager.getActiveProfile(container.containerDir);
@@ -161,8 +181,8 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
               },
               {
                 value: "clean_and_install",
-                label: "🧹 Download & bersihkan version client (Rekomendasi)",
-                hint: "Arsipkan modpack aktif ke brankas, bersihkan wadah client, lalu unduh & pasang modpack baru.",
+                label: "🧹 Download & bersihkan version client (Clean Install)",
+                hint: "Arsipkan modpack aktif ke brankas profil, bersihkan wadah client, lalu unduh & pasang modpack baru.",
               },
             ],
           });

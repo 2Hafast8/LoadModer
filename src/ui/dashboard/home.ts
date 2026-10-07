@@ -21,6 +21,7 @@ import {ModsWatcher} from "../../core/watcher/modsWatcher.js";
 import {formatBytes} from "../../utils/format.js";
 import {ModpackProfileManager} from "../../core/modpack/profileManager.js";
 import {runInteractiveModpackProfileManager} from "./modpackProfileManager.js";
+import {getLauncherCapabilities} from "../../core/instance/capabilities.js";
 
 interface CachedInstanceStats {
   dir: string;
@@ -124,8 +125,9 @@ export async function launchHomeDashboard(): Promise<void> {
       }
       const stats = await getInstanceStats(active?.modsDir);
 
-      const homeChoices: InteractiveChoice[] = [
-        {name: "EKSPLORASI & PENCARIAN", value: "sep"},
+      const caps = getLauncherCapabilities(active?.launcher);
+
+      const explorationChoices: InteractiveChoice[] = [
         {
           name: "🔍  Cari & Eksplorasi Konten Modrinth",
           value: "search",
@@ -137,11 +139,18 @@ export async function launchHomeDashboard(): Promise<void> {
           value: "popular",
           hint: "Sodium, Iris, Lithium, Fabric API, dan mod esensial performa",
         },
-        {
-          name: "📦  Jelajahi Modpack Populer",
+      ];
+
+      if (caps.supportsModpack) {
+        explorationChoices.push({
+          name: "📦  Jelajahi & Unduh Modpack",
           value: "modpacks",
-          hint: "Paket mod siap pakai (.mrpack) terpopuler",
-        },
+          hint: "Jelajahi dan pasang paket mod Modrinth (.mrpack) ke wadah aktif",
+          badge: formatBadge("Modpack", "primary"),
+        });
+      }
+
+      explorationChoices.push(
         {
           name: "✨  Jelajahi Shader Pack",
           value: "shaders",
@@ -152,8 +161,9 @@ export async function launchHomeDashboard(): Promise<void> {
           value: "resourcepacks",
           hint: "Tekstur kustom, UI, dan paket audio",
         },
+      );
 
-        {name: "MANAJEMEN INSTANCE", value: "sep"},
+      const managementChoices: InteractiveChoice[] = [
         {
           name: "🗃️   Kelola Mod Terpasang",
           value: "manage",
@@ -169,8 +179,11 @@ export async function launchHomeDashboard(): Promise<void> {
           hint: "Deteksi rilis pembaruan baru di Modrinth",
           badge: formatBadge("Periksa", "primary"),
         },
-        {
-          name: `📦  Brankas Profil Modpack${active?.launcher ? ` (${active.launcher})` : ""}`,
+      ];
+
+      if (caps.supportsContainers) {
+        managementChoices.push({
+          name: `📦  Brankas Profil Modpack (${active?.launcher ?? "TLauncher"})`,
           value: "modpack_profiles",
           hint: activeModpack?.activeProfile
             ? `Aktif: ${activeModpack.name ?? activeModpack.activeProfile} (${active?.loader?.toUpperCase() ?? "CLIENT"}) • Beralih atau kelola profil`
@@ -178,15 +191,23 @@ export async function launchHomeDashboard(): Promise<void> {
           badge: activeModpack?.activeProfile
             ? formatBadge(activeModpack.name ?? "Modpack", "success")
             : formatBadge("Clean State", "muted"),
-        },
-        {
-          name: "⚙️   Kelola Profil & Versi Game",
-          value: "switch_instance",
-          hint: `Instance: ${active?.name ?? "Default"} (${active?.loader ?? "-"} ${active?.gameVersion ?? "-"})`,
-          badge: active?.loader
-            ? formatBadge(`${active.loader} ${active.gameVersion ?? ""}`.trim(), "secondary")
-            : undefined,
-        },
+        });
+      }
+
+      managementChoices.push({
+        name: "⚙️   Kelola Profil & Versi Game",
+        value: "switch_instance",
+        hint: `Instance: ${active?.name ?? "Default"} (${active?.loader ?? "-"} ${active?.gameVersion ?? "-"})`,
+        badge: active?.loader
+          ? formatBadge(`${active.loader} ${active.gameVersion ?? ""}`.trim(), "secondary")
+          : undefined,
+      });
+
+      const homeChoices: InteractiveChoice[] = [
+        {name: "EKSPLORASI & PENCARIAN", value: "sep"},
+        ...explorationChoices,
+        {name: "MANAJEMEN INSTANCE", value: "sep"},
+        ...managementChoices,
 
         {name: "ALAT & PANDUAN", value: "sep"},
         {

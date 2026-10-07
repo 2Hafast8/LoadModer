@@ -29,11 +29,17 @@ LoadModer/
 │   │   │   ├── graph.ts       # DAG & Reference Counting lockfile (loadmoder.lock.json)
 │   │   │   └── resolver.ts    # Resolusi dependensi otomatis (API metadata & deskripsi)
 │   │   ├── instance/
+│   │   │   ├── capabilities.ts # Matriks kemampuan & strategi launcher (Legacy, TLauncher, dll.)
 │   │   │   ├── config.ts      # Konfigurasi persistent (~/.loadmoder/config.json)
-│   │   │   └── detector.ts    # Pemindai Prism, MultiMC, Modrinth, CurseForge, Vanilla, TLauncher
+│   │   │   └── detector.ts    # Pemindai Prism, MultiMC, Modrinth, CurseForge, Vanilla, TLauncher, Legacy
 │   │   ├── minecraft/
 │   │   │   └── versions.ts    # Dynamic Minecraft versions API (>= 1.16, TTL cache 1 jam)
 │   │   ├── modpack/
+│   │   │   ├── baselineManager.ts # One-Time Golden Baseline snapshot & restore permanen
+│   │   │   ├── legacy/        # Engine dual-path Legacy Launcher (versions/ vs home/)
+│   │   │   │   ├── containerResolver.ts
+│   │   │   │   ├── preservedItems.ts
+│   │   │   │   └── versionDetector.ts
 │   │   │   ├── profileManager.ts # Brankas profil modpack, isolasi wadah & clean state
 │   │   │   └── unpacker.ts    # Ekstraktor streaming .mrpack, overrides, dan env filter
 │   │   ├── profile/
@@ -68,10 +74,15 @@ LoadModer/
 │   │   └── markdown.ts
 │   ├── constants.ts           # Metadata aplikasi, versi, dan konfigurasi path
 │   └── index.ts               # Titik masuk utama CLI (Entry Point)
-├── tests/                     # Pengujian unit & integrasi (Vitest: 21 files, 157 tests)
+├── tests/                     # Pengujian unit & integrasi (Vitest: 27 files, 213 tests)
+│   ├── baselineManager.test.ts # Uji pencadangan & restorasi One-Time Golden Baseline
 │   ├── crypto.test.ts         # Uji fungsi hashing SHA-1, SHA-512, dan hashFile
 │   ├── dependencyGraph.test.ts# Uji DAG reference counting & orphan pruning
 │   ├── dependencyResolver.test.ts # Uji deteksi library API & regex deskripsi
+│   ├── launcherCapabilities.test.ts # Uji matriks kapabilitas & strategi per-launcher
+│   ├── legacyLauncherDetection.test.ts # Uji deteksi path Legacy dari Roaming & disk lain
+│   ├── legacyModpackIntegration.test.ts # Uji integrasi modpack, baseline, & options.txt Legacy
+│   ├── legacyModpackProfile.test.ts # Uji brankas profil modpack dual-path Legacy
 │   ├── minecraftVersions.test.ts  # Uji fetching versi dinamis & cache TTL
 │   ├── searchFilters.test.ts  # Uji filter kustom pencarian & query facets
 │   ├── snapshotManager.test.ts# Uji isolasi profil & pergantian versi mod

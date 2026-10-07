@@ -1,5 +1,9 @@
 import path from 'node:path';
-import { instanceDetector, deduplicateInstances } from '../core/instance/detector.js';
+import {
+  instanceDetector,
+  deduplicateInstances,
+  detectLauncherFromPath,
+} from '../core/instance/detector.js';
 import {
   instanceIdFromPath,
   resolveManualMinecraftPath,
@@ -91,10 +95,11 @@ async function resolveManualTarget(input: string): Promise<MinecraftInstance | u
     return undefined;
   }
 
+  const detected = detectLauncherFromPath(rootDir);
   return instanceDetector.inspectGameDir(rootDir, {
-    id: instanceIdFromPath(rootDir),
-    name: `Custom (${path.basename(rootDir)})`,
-    launcher: 'Custom',
+    id: detected.id,
+    name: detected.name,
+    launcher: detected.launcher,
   });
 }
 

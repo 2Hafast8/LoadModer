@@ -18,8 +18,10 @@ export async function runInteractiveModeSwitcher(): Promise<boolean> {
   const active = instanceConfig.get().instances[activeKey];
   const launcherName = active.launcher ?? "Launcher";
   const baseDir = active.rootDir ?? path.dirname(active.modsDir);
+  const isLegacy = active.launcher === "Legacy";
+  const wadahFolder = isLegacy ? "home/" : "versions/";
 
-  const containers = await ModpackProfileManager.discoverClientContainers(baseDir);
+  const containers = await ModpackProfileManager.discoverClientContainers(baseDir, active.launcher);
 
   const choices: InteractiveChoice[] = [];
   const currentMode = active.mode ?? "default";
@@ -45,7 +47,7 @@ export async function runInteractiveModeSwitcher(): Promise<boolean> {
       choices.push({
         name: `${icon}  Mode Modpack: ${c.containerName} (MC ${c.gameVersion} ${loaderUpper})`,
         value: `container_${c.containerName}`,
-        hint: `Folder: versions/${c.containerName}/mods • ${c.profilesCount} profil tersimpan • ${statusDesc}`,
+        hint: `Folder: ${wadahFolder}${c.containerName}/mods • ${c.profilesCount} profil tersimpan • ${statusDesc}`,
         badge: formatBadge(
           isContainerActive ? "Aktif" : `${c.profilesCount} Profil`,
           isContainerActive ? "success" : "info",
@@ -72,7 +74,7 @@ export async function runInteractiveModeSwitcher(): Promise<boolean> {
     const wadahLine = containers.length > 0
       ? "\n" +
         chalk.hex(theme.textMuted)("Wadah      : ") +
-        chalk.hex(theme.info)(`${containers.length} Wadah Versi Terdeteksi di versions/`)
+        chalk.hex(theme.info)(`${containers.length} Wadah Versi Terdeteksi di ${wadahFolder}`)
       : "\n" +
         chalk.hex(theme.textMuted)("Wadah      : ") +
         chalk.hex(theme.muted)("Tidak ada wadah versi terdeteksi (Berjalan di Mode Default)");
@@ -121,7 +123,7 @@ export async function runInteractiveModeSwitcher(): Promise<boolean> {
     const s = p.spinner();
     s.start("Menonaktifkan semua modpack aktif & membersihkan seluruh wadah client...");
     try {
-      const results = await ModpackProfileManager.disableAllModpackContainers(baseDir);
+      const results = await ModpackProfileManager.disableAllModpackContainers(baseDir, active.launcher);
       s.stop(pc.green("Semua wadah modpack berhasil dinonaktifkan & disimpan ke arsip!"));
       for (const res of results) {
         if (res.disabledProfile) {
@@ -166,7 +168,10 @@ export async function runInteractiveModeSwitcher(): Promise<boolean> {
         }
       }
       if (active.activeContainer && active.activeContainer !== targetContainer.containerName) {
-        const prevDir = path.join(baseDir, "versions", active.activeContainer);
+        const prevContainer = containers.find((c) => c.containerName === active.activeContainer);
+        const prevDir = prevContainer
+          ? prevContainer.containerDir
+          : path.join(baseDir, isLegacy ? "home" : "versions", active.activeContainer);
         await ModpackProfileManager.disableProfile(prevDir);
       }
       s.stop(pc.green(`Modpack sebelumnya dinonaktifkan. Wadah ${targetContainer.containerName} aktif!`));

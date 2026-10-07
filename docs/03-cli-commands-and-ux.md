@@ -126,10 +126,16 @@ lm install sodium --dry-run
 lm install custom-mod --no-deps
 ```
 
-#### Perlindungan Unduh Modpack Aktif (Active Modpack Download Guard)
-Ketika pengguna mencoba memasang modpack baru sementara wadah client aktif sudah menjalankan suatu profil modpack, LoadModer memunculkan dialog pencegahan:
-1. **Batalkan Pemasangan Modpack**: Menghentikan proses unduh demi menjaga modpack yang sedang aktif agar tidak bercampur atau rusak.
-2. **Bersihkan Wadah & Pasang Modpack Baru**: Mengarsipkan profil modpack saat ini ke brankas `.loadmoder/profiles/<id>/`, membersihkan folder kerja wadah client ke kondisi *clean state* (hanya menyisakan file mesin engine seperti `.loadmoder`, `mypack*.*`, `TLauncherAdditional.json`), lalu memasang modpack baru secara bersih.
+#### Perlindungan Unduh Modpack Aktif & Zero-Overwrite Guard
+Ketika pengguna mencoba memasang modpack baru sementara wadah client aktif sudah menjalankan suatu profil modpack, sistem secara ketat **melarang penimpaan langsung (*zero-overwrite*)** demi mencegah konflik file atau kerusakan konfigurasi. LoadModer memunculkan dialog pencegahan:
+1. **Batalkan Pemasangan Modpack**: Menghentikan proses unduh secara aman tanpa menyentuh atau memodifikasi berkas disk wadah aktif.
+2. **Bersihkan Wadah & Pasang Modpack Baru (Clean Install)**: Mengarsipkan profil modpack saat ini ke brankas `.loadmoder/profiles/<id>/`, membersihkan folder kerja wadah client ke kondisi *clean state*, lalu memasang modpack baru secara bersih.
+
+#### Pencadangan Baseline Emas Sekali Saja (One-Time Golden Baseline Snapshot)
+Sebelum modpack pertama dipasang pada wadah client aktif, LoadModer secara otomatis membuat **One-Time Golden Baseline Snapshot** di `.loadmoder/baseline/`:
+- Mencadangkan seluruh berkas konfigurasi murni bawaan awal (termasuk `options.txt` awal dan folder non-mod).
+- Folder `mods/` diabaikan karena lingkungan dasar diasumsikan murni (*vanilla/clean*).
+- Disimpan permanen dan tidak akan pernah dihapus (*zero-delete policy*) agar selalu tersedia saat wadah dikembalikan ke kondisi awal tanpa modpack.
 
 #### Pilihan Mode Pemasangan Modpack
 Saat memasang modpack, pengguna dapat memilih salah satu dari dua mode:
@@ -194,7 +200,8 @@ lm modpack list
 # Beralih ke profil modpack lain dari brankas secara instan tanpa mengunduh ulang
 lm modpack switch <profile-id>
 
-# Mengarsipkan modpack yang sedang aktif ke brankas dan membersihkan wadah kerja (clean state)
+# Mengarsipkan modpack yang sedang aktif ke brankas, membersihkan wadah kerja (clean state),
+# dan memulihkan lingkungan wadah dari One-Time Golden Baseline (.loadmoder/baseline/)
 lm modpack disable
 ```
 

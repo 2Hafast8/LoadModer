@@ -13,6 +13,7 @@ Dokumen ini mendokumentasikan mekanisme pendeteksian otomatis (*auto-discovery*)
 | **Modrinth App** | `%APPDATA%\com.modrinth.theseus\profiles` | `~/Library/Application Support/com.modrinth.theseus/profiles` | `~/.config/ModrinthApp/profiles` |
 | **CurseForge** | `%USERPROFILE%\curseforge\minecraft\Instances` | `~/Documents/curseforge/minecraft/Instances` | `~/curseforge/minecraft/Instances` |
 | **TLauncher** | `%APPDATA%\.minecraft\versions` | `~/Library/Application Support/minecraft/versions` | `~/.minecraft/versions` |
+| **Legacy Launcher** | `%APPDATA%\.tlauncher\legacy\Minecraft\game` | `~/Library/Application Support/.tlauncher/legacy/Minecraft/game` | `~/.tlauncher/legacy/Minecraft/game` |
 | **Official Vanilla** | `%APPDATA%\.minecraft` | `~/Library/Application Support/minecraft` | `~/.minecraft` |
 
 ---
@@ -78,6 +79,21 @@ Setiap launcher menyimpan informasi versi Minecraft, mod loader, dan konfigurasi
   * Brankas profil modpack: `.minecraft/versions/<container_name>/.loadmoder/profiles/`
 * **Preservasi File Mesin Launcher (`isPreservedEngineItem`)**:
   * Saat pembersihan wadah dilakukan, seluruh file engine launcher dipertahankan secara utuh (`TLauncherAdditional.json`, `<cName>.jar`, `<cName>.json`, direktori `.fabric`, `.loadmoder`, dan `logs`).
+
+### F. Legacy Launcher (TL Legacy) & Arsitektur Dual-Path (`versions/` vs `home/`)
+* **Pola Dual-Path**:
+  * **Engine Storage (`game/versions/<version>/`)**: Tempat berkas `.jar` dan `.json` engine yang diunduh Legacy Launcher. Folder ini murni dibaca dan tidak dimodifikasi saat mengelola modpack.
+  * **Profile Containers (`game/home/<profile>/`)**: Wadah profil mandiri tempat berkas permainan, mods (`home/<profile>/mods`), konfigurasi, dan brankas profil `.loadmoder/`.
+* **Sinkronisasi Konfigurasi `tl.properties`**:
+  * LoadModer membaca `login.version` (misal `Fabric 26.2`) dan `minecraft.gamedir.separate` untuk memetakan folder kerja mods secara otomatis.
+* **Aturan Deteksi Jalur Pintar (`detectLauncherFromPath`)**:
+  * **Drive C:** Pemindaian membaca path relatif setelah `AppData\Roaming\` (misal `.tlauncher\legacy\Minecraft\game` terdeteksi akurat sebagai **Legacy**, bukan sekadar "Custom (game)").
+  * **Partisi Non-C (`D:`, `E:`, dll.):** Memeriksa seluruh path lengkap dari root drive hingga leaf folder.
+* **Preservasi Berkas Sistem Legacy (`isLegacyPreservedItem`)**:
+  * Menjamin berkas pengguna dan loader (`servers.dat`, `servers.dat.bak`, `saves/`, `.fabric/`, `.loadmoder/`, `logs/`) tetap terlindungi saat pembersihan wadah.
+* **Sistem Cadangan Baseline Satu Kali (`BaselineManager`)**:
+  * Sebelum modpack pertama diekstrak, kondisi awal lingkungan wadah (termasuk `options.txt` awal) dikunci ke `.loadmoder/baseline/`.
+  * Saat wadah dinonaktifkan (`lm modpack disable`), lingkungan game live dibersihkan dan dipulihkan kembali ke setelan baseline asli pemain tanpa menghapus berkas master baseline.
 
 
 ---

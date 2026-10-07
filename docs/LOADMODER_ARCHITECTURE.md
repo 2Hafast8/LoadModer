@@ -51,7 +51,9 @@ LoadModer secara otomatis mendeteksi launcher (`src/core/instance/detector.ts`):
    - Membaca `minecraftinstance.json`.
 4. **TLauncher (Multi-Container)**:
    - Membaca folder wadah `versions/mypack(...)` dan metadata `TLauncherAdditional.json`.
-5. **Official Vanilla Launcher**:
+5. **Legacy Launcher (Dual-Path Architecture)**:
+   - Membaca folder `.tlauncher/legacy/Minecraft/game`, engine di `versions/`, wadah di `home/<profile>/`, dan sinkronisasi `tl.properties`.
+6. **Official Vanilla Launcher**:
    - Membaca `.minecraft/launcher_profiles.json`.
 
 ### Pilar 3: Unified Multi-Asset Routing & Custom Filters
@@ -85,11 +87,12 @@ Satu perintah untuk semua tipe konten Modrinth dengan perutean direktori otomati
 * **Mod Toggle (`enable` / `disable`)**: Mengubah status mod (`.jar` $\leftrightarrow$ `.jar.disabled`) secara instan tanpa menghapus file.
 * **Automated Mod Bisect (`src/core/troubleshoot/bisect.ts`)**: `BisectRunner` mengisolasi mod penyebab crash dalam $O(\log_2 N)$ langkah uji menggunakan algoritma pencarian biner.
 
-### Pilar 9: Modpack Profile Vault & Container Isolation (`ModpackProfileManager`)
-* **Brankas Profil Terisolasi (`.loadmoder/profiles/<id>/`)**: Setiap wadah client menyimpan arsip modpack yang pernah diunduh sehingga pemain dapat berpindah antar modpack seketika tanpa kuota internet tambahan.
+### Pilar 9: Modpack Profile Vault, Baseline Snapshot & Container Isolation (`ModpackProfileManager` & `BaselineManager`)
+* **Brankas Profil Terisolasi (`.loadmoder/profiles/<id>/`)**: Setiap wadah client (TLauncher `versions/` maupun Legacy `home/`) menyimpan arsip modpack yang pernah diunduh sehingga pemain dapat berpindah antar modpack seketika tanpa kuota internet tambahan.
+* **One-Time Golden Baseline Snapshot (`BaselineManager`)**: Mencadangkan lingkungan wadah asli (termasuk `options.txt` awal) ke `.loadmoder/baseline/` hanya sekali sebelum modpack pertama dipasang, dan memulihkannya saat wadah dinonaktifkan (Clean State) dengan kebijakan master permanen (*zero-delete*).
 * **Master MRPack Backup (`.loadmoder/downloads/`)**: Menyimpan berkas master `.mrpack` utuh untuk keperluan instalasi ulang atau pemulihan darurat.
-* **Clean State & Preservasi Mesin Launcher**: Fungsi `isPreservedEngineItem` memastikan file penting (`TLauncherAdditional.json`, `.fabric`, `logs`, `<wadah>.jar`, `<wadah>.json`) tidak pernah terhapus saat pembersihan wadah berlangsung.
-* **Active Download Guard & Resilient Engine**: Dialog pencegahan tumpang tindih profil aktif saat `lm install`, didukung mekanisme retry backoff eksponensial dan direct fallback ke Modrinth Version API.
+* **Clean State & Preservasi Mesin Launcher**: Fungsi `isPreservedEngineItem` memastikan file penting (`TLauncherAdditional.json`, `.fabric`, `logs`, `<wadah>.jar`, `<wadah>.json`, `servers.dat`, `saves`) tidak pernah terhapus saat pembersihan wadah berlangsung.
+* **Zero-Overwrite Active Modpack Guard**: Mencegah tabrakan modpack aktif dengan pilihan aman *Cancel* atau *Clean Install*, didukung retry backoff eksponensial dan direct fallback ke Modrinth API.
 
 ---
 

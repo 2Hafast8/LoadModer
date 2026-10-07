@@ -6,7 +6,7 @@
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-157%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-213%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 
@@ -17,12 +17,20 @@
 * **🎯 Operasi Dual-Mode (Nordic Clean TUI & Direct CLI)**:
   - **Interactive TUI Dashboard**: Header adaptif Figlet ASCII + 4-line Nordic Cyber Status Box, Live Badges navigasi instan, dan kontrol keyboard panah (`↑`/`↓` atau `j`/`k`).
   - **Direct CLI**: Jalankan `lm install`, `lm search`, `lm update` langsung dengan flag dan argumen untuk skrip otomasi maupun terminal.
+* **🏰 Legacy Launcher Dual-Path Modpack Architecture**:
+  - **Pemisahan Engine & Wadah**: Engine jar & json disimpan di `game/versions/<version>/`, sedangkan modpack dan mods diisolasi di `game/home/<profile>/mods`.
+  - **Auto-Sync tl.properties**: Membaca profil aktif dari konfigurasi launcher Legacy secara otomatis.
+* **🛡️ One-Time Golden Baseline Snapshot & Permanent Restore**:
+  - **Pencadangan Satu Kali (`.loadmoder/baseline/`)**: Mengunci setelan dasar dan konfigurasi awal launcher (`options.txt`, dsb.) sebelum modpack pertama dipasang.
+  - **Restorasi Bersih Permanen (Zero-Delete Policy)**: Saat modpack dinonaktifkan (`lm modpack disable` / Clean State), setelan asli pemain langsung dipulihkan dari master baseline yang tersimpan permanen.
+* **🚫 Zero-Overwrite Active Modpack Guard**:
+  - Menghapus fitur penimpaan langsung saat modpack aktif untuk mencegah tabrakan berkas.
+  - Pilihan tegas: `❌ Cancel` (batalkan tanpa sentuh disk) atau `🧹 Clean Install` (arsipkan modpack aktif ke brankas profil `.loadmoder/profiles/<id>`, bersihkan live files, pasang modpack baru secara bersih).
 * **📦 TLauncher Modpack Profile Vault & Multi-Client Isolation**:
   - **Wadah Client Terisolasi**: Pemisahan wadah client TLauncher per loader (`fabric`, `forge`) dan versi game (misal: `mypack(fabric)`, `mypack(forge)`, `mypack(fabric-1.21)`).
   - **Brankas Profil Lokal (`.loadmoder/profiles/`)**: Beralih antar-modpack secara instan tanpa unduh ulang (`lm modpack switch`).
-  - **Active Modpack Download Guard**: Mencegah tumpang tindih profil aktif saat memasang modpack baru dengan pilihan *Jangan download (batal)* atau *Download & bersihkan wadah*.
   - **Clean State & Global Disable**: Mengarsipkan seluruh modpack aktif ke brankas dan membersihkan wadah kerja kembali ke kondisi Vanilla awal (`lm modpack disable`).
-  - **Panduan Terintegrasi TLauncher**: Menu panduan interaktif pembuatan wadah client di TLauncher via menu **TL MODS** -> **Create**.
+  - **Panduan Terintegrasi**: Panduan pembuatan wadah client di TLauncher dan Legacy Launcher langsung di TUI.
 * **🏷️ Browser Cepat & Horizontal Filter Chips**:
   - Filter chip bar 2 baris ringkas menggantikan tabel vertikal, menampilkan hasil pencarian pertama langsung di layar tanpa scroll.
 * **⚡ Validasi Status Terpasang Konkuren**:

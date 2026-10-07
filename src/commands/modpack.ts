@@ -2,6 +2,7 @@ import path from "node:path";
 import {ModpackProfileManager} from "../core/modpack/profileManager.js";
 import {instanceConfig} from "../core/instance/config.js";
 import {p, pc, showBanner, exitIfCancel} from "../ui/prompts.js";
+import {getLauncherCapabilities} from "../core/instance/capabilities.js";
 
 export async function resolveInstanceDir(customDir?: string): Promise<string | null> {
   if (customDir) {
@@ -54,6 +55,21 @@ export async function modpackListProfilesCommand(opts?: {dir?: string}): Promise
     return;
   }
 
+  if (!opts?.dir) {
+    const active = instanceConfig.getActiveInstance();
+    if (active) {
+      const caps = getLauncherCapabilities(active.launcher);
+      if (!caps.supportsContainers) {
+        p.log.warn(
+          caps.incompatibilityReason ??
+            `Fitur wadah modpack saat ini hanya aktif untuk launcher berbasis wadah (TLauncher). Launcher aktif: ${active.launcher ?? "Official Minecraft"}.`,
+        );
+        p.log.info("Tips: Gunakan 'lm list' untuk melihat mod yang terpasang pada instance ini.");
+        return;
+      }
+    }
+  }
+
   if (opts?.dir) {
     await ModpackProfileManager.syncProfilesFromDownloads(instanceDir);
     const activeInfo = await ModpackProfileManager.getActiveProfile(instanceDir);
@@ -99,6 +115,21 @@ export async function modpackSwitchCommand(
     p.log.error('Folder instance belum ditentukan. Jalankan "lm init" terlebih dahulu.');
     process.exitCode = 1;
     return;
+  }
+
+  if (!opts?.dir) {
+    const active = instanceConfig.getActiveInstance();
+    if (active) {
+      const caps = getLauncherCapabilities(active.launcher);
+      if (!caps.supportsContainers) {
+        p.log.warn(
+          caps.incompatibilityReason ??
+            `Fitur beralih modpack saat ini hanya aktif untuk launcher berbasis wadah (TLauncher). Launcher aktif: ${active.launcher ?? "Official Minecraft"}.`,
+        );
+        p.log.info("Tips: Gunakan 'lm list' untuk melihat mod yang terpasang pada instance ini.");
+        return;
+      }
+    }
   }
 
   let targetContainerDir = instanceDir;
@@ -193,6 +224,20 @@ export async function modpackDisableCommand(opts?: {dir?: string}): Promise<void
     return;
   }
 
+  if (!opts?.dir) {
+    const active = instanceConfig.getActiveInstance();
+    if (active) {
+      const caps = getLauncherCapabilities(active.launcher);
+      if (!caps.supportsContainers) {
+        p.log.warn(
+          caps.incompatibilityReason ??
+            `Fitur wadah modpack saat ini hanya aktif untuk launcher berbasis wadah (TLauncher). Launcher aktif: ${active.launcher ?? "Official Minecraft"}.`,
+        );
+        return;
+      }
+    }
+  }
+
   // Jika opsi --dir diberikan secara spesifik, bersihkan hanya wadah tersebut
   if (opts?.dir) {
     const activeInfo = await ModpackProfileManager.getActiveProfile(instanceDir);
@@ -223,11 +268,14 @@ export async function modpackDisableCommand(opts?: {dir?: string}): Promise<void
   }
 
   // Jika tanpa --dir, nonaktifkan dan bersihkan SELURUH wadah modpack sekaligus
+  const activeKey = instanceConfig.get().activeInstance;
+  const activeInst = activeKey ? instanceConfig.get().instances[activeKey] : null;
+
   const s = p.spinner();
-  s.start("Menonaktifkan seluruh modpack dan membersihkan semua wadah mypack...");
+  s.start("Menonaktifkan seluruh modpack dan membersihkan semua wadah...");
   try {
-    const results = await ModpackProfileManager.disableAllModpackContainers(instanceDir);
-    s.stop(pc.green("Semua wadah mypack berhasil dinonaktifkan dan dibersihkan total!"));
+    const results = await ModpackProfileManager.disableAllModpackContainers(instanceDir, activeInst?.launcher);
+    s.stop(pc.green("Semua wadah modpack berhasil dinonaktifkan dan dibersihkan total!"));
 
     for (const res of results) {
       if (res.disabledProfile) {
@@ -238,17 +286,15 @@ export async function modpackDisableCommand(opts?: {dir?: string}): Promise<void
     }
 
     p.log.message(
-      pc.dim("\nSemua wadah sekarang bersih total (hanya menyisakan berkas mesin TLauncher).\n") +
+      pc.dim("\nSemua wadah sekarang bersih total (hanya menyisakan berkas mesin launcher).\n") +
         pc.dim("Untuk mengaktifkan kembali modpack, pilih client lewat menu TUI (lm) atau gunakan ") +
         pc.cyan("lm modpack switch <id>"),
     );
 
-    const activeKey = instanceConfig.get().activeInstance;
-    if (activeKey && instanceConfig.get().instances[activeKey]) {
-      const inst = instanceConfig.get().instances[activeKey];
-      inst.mode = "default";
-      inst.activeContainer = undefined;
-      inst.modsDir = path.join(inst.rootDir, "mods");
+    if (activeInst) {
+      activeInst.mode = "default";
+      activeInst.activeContainer = undefined;
+      activeInst.modsDir = path.join(activeInst.rootDir, "mods");
       await instanceConfig.save();
     }
   } catch (err: any) {
@@ -274,6 +320,20 @@ export async function modpackRemoveCommand(
     p.log.error('Folder instance belum ditentukan. Jalankan "lm init" terlebih dahulu.');
     process.exitCode = 1;
     return;
+  }
+
+  if (!opts?.dir) {
+    const active = instanceConfig.getActiveInstance();
+    if (active) {
+      const caps = getLauncherCapabilities(active.launcher);
+      if (!caps.supportsContainers) {
+        p.log.warn(
+          caps.incompatibilityReason ??
+            `Fitur wadah modpack saat ini hanya aktif untuk launcher berbasis wadah (TLauncher). Launcher aktif: ${active.launcher ?? "Official Minecraft"}.`,
+        );
+        return;
+      }
+    }
   }
 
   if (!opts?.yes && process.stdin.isTTY) {
