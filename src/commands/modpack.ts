@@ -162,19 +162,15 @@ export async function modpackSwitchCommand(
     const activated = await ModpackProfileManager.activateProfile(targetContainerDir, targetId);
 
     const cName = path.basename(targetContainerDir);
-    const instanceKey = `tlauncher-${cName.toLowerCase()}`;
-    instanceConfig.saveInstance(
-      instanceKey,
-      {
-        name: `TLauncher: ${cName}`,
-        launcher: "TLauncher",
-        rootDir: targetContainerDir,
-        modsDir: path.join(targetContainerDir, "mods"),
-        gameVersion: activated.gameVersion ?? "1.20.1",
-        loader: (activated.loader as any) ?? "fabric",
-      },
-      true,
-    );
+    const activeKey = instanceConfig.get().activeInstance;
+    if (activeKey && instanceConfig.get().instances[activeKey]) {
+      const inst = instanceConfig.get().instances[activeKey];
+      inst.mode = "modpack";
+      inst.activeContainer = cName;
+      inst.modsDir = path.join(targetContainerDir, "mods");
+      inst.gameVersion = activated.gameVersion ?? "1.20.1";
+      inst.loader = (activated.loader as any) ?? "fabric";
+    }
     await instanceConfig.save();
 
     s.stop(
@@ -246,6 +242,15 @@ export async function modpackDisableCommand(opts?: {dir?: string}): Promise<void
         pc.dim("Untuk mengaktifkan kembali modpack, pilih client lewat menu TUI (lm) atau gunakan ") +
         pc.cyan("lm modpack switch <id>"),
     );
+
+    const activeKey = instanceConfig.get().activeInstance;
+    if (activeKey && instanceConfig.get().instances[activeKey]) {
+      const inst = instanceConfig.get().instances[activeKey];
+      inst.mode = "default";
+      inst.activeContainer = undefined;
+      inst.modsDir = path.join(inst.rootDir, "mods");
+      await instanceConfig.save();
+    }
   } catch (err: any) {
     s.stop(pc.red(`Gagal menonaktifkan modpack: ${err.message}`));
     process.exitCode = 1;

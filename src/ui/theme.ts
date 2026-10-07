@@ -168,6 +168,8 @@ export interface CommandCenterInfo {
   instanceName?: string;
   gameVersion?: string;
   loader?: string;
+  mode?: 'default' | 'modpack' | string;
+  activeContainer?: string;
   modsCount?: number;
   activeCount?: number;
   storageUsage?: string;
@@ -189,11 +191,15 @@ export const renderCommandCenterHeader = (info: CommandCenterInfo) => {
     info.loader || info.gameVersion
       ? `${info.loader ?? '-'} ${info.gameVersion ?? ''}`.trim()
       : 'Belum ditentukan';
+  const modeText =
+    info.mode === 'modpack'
+      ? `modpack (${info.activeContainer ?? 'wadah'})`
+      : 'default';
 
   if (isAccessible) {
     console.log(
       chalk.bold(`LOADMODER v${APP_VERSION}`) +
-        ` | Instance: ${info.instanceName ?? 'Default'} | Loader: ${loaderVersionText} | Mods: ${info.activeCount ?? 0}/${info.modsCount ?? 0} (${info.storageUsage ?? '0 B'})\n`
+        ` | Instance: ${info.instanceName ?? 'Default'} | Mode: ${modeText} | Loader: ${loaderVersionText} | Mods: ${info.activeCount ?? 0}/${info.modsCount ?? 0} (${info.storageUsage ?? '0 B'})\n`
     );
     return;
   }
@@ -239,7 +245,10 @@ export const renderCommandCenterHeader = (info: CommandCenterInfo) => {
   if (cols < 70) {
     const line1 =
       chalk.hex(theme.textMuted)('Instance : ') +
-      chalk.hex(theme.primary).bold(info.instanceName ?? 'Default');
+      chalk.hex(theme.primary).bold(info.instanceName ?? 'Default') +
+      '  •  ' +
+      chalk.hex(theme.textMuted)('Mode: ') +
+      chalk.hex(info.mode === 'modpack' ? theme.info : theme.secondary).bold(modeText);
     const line2 =
       chalk.hex(theme.textMuted)('Loader   : ') +
       chalk.hex(theme.secondary).bold(loaderVersionText);
@@ -256,6 +265,11 @@ export const renderCommandCenterHeader = (info: CommandCenterInfo) => {
     const line1 =
       chalk.hex(theme.textMuted)('Instance : ') +
       chalk.hex(theme.primary).bold(info.instanceName ?? 'Default') +
+      '   ' +
+      chalk.hex(theme.muted)('•') +
+      '   ' +
+      chalk.hex(theme.textMuted)('Mode : ') +
+      chalk.hex(info.mode === 'modpack' ? theme.info : theme.secondary).bold(modeText) +
       '   ' +
       chalk.hex(theme.muted)('•') +
       '   ' +

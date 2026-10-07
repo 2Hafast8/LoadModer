@@ -105,7 +105,23 @@ export async function launchHomeDashboard(): Promise<void> {
       }
 
       const containerDir = active?.rootDir ?? (active?.modsDir ? path.dirname(active.modsDir) : "");
-      const activeModpack = containerDir ? await ModpackProfileManager.getActiveProfile(containerDir) : null;
+      let activeModpack = containerDir ? await ModpackProfileManager.getActiveProfile(containerDir) : null;
+      if (!activeModpack && containerDir) {
+        try {
+          const containers = await ModpackProfileManager.discoverClientContainers(containerDir);
+          const anyActive = containers.find((c) => c.activeProfileName);
+          if (anyActive) {
+            activeModpack = {
+              activeProfile: anyActive.activeProfileName,
+              name: anyActive.activeProfileName ?? undefined,
+              versionId: "",
+              loader: anyActive.loader,
+              gameVersion: anyActive.gameVersion,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+        } catch {}
+      }
       const stats = await getInstanceStats(active?.modsDir);
 
       const homeChoices: InteractiveChoice[] = [
@@ -154,7 +170,7 @@ export async function launchHomeDashboard(): Promise<void> {
           badge: formatBadge("Periksa", "primary"),
         },
         {
-          name: "📦  Kelola Profil Modpack (TLauncher)",
+          name: `📦  Brankas Profil Modpack${active?.launcher ? ` (${active.launcher})` : ""}`,
           value: "modpack_profiles",
           hint: activeModpack?.activeProfile
             ? `Aktif: ${activeModpack.name ?? activeModpack.activeProfile} (${active?.loader?.toUpperCase() ?? "CLIENT"}) • Beralih atau kelola profil`
@@ -197,6 +213,8 @@ export async function launchHomeDashboard(): Promise<void> {
             instanceName: active?.name,
             gameVersion: active?.gameVersion,
             loader: active?.loader,
+            mode: active?.mode ?? "default",
+            activeContainer: active?.activeContainer,
             modsCount: stats.modsCount,
             activeCount: stats.activeCount,
             storageUsage: stats.storageUsage,

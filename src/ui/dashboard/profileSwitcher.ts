@@ -1,4 +1,6 @@
 import {readdir} from "node:fs/promises";
+import chalk from "chalk";
+import boxen from "boxen";
 import {p, pc, showBanner, clearScreen} from "../prompts.js";
 import {
   askInteractiveMenu,
@@ -11,6 +13,8 @@ import {profileSnapshotManager} from "../../core/profile/snapshotManager.js";
 import {SUPPORTED_LOADERS} from "../../constants.js";
 import type {SavedInstanceConfig} from "../../types/instance.js";
 import {initCommand} from "../../commands/init.js";
+import {runInteractiveModeSwitcher} from "./modeSwitcher.js";
+import {theme, formatBadge} from "../theme.js";
 
 export async function runInteractiveProfileSwitcher(activeInstanceKey?: string): Promise<void> {
   await instanceConfig.load();
@@ -56,6 +60,11 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
         hint: `${snapshots.length} snapshot tersimpan`,
       },
       {
+        name: "🔀  Ganti Mode / Wadah Target (Default ↔ Modpack)",
+        value: "switch_mode",
+        hint: `Saat ini: ${instance.mode === "modpack" ? `Modpack (${instance.activeContainer ?? "-"})` : "Default (.minecraft)"}`,
+      },
+      {
         name: "🎮  Ganti ke Instance Launcher Lain",
         value: "change_instance",
         hint: "Prism, Vanilla, MultiMC, CurseForge",
@@ -72,7 +81,47 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
           instance.name,
           true,
           false,
-          `${instance.loader?.toUpperCase() ?? "-"} ${instance.gameVersion ?? "-"}`,
+          `Mode: ${instance.mode === "modpack" ? `modpack (${instance.activeContainer ?? "-"})` : "default"} • ${instance.loader?.toUpperCase() ?? "-"} ${instance.gameVersion ?? "-"}`,
+        );
+
+        const modeDisplay = instance.mode === "modpack"
+          ? chalk.hex(theme.info).bold(`● Modpack (${instance.activeContainer ?? "wadah"})`)
+          : chalk.hex(theme.secondary).bold("○ Default (Standar Launcher)");
+
+        const cardContent =
+          chalk.hex(theme.textMuted)("Instance   : ") +
+          chalk.hex(theme.primary).bold(instance.name) +
+          "   " +
+          chalk.hex(theme.muted)("•") +
+          "   " +
+          chalk.hex(theme.textMuted)("Launcher : ") +
+          chalk.hex(theme.text)(instance.launcher ?? "Game") +
+          "\n" +
+          chalk.hex(theme.textMuted)("Mod Loader : ") +
+          chalk.hex(theme.secondary).bold(`${instance.loader?.toUpperCase() ?? "-"} ${instance.gameVersion ?? "-"}`) +
+          "   " +
+          chalk.hex(theme.muted)("•") +
+          "   " +
+          chalk.hex(theme.textMuted)("Mode : ") +
+          modeDisplay +
+          "\n" +
+          chalk.hex(theme.textMuted)("Folder Mods: ") +
+          chalk.hex(theme.textMuted)(instance.modsDir) +
+          "   " +
+          chalk.hex(theme.muted)("•") +
+          "   " +
+          chalk.hex(theme.textMuted)("Mod Terpasang : ") +
+          chalk.hex(theme.success)(`${currentModsCount} mod`);
+
+        console.log(
+          boxen(cardContent, {
+            padding: {top: 0, bottom: 0, left: 2, right: 2},
+            margin: {top: 0, bottom: 1, left: 0, right: 0},
+            borderStyle: "round",
+            borderColor: theme.border,
+            title: chalk.hex(theme.primary).bold(` ❖ KELOLA PROFIL & VERSI: ${instance.name.toUpperCase()} ❖ `),
+            titleAlignment: "left",
+          }),
         );
       },
     );
@@ -94,6 +143,14 @@ export async function runInteractiveProfileSwitcher(activeInstanceKey?: string):
 
       case "snapshots": {
         await handleSnapshotsListFlow(activeKey, instance);
+        await instanceConfig.load();
+        const updated = instanceConfig.getActiveInstance();
+        if (updated) Object.assign(instance, updated);
+        break;
+      }
+
+      case "switch_mode": {
+        await runInteractiveModeSwitcher();
         await instanceConfig.load();
         const updated = instanceConfig.getActiveInstance();
         if (updated) Object.assign(instance, updated);
@@ -122,18 +179,21 @@ async function handleLauncherSwitchFlow(
 
   const choices: InteractiveChoice[] = [];
 
-  choices.push({name: "INSTANCE TERSIMPAN", value: "sep"});
+  choices.push({name: "LAUNCHER TERSIMPAN", value: "sep"});
   for (const [key, inst] of savedEntries) {
     const isActive = key === activeKey;
-    const prefix = isActive ? "● " : "○ ";
+    const modeBadge = inst.mode === "modpack"
+      ? `Modpack (${inst.activeContainer ?? "wadah"})`
+      : "Default";
     const hintText = isActive
-      ? "SEDANG AKTIF"
-      : `${inst.loader ?? "-"} ${inst.gameVersion ?? "-"} (${inst.launcher ?? "Game"})`;
+      ? `Sedang aktif • Mode: ${modeBadge} • ${inst.loader ?? "-"} ${inst.gameVersion ?? "-"}`
+      : `Folder: ${inst.rootDir} • Mode: ${modeBadge}`;
 
     choices.push({
-      name: `${prefix}[${inst.launcher ?? "Game"}] ${inst.name}`,
+      name: `${isActive ? "● " : "○ "}[${inst.launcher ?? "Game"}] ${inst.name}`,
       value: `select_${key}`,
       hint: hintText,
+      badge: formatBadge(isActive ? "Sedang Aktif" : (inst.mode === "modpack" ? "Modpack" : "Default"), isActive ? "success" : "muted"),
     });
   }
 
@@ -141,28 +201,64 @@ async function handleLauncherSwitchFlow(
   choices.push({
     name: "🔍  Pindai Semua Launcher & Drive...",
     value: "action_scan",
-    hint: "Prism, MultiMC, Modrinth, CurseForge, Vanilla",
+    hint: "Prism, MultiMC, Modrinth, CurseForge, Vanilla, SKLauncher, Legacy",
+    badge: formatBadge("Pindai", "info"),
   });
   choices.push({
     name: "✏️   Masukkan Path Folder Game Manual...",
     value: "action_manual",
     hint: "Ketik folder .minecraft / game di drive mana saja",
+    badge: formatBadge("Manual", "warning"),
   });
 
-  choices.push({name: "──────────────────", value: "sep"});
+  choices.push({name: "──────────────────────────────────────", value: "sep"});
   choices.push({name: "[Kembali ke Menu Profil]", value: "back"});
 
+  const renderLauncherSwitchHeader = () => {
+    showBanner(
+      currentInstance.name,
+      true,
+      false,
+      `Saat ini: ${currentInstance.launcher ?? "Game"} (${currentInstance.loader ?? "-"} ${currentInstance.gameVersion ?? "-"})`,
+    );
+
+    const modeText = currentInstance.mode === "modpack"
+      ? chalk.hex(theme.info).bold(`● Modpack (${currentInstance.activeContainer ?? "wadah"})`)
+      : chalk.hex(theme.secondary).bold("○ Default (Standar Launcher)");
+
+    const card =
+      chalk.hex(theme.textMuted)("Launcher Aktif : ") +
+      chalk.hex(theme.primary).bold(currentInstance.name) +
+      "   " +
+      chalk.hex(theme.muted)("•") +
+      "   " +
+      chalk.hex(theme.textMuted)("Mode : ") +
+      modeText +
+      "\n" +
+      chalk.hex(theme.textMuted)("Lokasi Game    : ") +
+      chalk.hex(theme.text)(currentInstance.rootDir) +
+      "   " +
+      chalk.hex(theme.muted)("•") +
+      "   " +
+      chalk.hex(theme.textMuted)("Terdaftar : ") +
+      chalk.hex(theme.info)(`${savedEntries.length} Launcher`);
+
+    console.log(
+      boxen(card, {
+        padding: {top: 0, bottom: 0, left: 2, right: 2},
+        margin: {top: 0, bottom: 1, left: 0, right: 0},
+        borderStyle: "round",
+        borderColor: theme.border,
+        title: chalk.hex(theme.primary).bold(" ❖ PILIH LAUNCHER MINECRAFT ❖ "),
+        titleAlignment: "left",
+      }),
+    );
+  };
+
   const selected = await askInteractiveMenu(
-    "GANTI KE INSTANCE LAUNCHER LAIN",
+    "GANTI KE LAUNCHER LAIN",
     choices,
-    () => {
-      showBanner(
-        currentInstance.name,
-        true,
-        false,
-        `Saat ini: ${currentInstance.launcher ?? "Game"} (${currentInstance.loader ?? "-"} ${currentInstance.gameVersion ?? "-"})`,
-      );
-    },
+    renderLauncherSwitchHeader,
   );
 
   if (!selected || selected === "back" || selected === "sep") {
@@ -360,37 +456,113 @@ async function handleSnapshotsListFlow(
       s.gameVersion.toLowerCase() === (instance.gameVersion || "").toLowerCase();
 
     return {
-      name: `${isCurrent ? "● " : "  "}${s.loader.toUpperCase()} ${s.gameVersion} (${s.modsCount} mod)`,
+      name: `${isCurrent ? "● " : "○ "}${s.loader.toUpperCase()} ${s.gameVersion} (${s.modsCount} mod)`,
       value: s.snapshotId,
       hint: isCurrent
-        ? "SEDANG AKTIF"
-        : `Diperbarui: ${new Date(s.updatedAt).toLocaleDateString()}`,
+        ? "Sedang aktif di instance ini"
+        : `Tersimpan: ${new Date(s.updatedAt).toLocaleDateString()}`,
+      badge: formatBadge(isCurrent ? "Aktif" : `${s.modsCount} mod`, isCurrent ? "success" : "muted"),
     };
   });
 
   choices.push({name: "──────────────────", value: "sep"});
   choices.push({name: "[Kembali]", value: "back"});
 
-  const chosenSnapshotId = await askInteractiveMenu("DAFTAR SNAPSHOT TERSIMPAN", choices, () =>
-    showBanner(instance.name, true),
-  );
+  const renderSnapshotsHeader = () => {
+    showBanner(instance.name, true);
+    const cardContent =
+      chalk.hex(theme.textMuted)("Instance  : ") +
+      chalk.hex(theme.primary).bold(instance.name) +
+      "   " +
+      chalk.hex(theme.muted)("•") +
+      "   " +
+      chalk.hex(theme.textMuted)("Aktif : ") +
+      chalk.hex(theme.secondary).bold(`${instance.loader?.toUpperCase() ?? "-"} ${instance.gameVersion ?? "-"}`) +
+      "\n" +
+      chalk.hex(theme.textMuted)("Snapshot  : ") +
+      chalk.hex(theme.info)(`${snapshots.length} Snapshot Profil Tersimpan`) +
+      "   " +
+      chalk.hex(theme.muted)("•") +
+      "   " +
+      chalk.hex(theme.textMuted)("Folder : ") +
+      chalk.hex(theme.textMuted)(instance.modsDir);
+
+    console.log(
+      boxen(cardContent, {
+        padding: {top: 0, bottom: 0, left: 2, right: 2},
+        margin: {top: 0, bottom: 1, left: 0, right: 0},
+        borderStyle: "round",
+        borderColor: theme.border,
+        title: chalk.hex(theme.primary).bold(" ❖ DAFTAR SNAPSHOT PROFIL ❖ "),
+        titleAlignment: "left",
+      }),
+    );
+  };
+
+  const chosenSnapshotId = await askInteractiveMenu("DAFTAR SNAPSHOT TERSIMPAN", choices, renderSnapshotsHeader);
   if (!chosenSnapshotId || chosenSnapshotId === "back" || chosenSnapshotId === "sep") return;
 
   const targetSnapshot = snapshots.find((s) => s.snapshotId === chosenSnapshotId);
   if (!targetSnapshot) return;
 
   const subChoices: InteractiveChoice[] = [
-    {name: "▶️  Terapkan & Switch ke Snapshot ini Sekarang", value: "apply"},
-    {name: "👁️  Lihat Daftar Mod dalam Snapshot", value: "view"},
-    {name: "🗑️  Hapus Snapshot ini", value: "delete"},
+    {
+      name: "▶️  Terapkan & Switch ke Snapshot ini Sekarang",
+      value: "apply",
+      hint: `Pulihkan ${targetSnapshot.modsCount} mod ke folder ${instance.modsDir}`,
+      badge: formatBadge("Terapkan", "primary"),
+    },
+    {
+      name: "👁️  Lihat Daftar Mod dalam Snapshot",
+      value: "view",
+      hint: `Rincian ${targetSnapshot.mods.length} berkas mod yang tersimpan di snapshot ini`,
+      badge: formatBadge("Rincian", "info"),
+    },
+    {
+      name: "🗑️  Hapus Snapshot ini",
+      value: "delete",
+      hint: "Hapus snapshot ini secara permanen dari penyimpanan",
+      badge: formatBadge("Hapus", "error"),
+    },
     {name: "──────────────────", value: "sep"},
     {name: "[Kembali]", value: "back"},
   ];
 
+  const renderSubHeader = () => {
+    showBanner(instance.name, true);
+    const subCard =
+      chalk.hex(theme.textMuted)("Target    : ") +
+      chalk.hex(theme.primary).bold(`${targetSnapshot.loader.toUpperCase()} ${targetSnapshot.gameVersion}`) +
+      "   " +
+      chalk.hex(theme.muted)("•") +
+      "   " +
+      chalk.hex(theme.textMuted)("Mod : ") +
+      chalk.hex(theme.info)(`${targetSnapshot.modsCount} mod`) +
+      "\n" +
+      chalk.hex(theme.textMuted)("Snapshot  : ") +
+      chalk.hex(theme.text)(targetSnapshot.snapshotId) +
+      "   " +
+      chalk.hex(theme.muted)("•") +
+      "   " +
+      chalk.hex(theme.textMuted)("Dibuat : ") +
+      chalk.hex(theme.textMuted)(new Date(targetSnapshot.createdAt).toLocaleDateString());
+
+    console.log(
+      boxen(subCard, {
+        padding: {top: 0, bottom: 0, left: 2, right: 2},
+        margin: {top: 0, bottom: 1, left: 0, right: 0},
+        borderStyle: "round",
+        borderColor: theme.border,
+        title: chalk.hex(theme.primary).bold(` ❖ SNAPSHOT: ${targetSnapshot.loader.toUpperCase()} ${targetSnapshot.gameVersion} ❖ `),
+        titleAlignment: "left",
+      }),
+    );
+  };
+
   const subSelected = await askInteractiveMenu(
     `SNAPSHOT: ${targetSnapshot.loader.toUpperCase()} ${targetSnapshot.gameVersion}`,
     subChoices,
-    () => showBanner(instance.name, true),
+    renderSubHeader,
   );
 
   if (subSelected === "apply") {

@@ -1,4 +1,6 @@
+import path from "node:path";
 import chalk from "chalk";
+import boxen from "boxen";
 import {modrinthClient} from "../../api/client.js";
 import {instanceConfig} from "../../core/instance/config.js";
 import {installCommand} from "../../commands/install.js";
@@ -19,7 +21,7 @@ export async function handleVersionsExplorer(
   await instanceConfig.load();
   const currentInst = instanceConfig.getActiveInstance() ?? activeInstance;
   const userLoader = currentInst?.loader || "fabric";
-  const userGameVer = currentInst?.gameVersion || "1.21.1";
+  const userGameVer = currentInst?.gameVersion || "1.20.1";
 
   const versions =
     detail.allVersions ||
@@ -52,28 +54,30 @@ export async function handleVersionsExplorer(
 
     if (filterOnlyCompatible) {
       versionChoices.push({
-        name: `🔍  [Filter: Hanya ${userLoader.toUpperCase()} ${userGameVer}] (Klik untuk lihat SEMUA)`,
+        name: `🔎  Filter Kompatibilitas: Hanya ${userLoader.toUpperCase()} ${userGameVer}`,
         value: "__toggle_filter__",
-        hint: `${displayedVersions.length} dari ${versions.length} versi cocok`,
+        hint: `Klik untuk melihat seluruh ${versions.length} rilis versi • ${displayedVersions.length} versi cocok`,
+        badge: formatBadge("Filter Aktif", "info"),
       });
     } else {
       versionChoices.push({
-        name: `🔍  [Filter: Menampilkan SEMUA Versi] (Klik untuk filter ${userLoader.toUpperCase()} ${userGameVer})`,
+        name: `🌐  Filter Kompatibilitas: Menampilkan Seluruh Versi`,
         value: "__toggle_filter__",
-        hint: `Total ${versions.length} rilis`,
+        hint: `Klik untuk membatasi hanya versi ${userLoader.toUpperCase()} ${userGameVer} • Total ${versions.length} rilis`,
+        badge: formatBadge("Semua Versi", "muted"),
       });
     }
 
     if (displayedVersions.length === 0) {
       versionChoices.push({
         name: chalk.hex(theme.error)(
-          `✖ Tidak ada versi yang cocok untuk ${userLoader} ${userGameVer}`,
+          `✖ Tidak ada versi yang cocok untuk ${userLoader.toUpperCase()} ${userGameVer}`,
         ),
         value: "none",
-        hint: "Klik filter di atas untuk melihat versi versi Minecraft lain",
+        hint: "Klik tombol filter di atas untuk menelusuri versi rilis lainnya",
       });
     } else {
-      for (const v of displayedVersions.slice(0, 25)) {
+      for (const v of displayedVersions.slice(0, 30)) {
         const releaseBadge =
           v.version_type === "release"
             ? formatBadge("Release", "success")
@@ -100,19 +104,55 @@ export async function handleVersionsExplorer(
         versionChoices.push({
           name: `${v.version_number}  •  ${gvStr} (${loadersStr})`,
           value: v.id,
-          hint: `⬇ ${formatNumber(v.downloads)}  •  Rilis: ${v.date_published.split("T")[0]}`,
+          hint: `⬇ ${formatNumber(v.downloads)} unduhan • Tanggal: ${v.date_published.split("T")[0]}`,
           badge: allBadges,
         });
       }
     }
 
-    versionChoices.push({name: "──────────────────", value: "sep"});
+    versionChoices.push({name: "──────────────────────────────────────", value: "sep"});
     versionChoices.push({name: "[Kembali ke Detail Mod]", value: "back"});
 
+    const renderListHeader = () => {
+      showBanner(currentInst?.name, true);
+
+      const statusBadge = detail.installedVersion
+        ? chalk.hex(theme.success).bold(`✔ Terpasang (v${detail.installedVersion})`)
+        : chalk.hex(theme.muted)("○ Belum Terpasang");
+
+      const cardContent =
+        chalk.hex(theme.textMuted)("Mod Target   : ") +
+        chalk.hex(theme.primary).bold(detail.title) +
+        "   " +
+        chalk.hex(theme.muted)("•") +
+        "   " +
+        chalk.hex(theme.textMuted)("Status : ") +
+        statusBadge +
+        "\n" +
+        chalk.hex(theme.textMuted)("Instance MC  : ") +
+        chalk.hex(theme.secondary).bold(`${userLoader.toUpperCase()} ${userGameVer}`) +
+        "   " +
+        chalk.hex(theme.muted)("•") +
+        "   " +
+        chalk.hex(theme.textMuted)("Tampil : ") +
+        chalk.hex(theme.info)(`${displayedVersions.length} dari ${versions.length} Rilis Versi`);
+
+      console.log(
+        boxen(cardContent, {
+          padding: {top: 0, bottom: 0, left: 2, right: 2},
+          margin: {top: 0, bottom: 1, left: 0, right: 0},
+          borderStyle: "round",
+          borderColor: theme.border,
+          title: chalk.hex(theme.primary).bold(` ❖ EKSPLORASI VERSI: ${detail.title.toUpperCase()} ❖ `),
+          titleAlignment: "left",
+        }),
+      );
+    };
+
     const pickedVerId = await askInteractiveMenu(
-      `RIWAYAT VERSI "${detail.title.toUpperCase()}" (${displayedVersions.length} DITAMPILKAN)`,
+      `RIWAYAT VERSI: ${detail.title.toUpperCase()}`,
       versionChoices,
-      () => showBanner(currentInst?.name, true),
+      renderListHeader,
     );
 
     if (!pickedVerId || pickedVerId === "back" || pickedVerId === "sep" || pickedVerId === "none") {
@@ -135,52 +175,81 @@ export async function handleVersionsExplorer(
 
     const subChoices: InteractiveChoice[] = [
       {
-        name: "📝  1. Baca Catatan Rilis / Changelog Versi Ini",
+        name: "📖  Baca Catatan Rilis (Changelog)",
         value: "view_changelog",
         hint: selectedVer.changelog
-          ? "Tampilkan perubahan & perbaikan bug"
-          : "(Tidak ada changelog)",
+          ? "Tampilkan ringkasan pembaruan & perbaikan bug"
+          : "Penulis tidak menyertakan catatan rilis",
+        badge: formatBadge(selectedVer.changelog ? "Tersedia" : "Kosong", selectedVer.changelog ? "info" : "muted"),
       },
       {
-        name: `⬇  2. ${isInstalledMode ? "Ganti / Pasang Versi Ini (Switch/Rollback)" : "Pasang Versi Ini ke Instance"}`,
+        name: `📥  ${isInstalledMode ? "Ganti / Pasang Versi Ini (Switch/Rollback)" : "Pasang Versi Ini ke Instance"}`,
         value: "install",
-        hint: `${selectedVer.version_number} (${selectedVer.loaders?.join(", ") ?? ""}) ${isMatched ? "✔ Cocok" : "⚠️ Beda Versi"}`,
+        hint: `${selectedVer.version_number} (${selectedVer.loaders?.join(", ") ?? ""}) • ${isMatched ? "Cocok dengan target instance" : "Berbeda loader/versi game"}`,
+        badge: formatBadge(isMatched ? "Cocok" : "Perhatian", isMatched ? "success" : "warning"),
       },
-      {name: "──────────────────", value: "sep"},
+      {name: "──────────────────────────────────────", value: "sep"},
       {name: "[Kembali ke Daftar Versi]", value: "back"},
     ];
 
-    const verAction = await askInteractiveMenu(
-      `DETAIL VERSI: ${selectedVer.name || selectedVer.version_number} [${selectedVer.version_type.toUpperCase()}]`,
-      subChoices,
-      () => {
-        showBanner(currentInst?.name, true);
-        const matchNote = isMatched
-          ? chalk
-              .hex(theme.success)
-              .bold(`✔ Cocok dengan instance Anda (${userLoader} ${userGameVer})`)
-          : chalk
-              .hex(theme.warning)
-              .bold(`⚠️ Tidak cocok dengan instance Anda (${userLoader} ${userGameVer})`);
+    const renderVerDetailHeader = () => {
+      showBanner(currentInst?.name, true);
+      const matchNote = isMatched
+        ? chalk.hex(theme.success).bold(`✔ Cocok dengan instance (${userLoader} ${userGameVer})`)
+        : chalk.hex(theme.warning).bold(`⚠️ Berbeda dengan instance (${userLoader} ${userGameVer})`);
 
-        p.note(
-          `Versi        : ${pc.bold(selectedVer.version_number)} (${selectedVer.version_type})\n` +
-            `Kesesuaian   : ${matchNote}\n` +
-            `Nama Rilis   : ${pc.cyan(selectedVer.name || "-")}\n` +
-            `Tanggal Rilis: ${pc.dim(new Date(selectedVer.date_published).toLocaleDateString())}\n` +
-            `Mod Loader   : ${chalk.hex(theme.primary).bold(selectedVer.loaders?.join(", ") || "-")}\n` +
-            `Minecraft    : ${pc.dim(selectedVer.game_versions?.join(", ") || "-")}\n` +
-            `Unduhan      : ${pc.green(formatNumber(selectedVer.downloads))}\n` +
-            `Berkas       : ${primaryFile ? `${primaryFile.filename} (${formatBytes(primaryFile.size)})` : "-"}\n` +
-            `SHA-1        : ${pc.dim(primaryFile?.hashes?.sha1 || "-")}`,
-          `Informasi Versi ${selectedVer.version_number}`,
-        );
-      },
+      const verContent =
+        chalk.hex(theme.textMuted)("Nomor Versi  : ") +
+        chalk.hex(theme.primary).bold(selectedVer.version_number) +
+        "   " +
+        chalk.hex(theme.muted)("•") +
+        "   " +
+        chalk.hex(theme.textMuted)("Tipe : ") +
+        chalk.hex(theme.info)(selectedVer.version_type.toUpperCase()) +
+        "\n" +
+        chalk.hex(theme.textMuted)("Kesesuaian   : ") +
+        matchNote +
+        "\n" +
+        chalk.hex(theme.textMuted)("Mod Loader   : ") +
+        chalk.hex(theme.secondary).bold(selectedVer.loaders?.join(", ") || "-") +
+        "   " +
+        chalk.hex(theme.muted)("•") +
+        "   " +
+        chalk.hex(theme.textMuted)("Game MC : ") +
+        chalk.hex(theme.text)(selectedVer.game_versions?.slice(0, 4).join(", ") || "-") +
+        "\n" +
+        chalk.hex(theme.textMuted)("Tanggal Rilis: ") +
+        chalk.hex(theme.textMuted)(new Date(selectedVer.date_published).toLocaleDateString()) +
+        "   " +
+        chalk.hex(theme.muted)("•") +
+        "   " +
+        chalk.hex(theme.textMuted)("Unduhan : ") +
+        chalk.hex(theme.success)(`${formatNumber(selectedVer.downloads)} kali`) +
+        "\n" +
+        chalk.hex(theme.textMuted)("Nama Berkas  : ") +
+        chalk.hex(theme.text)(primaryFile ? `${primaryFile.filename} (${formatBytes(primaryFile.size)})` : "-");
+
+      console.log(
+        boxen(verContent, {
+          padding: {top: 0, bottom: 0, left: 2, right: 2},
+          margin: {top: 0, bottom: 1, left: 0, right: 0},
+          borderStyle: "round",
+          borderColor: theme.border,
+          title: chalk.hex(theme.primary).bold(` ❖ RINCIAN RILIS: v${selectedVer.version_number} ❖ `),
+          titleAlignment: "left",
+        }),
+      );
+    };
+
+    const verAction = await askInteractiveMenu(
+      `RINCIAN RILIS: v${selectedVer.version_number}`,
+      subChoices,
+      renderVerDetailHeader,
     );
 
     if (verAction === "view_changelog") {
       await displayPaginatedMarkdown(
-        `${detail.title} - Changelog (${selectedVer.version_number})`,
+        `${detail.title} - Catatan Rilis (v${selectedVer.version_number})`,
         selectedVer.changelog ||
           "Penulis mod tidak menyertakan catatan rilis (changelog) untuk versi ini.",
       );

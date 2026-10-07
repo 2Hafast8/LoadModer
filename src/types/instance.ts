@@ -1,4 +1,14 @@
-export type LauncherType = 'Prism' | 'MultiMC' | 'Modrinth' | 'CurseForge' | 'Vanilla' | 'Custom' | 'TLauncher';
+export type LauncherType =
+  | 'Official'
+  | 'Prism'
+  | 'MultiMC'
+  | 'TLauncher'
+  | 'Legacy'
+  | 'SKLauncher'
+  | 'Modrinth'
+  | 'CurseForge'
+  | 'Custom'
+  | 'Vanilla';
 export type LoaderType = 'fabric' | 'forge' | 'neoforge' | 'quilt';
 
 export interface MinecraftInstance {
@@ -9,6 +19,8 @@ export interface MinecraftInstance {
   modsDir: string;
   gameVersion?: string;
   loader?: LoaderType;
+  mode?: 'default' | 'modpack';
+  activeContainer?: string;
 }
 
 export interface SavedInstanceConfig {
@@ -18,6 +30,8 @@ export interface SavedInstanceConfig {
   modsDir: string;
   gameVersion?: string;
   loader?: LoaderType | string;
+  mode?: 'default' | 'modpack';
+  activeContainer?: string;
 }
 
 export interface GlobalConfig {

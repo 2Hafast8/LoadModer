@@ -239,6 +239,23 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
       expect(output).toContain("Compact Pack");
       expect(output).toContain("neoforge 1.21");
     });
+
+    it("renders launcher mode (default / modpack) correctly in header", () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      renderCommandCenterHeader({
+        instanceName: "TLauncher",
+        gameVersion: "1.20.1",
+        loader: "fabric",
+        mode: "modpack",
+        activeContainer: "mypack(fabric)",
+        modsCount: 15,
+        activeCount: 15,
+      });
+      expect(consoleSpy).toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+      expect(output).toContain("TLauncher");
+      expect(output).toContain("modpack (mypack(fabric))");
+    });
   });
 
   describe("safeSpinner Listener Lifecycle & Leak Prevention", () => {
@@ -277,6 +294,25 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
       s2.stop("done 2");
 
       expect(process.listenerCount("SIGINT")).toBe(initialSigint);
+    });
+  });
+
+  describe("Interactive Menu Separator & Non-selectable Guard", () => {
+    it("converts sep, sep_*, sep:*, and dash lines into unselectable Separator objects", async () => {
+      const { formatInquirerChoices } = await import("../src/ui/interactive.js");
+      const { Separator } = await import("@inquirer/prompts");
+
+      const choices = formatInquirerChoices([
+        { name: "Option 1", value: "opt1" },
+        { name: "WADAH KHUSUS", value: "sep_containers" },
+        { name: "──────────────────", value: "sep" },
+        { name: "Option 2", value: "opt2" },
+      ]);
+
+      expect(choices[0].value).toBe("opt1");
+      expect(choices[1] instanceof Separator).toBe(true);
+      expect(choices[2] instanceof Separator).toBe(true);
+      expect(choices[3].value).toBe("opt2");
     });
   });
 });

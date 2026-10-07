@@ -391,19 +391,19 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
         },
       });
 
-      const instanceKey = `tlauncher-${container.containerName.toLowerCase()}`;
-      instanceConfig.saveInstance(
-        instanceKey,
-        {
-          name: `TLauncher: ${container.containerName}`,
-          launcher: "TLauncher",
-          rootDir: container.containerDir,
-          modsDir: path.join(container.containerDir, "mods"),
-          gameVersion: packGameVersion ?? activeInst?.gameVersion,
-          loader: container.matchedLoader as any,
-        },
-        true,
-      );
+      const activeKey = instanceConfig.get().activeInstance;
+      if (activeKey && instanceConfig.get().instances[activeKey]) {
+        const inst = instanceConfig.get().instances[activeKey];
+        inst.mode = "modpack";
+        inst.activeContainer = container.containerName;
+        inst.modsDir = path.join(container.containerDir, "mods");
+        if (packGameVersion ?? activeInst?.gameVersion) {
+          inst.gameVersion = packGameVersion ?? activeInst?.gameVersion;
+        }
+        if (container.matchedLoader) {
+          inst.loader = container.matchedLoader as any;
+        }
+      }
       await instanceConfig.save();
 
       s.stop(

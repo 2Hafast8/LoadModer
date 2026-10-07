@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import {readdir, readFile, stat} from "node:fs/promises";
-import type {MinecraftInstance, LoaderType} from "../../types/instance.js";
+import type {MinecraftInstance, LoaderType, LauncherType} from "../../types/instance.js";
 import {
   findMinecraftDirs,
   instanceIdFromPath,
@@ -47,15 +47,16 @@ export class InstanceDetector {
   async scanAll(): Promise<MinecraftInstance[]> {
     const results: MinecraftInstance[] = [];
 
-    const [prism, modrinth, curseforge, vanilla, tlauncher] = await Promise.all([
+    const [prism, modrinth, curseforge, vanilla, legacy, sklauncher] = await Promise.all([
       this.scanPrismAndMultiMC(),
       this.scanModrinthApp(),
       this.scanCurseForge(),
       this.scanVanilla(),
-      this.scanTLauncherModpacks(),
+      this.scanLegacyLauncher(),
+      this.scanSKLauncher(),
     ]);
 
-    results.push(...prism, ...modrinth, ...curseforge, ...tlauncher);
+    results.push(...prism, ...modrinth, ...curseforge, ...legacy, ...sklauncher);
     if (vanilla) results.push(vanilla);
 
     return deduplicateInstances(results);
@@ -70,9 +71,17 @@ export class InstanceDetector {
           ? path.join(this.home, "Library", "Application Support", "PrismLauncher", "instances")
           : path.join(this.home, ".local", "share", "PrismLauncher", "instances"),
       this.isWin
+        ? path.join(this.home, "scoop", "persist", "prismlauncher", "instances")
+        : "",
+      !this.isWin && !this.isMac
+        ? path.join(this.home, ".var", "app", "org.prismlauncher.PrismLauncher", "data", "PrismLauncher", "instances")
+        : "",
+      this.isWin
         ? path.join(this.appData, "MultiMC", "instances")
-        : path.join(this.home, ".local", "share", "MultiMC", "instances"),
-    ];
+        : this.isMac
+          ? path.join(this.home, "Library", "Application Support", "MultiMC", "instances")
+          : path.join(this.home, ".local", "share", "MultiMC", "instances"),
+    ].filter(Boolean);
 
     for (const instancesDir of basePaths) {
       try {
@@ -100,13 +109,24 @@ export class InstanceDetector {
               loader = "quilt";
           } catch {}
 
-          const isMultiMC = instancesDir.includes("MultiMC");
+          let modsDir = path.join(rootDir, ".minecraft", "mods");
+          try {
+            await stat(modsDir);
+          } catch {
+            const altModsDir = path.join(rootDir, "minecraft", "mods");
+            try {
+              const s = await stat(altModsDir);
+              if (s.isDirectory()) modsDir = altModsDir;
+            } catch {}
+          }
+
+          const isMultiMC = instancesDir.toLowerCase().includes("multimc");
           instances.push({
-            id: `${isMultiMC ? "multimc" : "prism"}-${dir.name}`,
+            id: `${isMultiMC ? "multimc" : "prism"}-${dir.name.toLowerCase()}`,
             name: dir.name,
             launcher: isMultiMC ? "MultiMC" : "Prism",
             rootDir,
-            modsDir: path.join(rootDir, ".minecraft", "mods"),
+            modsDir,
             gameVersion,
             loader,
           });
@@ -211,12 +231,108 @@ export class InstanceDetector {
         isTLauncher = true;
       } catch {}
     }
+    if (!isTLauncher) {
+      try {
+        await stat(path.join(mcDir, "TlauncherProfiles.json"));
+        isTLauncher = true;
+      } catch {}
+    }
+
+    let isSKLauncher = false;
+    if (!isTLauncher) {
+      try {
+        const skDir = this.isWin
+          ? path.join(this.appData, ".sklauncher")
+          : this.isMac
+            ? path.join(this.home, "Library", "Application Support", "sklauncher")
+            : path.join(this.home, ".sklauncher");
+        await stat(skDir);
+        isSKLauncher = true;
+      } catch {}
+    }
+
+    let launcher: LauncherType = "Vanilla";
+    let instanceId = "vanilla-default";
+    let instanceName = "Official Minecraft (Default)";
+
+    if (isTLauncher) {
+      launcher = "TLauncher";
+      instanceId = "tlauncher-default";
+      instanceName = "TLauncher (Default)";
+    } else if (isSKLauncher) {
+      launcher = "SKLauncher";
+      instanceId = "sklauncher-default";
+      instanceName = "SKLauncher (Default)";
+    }
 
     return this.inspectGameDir(mcDir, {
-      id: isTLauncher ? "tlauncher-default" : "vanilla-default",
-      name: isTLauncher ? "TLauncher (Default)" : "Official Minecraft (Default)",
-      launcher: isTLauncher ? "TLauncher" : "Vanilla",
+      id: instanceId,
+      name: instanceName,
+      launcher,
     });
+  }
+
+  private async scanLegacyLauncher(): Promise<MinecraftInstance[]> {
+    const instances: MinecraftInstance[] = [];
+    const candidatePaths = [
+      this.isWin
+        ? path.join(this.appData, ".tlauncher", "legacy", "Minecraft", "files")
+        : this.isMac
+          ? path.join(this.home, "Library", "Application Support", "tlauncher", "legacy", "Minecraft", "files")
+          : path.join(this.home, ".tlauncher", "legacy", "Minecraft", "files"),
+      this.isWin
+        ? path.join(this.appData, "LegacyLauncher")
+        : path.join(this.home, ".legacylauncher"),
+    ];
+
+    for (const cPath of candidatePaths) {
+      try {
+        const s = await stat(cPath);
+        if (s.isDirectory()) {
+          const inst = await this.inspectGameDir(cPath, {
+            id: "legacy-default",
+            name: "Legacy Launcher",
+            launcher: "Legacy",
+          });
+          instances.push(inst);
+          break;
+        }
+      } catch {}
+    }
+
+    return instances;
+  }
+
+  private async scanSKLauncher(): Promise<MinecraftInstance[]> {
+    const instances: MinecraftInstance[] = [];
+    const skDir = this.isWin
+      ? path.join(this.appData, ".sklauncher")
+      : this.isMac
+        ? path.join(this.home, "Library", "Application Support", "sklauncher")
+        : path.join(this.home, ".sklauncher");
+
+    try {
+      const s = await stat(skDir);
+      if (s.isDirectory()) {
+        const profilesDir = path.join(skDir, "profiles");
+        try {
+          const pEntries = await readdir(profilesDir, {withFileTypes: true});
+          for (const p of pEntries) {
+            if (!p.isDirectory()) continue;
+            const pPath = path.join(profilesDir, p.name);
+            instances.push(
+              await this.inspectGameDir(pPath, {
+                id: `sklauncher-${p.name.toLowerCase()}`,
+                name: `SKLauncher: ${p.name}`,
+                launcher: "SKLauncher",
+              }),
+            );
+          }
+        } catch {}
+      }
+    } catch {}
+
+    return instances;
   }
 
   private async scanTLauncherModpacks(): Promise<MinecraftInstance[]> {
@@ -345,11 +461,28 @@ export class InstanceDetector {
           if (vJson.inheritsFrom) {
             gameVersion = vJson.inheritsFrom;
           } else {
-            const match = vd.name.match(/(\d+\.\d+(?:\.\d+)?|26\.\d+)/);
-            if (match) gameVersion = match[1];
+            const tlJsonPath = path.join(versionsDir, vd.name, "TLauncherAdditional.json");
+            try {
+              const tlRaw = await readFile(tlJsonPath, "utf8");
+              const tlJson = JSON.parse(tlRaw);
+              if (tlJson?.modpack?.version?.gameVersionDTO?.name) {
+                gameVersion = tlJson.modpack.version.gameVersionDTO.name;
+              }
+              const lt = tlJson?.modpack?.version?.minecraftVersionTypes?.[0]?.name?.toLowerCase();
+              if (lt?.includes("fabric")) loader = "fabric";
+              else if (lt?.includes("forge")) loader = "forge";
+              else if (lt?.includes("neoforge")) loader = "neoforge";
+            } catch {}
+
+            if (!gameVersion) {
+              const stdMatch = vd.name.match(/(1\.\d+(?:\.\d+)?)/);
+              const fallbackMatch = vd.name.match(/(\d+\.\d+(?:\.\d+)?|26\.\d+)/);
+              if (stdMatch) gameVersion = stdMatch[1];
+              else if (fallbackMatch) gameVersion = fallbackMatch[1];
+            }
           }
 
-          if (loader && gameVersion) break;
+          if (loader && gameVersion && gameVersion.startsWith("1.")) break;
         } catch {}
       }
     } catch {}

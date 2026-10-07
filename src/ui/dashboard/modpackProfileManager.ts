@@ -33,6 +33,7 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
       containers = await ModpackProfileManager.discoverClientContainers(baseDir);
     }
 
+    const launcherName = active.launcher ?? active.name ?? "Launcher";
     const totalProfilesAll = containers.reduce((sum, c) => sum + c.profilesCount, 0);
     const anyActive = containers.find((c) => c.activeProfileName);
     const statusOverview = anyActive
@@ -41,7 +42,7 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
 
     const cardContent =
       chalk.hex(theme.textMuted)("Instance  : ") +
-      chalk.hex(theme.primary).bold(active.name ?? "TLauncher") +
+      chalk.hex(theme.primary).bold(active.name ?? launcherName) +
       "   " +
       chalk.hex(theme.muted)("•") +
       "   " +
@@ -56,16 +57,19 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
       chalk.hex(theme.textMuted)("Koleksi : ") +
       chalk.hex(theme.info)(`${totalProfilesAll} Profil Tersimpan di ${containers.length} Wadah Client`);
 
-    console.log(
-      boxen(cardContent, {
-        padding: {top: 0, bottom: 0, left: 2, right: 2},
-        margin: {top: 0, bottom: 1, left: 0, right: 0},
-        borderStyle: "round",
-        borderColor: theme.border,
-        title: chalk.hex(theme.primary).bold(" ❖ PILIH CLIENT MODPACK TLAUNCHER "),
-        titleAlignment: "left",
-      }),
-    );
+    const renderClientMenuHeader = () => {
+      showBanner(active.name, true);
+      console.log(
+        boxen(cardContent, {
+          padding: {top: 0, bottom: 0, left: 2, right: 2},
+          margin: {top: 0, bottom: 1, left: 0, right: 0},
+          borderStyle: "round",
+          borderColor: theme.border,
+          title: chalk.hex(theme.primary).bold(` ❖ BRANKAS PROFIL MODPACK: ${launcherName.toUpperCase()} ❖ `),
+          titleAlignment: "left",
+        }),
+      );
+    };
 
     const clientChoices: InteractiveChoice[] = containers.map((c) => {
       const loaderUpper = c.loader.toUpperCase();
@@ -86,26 +90,26 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
     });
 
     const hasAnyActive = containers.some((c) => !!c.activeProfileName);
-    clientChoices.push({name: "──────────────────────────────────────", value: "sep_actions"});
+    clientChoices.push({name: "──────────────────────────────────────", value: "sep"});
     clientChoices.push({
-      name: "📖  Panduan & Cara Menambah Wadah di TLauncher",
+      name: `📖  Panduan & Cara Menambah Wadah (${launcherName})`,
       value: "guide",
-      hint: "Tutorial langkah demi langkah membuat wadah client versi baru di TLauncher (TL MODS)",
+      hint: `Tutorial membuat wadah client versi baru di ${launcherName}`,
       badge: formatBadge("Panduan", "info"),
     });
     clientChoices.push({
-      name: "🧹  Nonaktifkan Semua Modpack (Kembali Bersih Total ke TLauncher)",
+      name: "🧹  Nonaktifkan Semua Modpack (Kembali Bersih Total)",
       value: "disable_all",
-      hint: "Simpan modpack aktif ke profil & bersihkan seluruh folder mypack",
+      hint: "Simpan modpack aktif ke profil & bersihkan seluruh folder wadah",
       badge: formatBadge(hasAnyActive ? "Bersihkan Semua" : "Semua Bersih", hasAnyActive ? "warning" : "muted"),
     });
-    clientChoices.push({name: "──────────────────────────────────────", value: "sep_back"});
-    clientChoices.push({name: "🔙  [Kembali ke Dashboard Utama]", value: "back"});
+    clientChoices.push({name: "──────────────────────────────────────", value: "sep"});
+    clientChoices.push({name: "[Kembali ke Dashboard Utama]", value: "back"});
 
     const selectedContainerDir = await askInteractiveMenu(
-      "PILIH CLIENT TLAUNCHER",
+      `PILIH CLIENT: ${launcherName.toUpperCase()}`,
       clientChoices,
-      () => {},
+      renderClientMenuHeader,
       {allowBackOnCancel: true},
     );
 
@@ -134,6 +138,13 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
               p.log.message(pc.dim(`• ${res.containerName}: Sudah dalam kondisi bersih.`));
             }
           }
+
+          if (active) {
+            active.mode = "default";
+            active.activeContainer = undefined;
+            active.modsDir = path.join(active.rootDir ?? baseDir, "mods");
+            await instanceConfig.save();
+          }
         } catch (err: any) {
           s.stop(pc.red(`Gagal membersihkan wadah modpack: ${err.message}`));
         }
@@ -152,6 +163,42 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
     }
 
     const selectedContainer = containers.find((c) => c.containerDir === selectedContainerDir)!;
+
+    // Saat beralih ke wadah client ini, bersihkan modpack wadah lain & sinkronkan versi MC seketika
+    const isSwitchingClient =
+      active.mode !== "modpack" || active.activeContainer !== selectedContainer.containerName;
+
+    if (isSwitchingClient) {
+      const s = p.spinner();
+      s.start(`Membersihkan modpack sebelumnya & menyelaraskan versi ke ${selectedContainer.loader.toUpperCase()} ${selectedContainer.gameVersion}...`);
+      try {
+        for (const c of containers) {
+          if (c.containerName !== selectedContainer.containerName && c.activeProfileName) {
+            await ModpackProfileManager.disableProfile(c.containerDir);
+          }
+        }
+        if (active.activeContainer && active.activeContainer !== selectedContainer.containerName) {
+          const prevDir = path.join(baseDir, "versions", active.activeContainer);
+          await ModpackProfileManager.disableProfile(prevDir);
+        }
+
+        active.mode = "modpack";
+        active.activeContainer = selectedContainer.containerName;
+        active.modsDir = path.join(selectedContainer.containerDir, "mods");
+        active.gameVersion = selectedContainer.gameVersion;
+        active.loader = selectedContainer.loader;
+        await instanceConfig.save();
+
+        s.stop(
+          pc.green(
+            `Versi Minecraft diselaraskan ke ${pc.bold(`${selectedContainer.loader.toUpperCase()} ${selectedContainer.gameVersion}`)} (${selectedContainer.containerName})!`,
+          ),
+        );
+      } catch (err: any) {
+        s.stop(pc.yellow(`Catatan sinkronisasi client: ${err.message}`));
+      }
+    }
+
     await runContainerProfileOperations(selectedContainer, active);
   }
 }
@@ -165,7 +212,7 @@ async function runContainerProfileOperations(
 
   while (inOperations) {
     clearScreen();
-    showBanner(`TLauncher: ${container.containerName}`, true);
+    showBanner(`Client: ${container.containerName}`, true);
 
     await ModpackProfileManager.syncProfilesFromDownloads(containerDir);
     const activeInfo = await ModpackProfileManager.getActiveProfile(containerDir);
@@ -193,16 +240,19 @@ async function runContainerProfileOperations(
       chalk.hex(theme.textMuted)("Arsip : ") +
       chalk.hex(theme.info)(`${profiles.length} Modpack Tersimpan di Brankas`);
 
-    console.log(
-      boxen(cardContent, {
-        padding: {top: 0, bottom: 0, left: 2, right: 2},
-        margin: {top: 0, bottom: 0, left: 0, right: 0},
-        borderStyle: "round",
-        borderColor: theme.border,
-        title: chalk.hex(theme.primary).bold(` ❖ MANAJEMEN CLIENT: ${loaderUpper} ❖ `),
-        titleAlignment: "left",
-      }),
-    );
+    const renderOpsHeader = () => {
+      showBanner(`Client: ${container.containerName}`, true);
+      console.log(
+        boxen(cardContent, {
+          padding: {top: 0, bottom: 0, left: 2, right: 2},
+          margin: {top: 0, bottom: 1, left: 0, right: 0},
+          borderStyle: "round",
+          borderColor: theme.border,
+          title: chalk.hex(theme.primary).bold(` ❖ MANAJEMEN CLIENT: ${loaderUpper} ❖ `),
+          titleAlignment: "left",
+        }),
+      );
+    };
 
     const choices: InteractiveChoice[] = [
       {
@@ -213,6 +263,18 @@ async function runContainerProfileOperations(
           : `Belum ada profil ${loaderUpper} tersimpan di wadah ini`,
         badge: formatBadge(profiles.length > 0 ? `${profiles.length} Siap` : "Kosong", profiles.length > 0 ? "primary" : "muted"),
       },
+    ];
+
+    if (activeInfo?.activeProfile) {
+      choices.push({
+        name: `○  Nonaktifkan Modpack Aktif (${activeInfo.name ?? activeInfo.activeProfile})`,
+        value: "disable_current",
+        hint: `Simpan ke brankas & kembalikan ${container.containerName} ke Vanilla bersih`,
+        badge: formatBadge("Kembali Bersih", "warning"),
+      });
+    }
+
+    choices.push(
       {
         name: `➕  Pasang Modpack Baru (${loaderUpper} • MC ${container.gameVersion})`,
         value: "install_new",
@@ -226,13 +288,13 @@ async function runContainerProfileOperations(
         badge: formatBadge("Kelola Arsip", "error"),
       },
       {name: "──────────────────────────────────────", value: "sep"},
-      {name: "🔙  [Kembali ke Pilihan Client]", value: "back"},
-    ];
+      {name: "[Kembali ke Pilihan Client]", value: "back"},
+    );
 
     const selected = await askInteractiveMenu(
       `OPERASI CLIENT ${container.loader.toUpperCase()}`,
       choices,
-      () => {},
+      renderOpsHeader,
       {allowBackOnCancel: true},
     );
 
@@ -263,12 +325,38 @@ async function runContainerProfileOperations(
         });
 
         profileChoices.push({name: "──────────────────────────────────────", value: "sep"});
-        profileChoices.push({name: "🔙  [Batal]", value: "cancel"});
+        profileChoices.push({name: "[Batal]", value: "cancel"});
+
+        const renderSwitchHeader = () => {
+          showBanner(`Client: ${container.containerName}`, true);
+          const switchCard =
+            chalk.hex(theme.textMuted)("Wadah Client : ") +
+            chalk.hex(theme.primary).bold(container.containerName) +
+            "   " +
+            chalk.hex(theme.muted)("•") +
+            "   " +
+            chalk.hex(theme.textMuted)("Target : ") +
+            chalk.hex(theme.secondary).bold(`${loaderUpper} MC ${container.gameVersion}`) +
+            "\n" +
+            chalk.hex(theme.textMuted)("Status Aktif : ") +
+            activeBadge;
+
+          console.log(
+            boxen(switchCard, {
+              padding: {top: 0, bottom: 0, left: 2, right: 2},
+              margin: {top: 0, bottom: 1, left: 0, right: 0},
+              borderStyle: "round",
+              borderColor: theme.border,
+              title: chalk.hex(theme.primary).bold(" ❖ GANTI MODPACK AKTIF ❖ "),
+              titleAlignment: "left",
+            }),
+          );
+        };
 
         const targetId = await askInteractiveMenu(
           `PILIH MODPACK ${container.loader.toUpperCase()} UNTUK DIAKTIFKAN`,
           profileChoices,
-          () => {},
+          renderSwitchHeader,
         );
 
         if (!targetId || targetId === "cancel" || targetId === "sep") {
@@ -280,20 +368,20 @@ async function runContainerProfileOperations(
         try {
           const activated = await ModpackProfileManager.activateProfile(containerDir, targetId);
 
-          // Update active instance in global config
-          const instanceKey = `tlauncher-${container.containerName.toLowerCase()}`;
-          instanceConfig.saveInstance(
-            instanceKey,
-            {
-              name: `TLauncher: ${container.containerName}`,
-              launcher: "TLauncher",
-              rootDir: containerDir,
-              modsDir: path.join(containerDir, "mods"),
-              gameVersion: activated.gameVersion ?? container.gameVersion ?? "1.20.1",
-              loader: container.loader as any,
-            },
-            true,
-          );
+          // Update active launcher mode in global config (keep single launcher instance)
+          const activeKey = instanceConfig.get().activeInstance;
+          if (activeKey && instanceConfig.get().instances[activeKey]) {
+            const currentInst = instanceConfig.get().instances[activeKey];
+            currentInst.mode = "modpack";
+            currentInst.activeContainer = container.containerName;
+            currentInst.modsDir = path.join(containerDir, "mods");
+            if (activated.gameVersion ?? container.gameVersion) {
+              currentInst.gameVersion = activated.gameVersion ?? container.gameVersion;
+            }
+            if (container.loader) {
+              currentInst.loader = container.loader as any;
+            }
+          }
           await instanceConfig.save();
 
           s.stop(pc.green(`Modpack "${activated.name}" sekarang AKTIF di ${container.containerName}!`));
@@ -304,16 +392,29 @@ async function runContainerProfileOperations(
         break;
       }
 
+      case "disable_current": {
+        const s = p.spinner();
+        s.start(`Menyimpan "${activeInfo?.name ?? activeInfo?.activeProfile}" & membersihkan wadah...`);
+        try {
+          await ModpackProfileManager.disableProfile(containerDir);
+          s.stop(pc.green(`Wadah ${container.containerName} berhasil dibersihkan ke kondisi awal (Vanilla)!`));
+        } catch (err: any) {
+          s.stop(pc.red(`Gagal menonaktifkan modpack: ${err.message}`));
+        }
+        await ask("Tekan Enter untuk melanjutkan...");
+        break;
+      }
+
       case "install_new": {
         clearScreen();
-        showBanner(`TLauncher: ${container.containerName}`, true);
+        showBanner(`Client: ${container.containerName}`, true);
         const query = await ask(
           `Ketik nama modpack ${container.loader.toUpperCase()} (atau kosongkan untuk jelajahi semua):`,
         );
 
         const clientInstance = {
           ...parentInstance,
-          name: `TLauncher: ${container.containerName}`,
+          name: `${parentInstance?.name ?? "Client"}: ${container.containerName}`,
           rootDir: containerDir,
           modsDir: path.join(containerDir, "mods"),
           gameVersion: container.gameVersion ?? "1.20.1",
@@ -342,12 +443,35 @@ async function runContainerProfileOperations(
             : formatBadge(`${pr.filesCount} berkas`, "muted"),
         }));
         deleteChoices.push({name: "──────────────────────────────────────", value: "sep"});
-        deleteChoices.push({name: "🔙  [Batal]", value: "cancel"});
+        deleteChoices.push({name: "[Batal]", value: "cancel"});
+
+        const renderDeleteHeader = () => {
+          showBanner(`Client: ${container.containerName}`, true);
+          const delCard =
+            chalk.hex(theme.textMuted)("Wadah Client : ") +
+            chalk.hex(theme.primary).bold(container.containerName) +
+            "   " +
+            chalk.hex(theme.muted)("•") +
+            "   " +
+            chalk.hex(theme.textMuted)("Arsip : ") +
+            chalk.hex(theme.info)(`${profiles.length} Profil Tersimpan`);
+
+          console.log(
+            boxen(delCard, {
+              padding: {top: 0, bottom: 0, left: 2, right: 2},
+              margin: {top: 0, bottom: 1, left: 0, right: 0},
+              borderStyle: "round",
+              borderColor: theme.border,
+              title: chalk.hex(theme.error).bold(" ❖ HAPUS PROFIL ARSIP MODPACK ❖ "),
+              titleAlignment: "left",
+            }),
+          );
+        };
 
         const toDelete = await askInteractiveMenu(
           `PILIH PROFIL ${container.loader.toUpperCase()} UNTUK DIHAPUS`,
           deleteChoices,
-          () => {},
+          renderDeleteHeader,
         );
 
         if (!toDelete || toDelete === "cancel" || toDelete === "sep") {

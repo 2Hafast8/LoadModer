@@ -49,28 +49,21 @@ export function renderFooter(customHint?: string): string {
   );
 }
 
-export async function askInteractiveMenu(
-  message: string,
-  choices: InteractiveChoice[],
-  renderContext?: () => void,
-  options?: InteractiveMenuOptions | string,
-): Promise<string> {
-  const opts = typeof options === "string" ? {customFooter: options} : options;
-  const loop = opts?.loop ?? false;
-  const pageSize = opts?.pageSize ?? 14;
-  const allowBackOnCancel = opts?.allowBackOnCancel ?? true;
+export function formatInquirerChoices(choices: InteractiveChoice[]): any[] {
+  return choices.map((c) => {
+    const isSeparator =
+      c.value === "sep" ||
+      c.value.startsWith("sep_") ||
+      c.value.startsWith("sep:") ||
+      c.name === "──────────────────" ||
+      /^─+$/.test(c.name.trim());
 
-  if (renderContext) {
-    clearScreen();
-    renderContext();
-    console.log("");
-  }
-
-  const inquirerChoices = choices.map((c) => {
-    if (c.value === "sep") {
+    if (isSeparator) {
       const isPlainLine =
         !c.name ||
         c.name === "sep" ||
+        c.name.startsWith("sep_") ||
+        c.name.startsWith("sep:") ||
         c.name === "──────────────────" ||
         /^─+$/.test(c.name.trim());
 
@@ -78,15 +71,11 @@ export async function askInteractiveMenu(
         return new Separator(chalk.hex(ui.muted)("  " + ui.separator.repeat(54)));
       }
 
-      const label = c.name.replace(/[─\-]/g, "").trim().toUpperCase();
+      const label = c.name.replace(/[─\-▸]/g, "").trim().toUpperCase();
       return new Separator(
         chalk.hex(ui.accentAlt).bold(`\n  ▸ ${label}`) +
           chalk.hex(ui.muted)(` ${ui.separator.repeat(Math.max(8, 46 - label.length))}`),
       );
-    }
-
-    if (c.name === "──────────────────" || /^─+$/.test(c.name.trim())) {
-      return new Separator(chalk.hex(ui.muted)("  " + ui.separator.repeat(54)));
     }
 
     const isAction =
@@ -108,6 +97,26 @@ export async function askInteractiveMenu(
       disabled: c.disabled,
     };
   });
+}
+
+export async function askInteractiveMenu(
+  message: string,
+  choices: InteractiveChoice[],
+  renderContext?: () => void,
+  options?: InteractiveMenuOptions | string,
+): Promise<string> {
+  const opts = typeof options === "string" ? {customFooter: options} : options;
+  const loop = opts?.loop ?? false;
+  const pageSize = opts?.pageSize ?? 14;
+  const allowBackOnCancel = opts?.allowBackOnCancel ?? true;
+
+  if (renderContext) {
+    clearScreen();
+    renderContext();
+    console.log("");
+  }
+
+  const inquirerChoices = formatInquirerChoices(choices);
 
   try {
     const result = await select({
@@ -166,7 +175,7 @@ export async function askSearchMenu(
       source: async (input) => {
         if (!input) {
           return choices
-            .filter((c) => c.value !== "sep")
+            .filter((c) => c.value !== "sep" && !c.value.startsWith("sep"))
             .map((c) => ({
               name: chalk.hex(ui.text)(c.name),
               value: c.value,
@@ -179,6 +188,7 @@ export async function askSearchMenu(
           .filter(
             (c) =>
               c.value !== "sep" &&
+              !c.value.startsWith("sep") &&
               (c.name.toLowerCase().includes(query) ||
                 (c.hint && c.hint.toLowerCase().includes(query))),
           )
