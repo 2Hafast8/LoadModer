@@ -256,7 +256,7 @@ Ubah/lengkapi field berikut (`"type": "module"` **wajib** karena kode memakai ES
 ```json
 {
   "name": "loadmoder",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "description": "CLI & TUI mod manager Minecraft berbasis Modrinth API v2",
   "type": "module",
   "bin": {
@@ -297,7 +297,7 @@ Ubah/lengkapi field berikut (`"type": "module"` **wajib** karena kode memakai ES
 ### A. `src/constants.ts`
 ```typescript
 export const APP_NAME = 'loadmoder';
-export const APP_VERSION = '2.0.0';
+export const APP_VERSION = '2.5.0';
 
 // Ganti dengan username GitHub kamu (format User-Agent "Better/Best" dari dokumentasi Modrinth)
 export const GITHUB_USER = 'hafiznovelrianto';

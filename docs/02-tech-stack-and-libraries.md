@@ -23,7 +23,7 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 │ Normalisasi Path      │ pathe                               │
 │ State Lockfile        │ write-file-atomic                   │
 │ File Watcher          │ node:fs native watch + debounce     │
-│ Pengujian Otomatis    │ vitest (213 tests / 27 files)       │
+│ Pengujian Otomatis    │ vitest (221 tests / 28 files)       │
 │ Bundler & Kompilasi   │ tsup (esbuild engine)               │
 └───────────────────────┴─────────────────────────────────────┘
 ```
@@ -87,8 +87,9 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 ```json
 {
   "name": "loadmoder",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "description": "High-performance Minecraft mod & modpack manager CLI powered by Modrinth API",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "loadmoder": "./dist/index.js",

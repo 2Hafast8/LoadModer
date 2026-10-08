@@ -123,7 +123,7 @@ describe("Multi-Launcher Folder Detection & Decoupled TLauncher Module", () => {
 
       expect(inst).toBeDefined();
       expect(inst?.id).toBe("sklauncher-default");
-      expect(inst?.name).toBe("SKLauncher (Default)");
+      expect(inst?.name).toBe("SKLauncher");
       expect(inst?.launcher).toBe("SKLauncher");
     });
 

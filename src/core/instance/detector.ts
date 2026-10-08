@@ -74,7 +74,7 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
       if (rel.includes(".tlauncher")) {
         return {
           launcher: "TLauncher",
-          name: "TLauncher (Default)",
+          name: "TLauncher",
           id: "tlauncher-default",
         };
       }
@@ -258,8 +258,9 @@ export class InstanceDetector {
       this.scanSKLauncher(),
     ]);
 
-    results.push(...prism, ...modrinth, ...curseforge, ...legacy, ...sklauncher);
+    // Official Minecraft (vanilla) selalu ditempatkan di urutan teratas sebagai launcher resmi utama
     if (vanilla) results.push(vanilla);
+    results.push(...prism, ...modrinth, ...curseforge, ...legacy, ...sklauncher);
 
     return deduplicateInstances(results);
   }
@@ -409,6 +410,20 @@ export class InstanceDetector {
     return instances;
   }
 
+  async getDefaultVanillaInstance(): Promise<MinecraftInstance> {
+    const mcDir = this.isWin
+      ? path.join(this.appData, ".minecraft")
+      : this.isMac
+        ? path.join(this.home, "Library", "Application Support", "minecraft")
+        : path.join(this.home, ".minecraft");
+
+    return this.inspectGameDir(mcDir, {
+      id: "vanilla-default",
+      name: "Official Minecraft (Default)",
+      launcher: "Vanilla",
+    });
+  }
+
   private async scanVanilla(): Promise<MinecraftInstance | null> {
     const mcDir = this.isWin
       ? path.join(this.appData, ".minecraft")
@@ -422,11 +437,24 @@ export class InstanceDetector {
       return null;
     }
 
+    // 1. Periksa apakah launcher third-party yang membagikan folder .minecraft (TLauncher atau SKLauncher)
     let isTLauncher = false;
     try {
-      await stat(path.join(this.appData, ".tlauncher"));
+      await stat(path.join(mcDir, "TLauncher.exe"));
       isTLauncher = true;
     } catch {}
+    if (!isTLauncher) {
+      try {
+        await stat(path.join(mcDir, "TLauncher32bit.exe"));
+        isTLauncher = true;
+      } catch {}
+    }
+    if (!isTLauncher) {
+      try {
+        await stat(path.join(mcDir, "TlauncherProfiles.json"));
+        isTLauncher = true;
+      } catch {}
+    }
     if (!isTLauncher) {
       try {
         await stat(path.join(mcDir, "tlauncher-2.0.properties"));
@@ -441,14 +469,23 @@ export class InstanceDetector {
     }
     if (!isTLauncher) {
       try {
-        await stat(path.join(mcDir, "TlauncherProfiles.json"));
+        await stat(path.join(mcDir, "logs", "tlauncher"));
         isTLauncher = true;
       } catch {}
     }
     if (!isTLauncher) {
       try {
-        await stat(path.join(mcDir, "logs", "tlauncher"));
-        isTLauncher = true;
+        const vDir = path.join(mcDir, "versions");
+        const vEntries = await readdir(vDir, { withFileTypes: true });
+        for (const vEntry of vEntries) {
+          if (vEntry.isDirectory()) {
+            try {
+              await stat(path.join(vDir, vEntry.name, "TLauncherAdditional.json"));
+              isTLauncher = true;
+              break;
+            } catch {}
+          }
+        }
       } catch {}
     }
 
@@ -472,11 +509,11 @@ export class InstanceDetector {
     if (isTLauncher) {
       launcher = "TLauncher";
       instanceId = "tlauncher-default";
-      instanceName = "TLauncher (Default)";
+      instanceName = "TLauncher";
     } else if (isSKLauncher) {
       launcher = "SKLauncher";
       instanceId = "sklauncher-default";
-      instanceName = "SKLauncher (Default)";
+      instanceName = "SKLauncher";
     }
 
     return this.inspectGameDir(mcDir, {

@@ -70,7 +70,7 @@ Dashboard utama menggunakan kombinasi harmonis banner Figlet ASCII dengan **Nord
   ███████╗╚██████╔╝██║  ██║██████╔╝██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗██║  ██║
   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
 
-  v2.0.0  •  Minecraft Mod & Modpack Manager  •  Nordic Clean TUI
+  v2.5.0  •  Minecraft Mod & Modpack Manager  •  Nordic Clean TUI
 
 ╭  ❖ STATUS INSTANCE  ─────────────────────────────────────────────────────╮
 │  Instance : Official Minecraft (Default)   •   Loader : FABRIC 1.21.1    │
@@ -80,7 +80,7 @@ Dashboard utama menggunakan kombinasi harmonis banner Figlet ASCII dengan **Nord
 
 Pada sub-halaman (Browser, Manager, Detail, Profil), sistem otomatis beralih ke **Compact Header (1 Baris)** untuk menghemat ruang vertikal:
 ```text
- LOADMODER  v2.0.0 • [Official Minecraft (Default)] • FABRIC 1.21.1
+ LOADMODER  v2.5.0 • [Official Minecraft (Default)] • FABRIC 1.21.1
 ```
 
 ### 3.2 Live Badges pada Menu Navigasi Utama (`src/ui/dashboard/home.ts`)
@@ -223,4 +223,4 @@ flowchart TD
 | **Fase 4** | Key-Value Nordic Detail Card & Deteksi Status Terpasang Cerdas | **Selesai (Completed)** |
 | **Fase 5** | Final Polish, Aksesibilitas WCAG AA & NO_COLOR, serta E2E Verification | **Selesai (Completed)** |
 
-Seluruh implementasi di atas telah terverifikasi melalui 27 berkas pengujian unit, integrasi, dan E2E (`npm test` 213/213 lulus) serta kompilasi bundel produksi (`npm run build`).
+Seluruh implementasi di atas telah terverifikasi melalui 28 berkas pengujian unit, integrasi, dan E2E (`npm test` 220/220 lulus) serta kompilasi bundel produksi (`npm run build`).

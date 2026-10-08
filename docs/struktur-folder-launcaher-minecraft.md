@@ -1,22 +1,43 @@
 # Struktur Folder Launcher Minecraft (Versi Terverifikasi)
 
-Dokumen ini menggabungkan dua versi sebelumnya dan mengoreksi bagian yang tidak sesuai dengan sumber nyata (dokumentasi resmi Prism, log peluncuran TLauncher/Legacy Launcher, dan repositori pengguna SKLauncher).
-
-**Asumsi:** Windows. Lokasi Linux/macOS ada di bagian akhir.
-
-**Label keyakinan:**
-
-| Label | Arti |
-|---|---|
-| ✅ Terkonfirmasi | Cocok dengan dokumentasi resmi atau log/bukti nyata |
-| 🟡 Umum | Struktur standar yang lazim, tetapi tidak saya cocokkan satu per satu dengan sumber |
-| ⚠️ Perlu dicek | Tidak ada bukti kuat; cek langsung di komputer Anda (lihat bagian "Cara Verifikasi") |
+Dokumen ini memetakan arsitektur dan struktur folder launcher Minecraft berdasarkan dokumentasi resmi, analisis disk, dan bukti log peluncuran nyata.
 
 ---
 
-## 1. Minecraft Launcher Resmi (Mojang/Microsoft) 🟡
+## 📌 Klasifikasi Arsitektur Launcher
 
-**Lokasi:** `%appdata%\.minecraft`
+Dalam ekosistem Minecraft dan platform **LoadModer**, seluruh launcher dibagi secara tegas ke dalam dua kategori:
+
+1. **Launcher Resmi (Official / First-Party)**:
+   - **Minecraft Launcher Resmi (Mojang Studios / Microsoft)**: Merupakan satu-satunya launcher resmi bawaan dari game Minecraft. Menggunakan folder data standar `%appdata%\.minecraft`. Ini adalah **default launcher utama** di LoadModer untuk pengelolaan mod, shader pack, dan resource pack vanilla.
+
+2. **Launcher Pihak Ketiga (Third-Party Launchers)**:
+   - **Semua launcher selain Official Minecraft adalah launcher third-party (pihak ketiga)**, termasuk:
+     - **Prism Launcher** (Third-Party, multi-instance)
+     - **MultiMC** (Third-Party, portable multi-instance)
+     - **TLauncher** (Third-Party, shared directory)
+     - **Legacy Launcher** (Third-Party, dual-path architecture)
+     - **SKLauncher** (Third-Party, custom directory)
+     - **Modrinth App & CurseForge** (Third-Party, managed app instances)
+   - Launcher third-party menyediakan fitur kustom (seperti pengelolaan multi-akun, isolasi instance portable, atau wadah modpack), namun bukan merupakan instalasi resmi dari Mojang Studios.
+
+---
+
+**Label Keyakinan:**
+
+| Label | Arti |
+|---|---|
+| ✅ Terkonfirmasi | Cocok dengan dokumentasi resmi atau log/bukti nyata pada disk |
+| 🟡 Umum | Struktur standar yang lazim, tetapi mengikuti konvensi resmi Mojang |
+| ⚠️ Perlu dicek | Lokasi tentatif; diverifikasi berkala |
+
+---
+
+## BAGIAN I: LAUNCHER RESMI (OFFICIAL / FIRST-PARTY)
+
+### 1. Minecraft Launcher Resmi (Mojang/Microsoft) 🟡
+**Kategori:** Official / First-Party (Default Launcher Utama)  
+**Lokasi Data:** `%appdata%\.minecraft`
 
 ```text
 .minecraft/
@@ -48,8 +69,10 @@ Dokumen ini menggabungkan dua versi sebelumnya dan mengoreksi bagian yang tidak 
 
 ---
 
-## 2. Prism Launcher ✅
+## BAGIAN II: LAUNCHER PIHAK KETIGA (THIRD-PARTY LAUNCHERS)
 
+### 2. Prism Launcher (Third-Party) ✅
+**Kategori:** Third-Party (Multi-Instance Isolated Launcher)  
 **Lokasi:** `%APPDATA%\PrismLauncher` (versi portable: folder aplikasi itu sendiri)
 
 ```text
@@ -89,8 +112,8 @@ PrismLauncher/
 
 ---
 
-## 3. MultiMC 🟡
-
+### 3. MultiMC (Third-Party) 🟡
+**Kategori:** Third-Party (Portable Multi-Instance Launcher)  
 **Lokasi:** folder tempat MultiMC diekstrak (portable, tidak di appdata)
 
 ```text
@@ -124,9 +147,10 @@ MultiMC/
 
 ---
 
-## 4. TLauncher ✅ (sebagian)
-
-TLauncher memakai dua lokasi: game di `.minecraft`, konfigurasi launcher di `.tlauncher`.
+### 4. TLauncher (Third-Party) ✅ (sebagian)
+**Kategori:** Third-Party (Shared Directory Launcher)  
+**Lokasi Data:** `%appdata%\.minecraft` (berbagi dengan launcher resmi)  
+**Lokasi Konfigurasi:** `%appdata%\.tlauncher`
 
 ```text
 %appdata%/
@@ -153,7 +177,8 @@ TLauncher memakai dua lokasi: game di `.minecraft`, konfigurasi launcher di `.tl
 
 ---
 
-## 5. Legacy Launcher (dulu TL Legacy) ✅
+### 5. Legacy Launcher (Third-Party — Dulu TL Legacy) ✅
+**Kategori:** Third-Party (Dual-Path Engine & Container Launcher)  
 
 Struktur folder Legacy Launcher telah **terkonfirmasi secara penuh** dengan arsitektur Dual-Path yang memisahkan engine game dari wadah profil mod:
 
@@ -190,7 +215,8 @@ Struktur folder Legacy Launcher telah **terkonfirmasi secara penuh** dengan arsi
 
 ---
 
-## 6. SKLauncher ⚠️ (sebagian)
+### 6. SKLauncher (Third-Party) ⚠️ (sebagian)
+**Kategori:** Third-Party (Custom Directory Launcher)  
 
 Yang terkonfirmasi: SKLauncher memakai folder game standar `%APPDATA%\.minecraft` (mod ada di `.minecraft\mods`) dan menerima argumen `--workDir` untuk memindahkan folder kerja.
 
@@ -214,16 +240,45 @@ Yang terkonfirmasi: SKLauncher memakai folder game standar `%APPDATA%\.minecraft
 
 ---
 
+### 7. Launcher Third-Party Lainnya (Modrinth App & CurseForge) ✅
+**Kategori:** Third-Party (Managed App Instances)
+
+#### A. Modrinth App
+- **Windows:** `%APPDATA%\com.modrinth.theseus\profiles\<ProfileName>`
+- **Linux:** `~/.local/share/com.modrinth.theseus/profiles/<ProfileName>`
+- **macOS:** `~/Library/Application Support/com.modrinth.theseus/profiles/<ProfileName>`
+- Setiap instance/profil memiliki folder permainan mandiri (`mods/`, `config/`, `resourcepacks/`, `options.txt`).
+
+#### B. CurseForge App
+- **Windows:** `%USERPROFILE%\curseforge\minecraft\Instances\<ProfileName>`
+- Tiap instance memiliki sub-folder game terisolasi per modpack.
+
+---
+
 ## Perbandingan Singkat
 
-| Launcher | Lokasi data default | Konfigurasi launcher | Instance terpisah? |
-|---|---|---|---|
-| Resmi | `%appdata%\.minecraft` | Di dalam `.minecraft` | Tidak (dibedakan profil) |
-| Prism | `%appdata%\PrismLauncher` | `prismlauncher.cfg` | Ya |
-| MultiMC | Folder portable | `multimc.cfg` | Ya |
-| TLauncher | `%appdata%\.minecraft` | `%appdata%\.tlauncher\tlauncher-2.0.properties` | Tidak |
-| Legacy | `%appdata%\.tlauncher\legacy\Minecraft\files` | ⚠️ Perlu dicek | Tidak |
-| SKLauncher | `%appdata%\.minecraft` | ⚠️ Perlu dicek | Tidak |
+| Launcher | Kategori | Lokasi data default | Konfigurasi launcher | Wadah / Instance terpisah? |
+|---|---|---|---|---|
+| Resmi (Mojang/MS) | **Official (First-Party)** | `%appdata%\.minecraft` | Di dalam `.minecraft` | Tidak (profil versi berbagi folder root) |
+| Prism Launcher | **Third-Party** | `%appdata%\PrismLauncher\instances` | `prismlauncher.cfg` | Ya (instance per-folder) |
+| MultiMC | **Third-Party** | Folder portable (`instances/`) | `multimc.cfg` | Ya (instance per-folder portable) |
+| TLauncher | **Third-Party** | `%appdata%\.minecraft` | `%appdata%\.tlauncher\tlauncher-2.0.properties` | Wadah versi (`versions/<mypack>`) |
+| Legacy Launcher | **Third-Party** | `%appdata%\.tlauncher\legacy\Minecraft\game` | `tl.properties` (`login.version`) | Ya (Dual-Path: `versions/` & `home/<profile>/`) |
+| SKLauncher | **Third-Party** | `%appdata%\.minecraft` (opsional kustom) | Di dalam `.minecraft` / argumen `--workDir` | Tidak bawaan |
+| Modrinth App | **Third-Party** | `%appdata%\com.modrinth.theseus\profiles` | `profiles/<profile>/profile.json` | Ya (instance per-profil) |
+| CurseForge | **Third-Party** | `%USERPROFILE%\curseforge\minecraft\Instances` | `minecraftinstance.json` | Ya (instance per-modpack) |
+
+---
+
+## 💡 Implikasi Desain pada LoadModer
+
+1. **Official Minecraft sebagai Default Instance Utama:**
+   - Karena Minecraft Launcher Resmi (Mojang) adalah satu-satunya launcher first-party resmi, LoadModer secara otomatis menjadikannya sebagai **default active launcher** (`vanilla-default`).
+   - Pada Official Minecraft, LoadModer menyajikan menu dan navigasi murni untuk mod individual (.jar), shader pack, dan resource pack tanpa kebisingan opsi modpack (.mrpack) atau pergantian mode wadah.
+
+2. **Launcher Third-Party sebagai Instance Spesifik / Lanjutan:**
+   - Launcher pihak ketiga (seperti Legacy Launcher dan TLauncher) memanfaatkan strategi wadah modpack khusus (`modpackStrategy: "legacy"` atau `"tlauncher"`).
+   - Menu modpack (`📦 Jelajahi & Unduh Modpack`) dan brankas profil (`📦 Brankas Profil Modpack`) diaktifkan secara dinamis hanya saat pengguna beralih ke instance launcher third-party tersebut.
 
 ---
 

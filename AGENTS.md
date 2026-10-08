@@ -71,3 +71,43 @@ LoadModer maintains 18 specialized engineering skills located in `.agent/skills/
 - **Code Hygiene & Anti-Slop:** `antislop`, `antislop-code`, `antislop-copywriting`, `antislop-human`, `antislop-ui`, `clean-code`
 - **Quality & Performance:** `code-review`, `performance-optimization`, `backend-security-coder`, `git-workflow`
 - **TypeScript & Scaffolding:** `javascript-pro`, `javascript-typescript-typescript-scaffold`
+
+---
+
+## 5. Mandatory Pre-Push Protocol (Wajib Sebelum Melakukan Git Push)
+
+Setiap kali pengguna meminta untuk melakukan `git push` (baik ke branch `dev`, `main`, maupun branch lainnya), agen **WAJIB** menyelesaikan dan memverifikasi langkah-langkah persiapan berikut secara berurutan:
+
+### 1. Persiapan & Penyesuaian Versi Aplikasi (SemVer)
+- Evaluasi seluruh perubahan dan commit yang dibuat sejak rilis sebelumnya.
+- Naikkan nomor versi aplikasi (`MAJOR.MINOR.PATCH`) secara konsisten pada:
+  - `package.json` (`"version"`)
+  - `package-lock.json` (`"version"`)
+  - `src/constants.ts` (`APP_VERSION`)
+- Pastikan versi baru dan rincian perubahannya terdokumentasi di [`CHANGELOG.md`](CHANGELOG.md) mengikuti standar *Keep a Changelog*.
+
+### 2. Pembaruan Menyeluruh Seluruh Berkas Markdown (`.md`)
+- Periksa dan perbarui semua berkas dokumentasi markdown:
+  - [`README.md`](README.md): pastikan petunjuk instalasi, badge status/test, ringkasan fitur, dan panduan penggunaan selalu akurat.
+  - [`CHANGELOG.md`](CHANGELOG.md): pastikan rilis baru memiliki catatan perubahan yang lengkap (Added, Changed, Fixed, Security).
+  - Folder `docs/` (`docs/*.md`): pastikan dokumen spesifikasi arsitektur, tech stack, UX/UI, dan panduan launcher selaras dengan kode nyata.
+- **Dilarang keras** melakukan push dengan dokumentasi yang tertinggal atau bertentangan dengan implementasi kode (*out-of-sync*).
+
+### 3. Eksekusi Protokol Verifikasi (0 Toleransi Kegagalan)
+Jalankan urutan perintah verifikasi berikut hingga seluruhnya sukses:
+```bash
+# 1. Type-checking (wajib exit code 0)
+npx tsc --noEmit
+
+# 2. Test suite lengkap (seluruh unit & integration tests wajib lulus)
+npm test
+
+# 3. Kompilasi bundle distribusi (wajib sukses tanpa warning/error)
+npm run build
+
+# 4. Validasi tarball paket distribusi (pastikan whitelist 'files' bersih)
+npm pack --dry-run
+```
+
+### 4. Walkthrough & Konfirmasi Pengguna
+- Selalu buat berkas walkthrough sebelum tindakan signifikan dan tunggu perintah pengguna sebelum mengeksekusi push akhir.

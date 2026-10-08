@@ -170,6 +170,7 @@ export interface CommandCenterInfo {
   loader?: string;
   mode?: 'default' | 'modpack' | string;
   activeContainer?: string;
+  supportsModeSwitch?: boolean;
   modsCount?: number;
   activeCount?: number;
   storageUsage?: string;
@@ -195,11 +196,13 @@ export const renderCommandCenterHeader = (info: CommandCenterInfo) => {
     info.mode === 'modpack'
       ? `modpack (${info.activeContainer ?? 'wadah'})`
       : 'default';
+  const showMode = info.supportsModeSwitch !== undefined ? info.supportsModeSwitch : (info.mode === 'modpack');
 
   if (isAccessible) {
+    const modeSegment = showMode ? ` | Mode: ${modeText}` : '';
     console.log(
       chalk.bold(`LOADMODER v${APP_VERSION}`) +
-        ` | Instance: ${info.instanceName ?? 'Default'} | Mode: ${modeText} | Loader: ${loaderVersionText} | Mods: ${info.activeCount ?? 0}/${info.modsCount ?? 0} (${info.storageUsage ?? '0 B'})\n`
+        ` | Instance: ${info.instanceName ?? 'Default'}${modeSegment} | Loader: ${loaderVersionText} | Mods: ${info.activeCount ?? 0}/${info.modsCount ?? 0} (${info.storageUsage ?? '0 B'})\n`
     );
     return;
   }
@@ -243,12 +246,14 @@ export const renderCommandCenterHeader = (info: CommandCenterInfo) => {
 
   let content: string;
   if (cols < 70) {
-    const line1 =
-      chalk.hex(theme.textMuted)('Instance : ') +
-      chalk.hex(theme.primary).bold(info.instanceName ?? 'Default') +
-      '  •  ' +
-      chalk.hex(theme.textMuted)('Mode: ') +
-      chalk.hex(info.mode === 'modpack' ? theme.info : theme.secondary).bold(modeText);
+    const line1 = showMode
+      ? chalk.hex(theme.textMuted)('Instance : ') +
+        chalk.hex(theme.primary).bold(info.instanceName ?? 'Default') +
+        '  •  ' +
+        chalk.hex(theme.textMuted)('Mode: ') +
+        chalk.hex(info.mode === 'modpack' ? theme.info : theme.secondary).bold(modeText)
+      : chalk.hex(theme.textMuted)('Instance : ') +
+        chalk.hex(theme.primary).bold(info.instanceName ?? 'Default');
     const line2 =
       chalk.hex(theme.textMuted)('Loader   : ') +
       chalk.hex(theme.secondary).bold(loaderVersionText);
@@ -262,19 +267,26 @@ export const renderCommandCenterHeader = (info: CommandCenterInfo) => {
       chalk.hex(theme.success)(info.statusText ?? '● Siap');
     content = `${line1}\n${line2}\n${line3}`;
   } else {
-    const line1 =
-      chalk.hex(theme.textMuted)('Instance : ') +
-      chalk.hex(theme.primary).bold(info.instanceName ?? 'Default') +
-      '   ' +
-      chalk.hex(theme.muted)('•') +
-      '   ' +
-      chalk.hex(theme.textMuted)('Mode : ') +
-      chalk.hex(info.mode === 'modpack' ? theme.info : theme.secondary).bold(modeText) +
-      '   ' +
-      chalk.hex(theme.muted)('•') +
-      '   ' +
-      chalk.hex(theme.textMuted)('Loader : ') +
-      chalk.hex(theme.secondary).bold(loaderVersionText);
+    const line1 = showMode
+      ? chalk.hex(theme.textMuted)('Instance : ') +
+        chalk.hex(theme.primary).bold(info.instanceName ?? 'Default') +
+        '   ' +
+        chalk.hex(theme.muted)('•') +
+        '   ' +
+        chalk.hex(theme.textMuted)('Mode : ') +
+        chalk.hex(info.mode === 'modpack' ? theme.info : theme.secondary).bold(modeText) +
+        '   ' +
+        chalk.hex(theme.muted)('•') +
+        '   ' +
+        chalk.hex(theme.textMuted)('Loader : ') +
+        chalk.hex(theme.secondary).bold(loaderVersionText)
+      : chalk.hex(theme.textMuted)('Instance : ') +
+        chalk.hex(theme.primary).bold(info.instanceName ?? 'Default') +
+        '   ' +
+        chalk.hex(theme.muted)('•') +
+        '   ' +
+        chalk.hex(theme.textMuted)('Loader : ') +
+        chalk.hex(theme.secondary).bold(loaderVersionText);
 
     const line2 =
       chalk.hex(theme.textMuted)('Mods     : ') +

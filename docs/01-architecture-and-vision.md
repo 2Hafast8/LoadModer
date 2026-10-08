@@ -141,7 +141,7 @@ sequenceDiagram
 ### A. Kebijakan Header User-Agent
 Setiap permintaan HTTP menyertakan header `User-Agent` terstruktur:
 ```text
-User-Agent: hafiznovelrianto/loadmoder/2.0.0 (contact@example.com)
+User-Agent: hafiznovelrianto/loadmoder/2.5.0 (contact@example.com)
 ```
 Informasi kontak dapat ditentukan pengguna melalui variabel lingkungan `LOADMODER_CONTACT`.
 

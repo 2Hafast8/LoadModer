@@ -74,9 +74,10 @@ LoadModer/
 │   │   └── markdown.ts
 │   ├── constants.ts           # Metadata aplikasi, versi, dan konfigurasi path
 │   └── index.ts               # Titik masuk utama CLI (Entry Point)
-├── tests/                     # Pengujian unit & integrasi (Vitest: 27 files, 213 tests)
+├── tests/                     # Pengujian unit & integrasi (Vitest: 28 files, 221 tests)
 │   ├── baselineManager.test.ts # Uji pencadangan & restorasi One-Time Golden Baseline
 │   ├── crypto.test.ts         # Uji fungsi hashing SHA-1, SHA-512, dan hashFile
+│   ├── defaultOfficialMinecraft.test.ts # Uji prioritas Official Minecraft & navigasi murni vanilla
 │   ├── dependencyGraph.test.ts# Uji DAG reference counting & orphan pruning
 │   ├── dependencyResolver.test.ts # Uji deteksi library API & regex deskripsi
 │   ├── launcherCapabilities.test.ts # Uji matriks kapabilitas & strategi per-launcher

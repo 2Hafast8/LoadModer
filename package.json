@@ -1,19 +1,54 @@
 {
   "name": "loadmoder",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "description": "High-performance Minecraft mod & modpack manager CLI powered by Modrinth API",
+  "license": "MIT",
+  "author": "Hafiz Noval rianto <https://github.com/2Hafast8>",
+  "homepage": "https://github.com/2Hafast8/LoadModer#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/2Hafast8/LoadModer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/2Hafast8/LoadModer/issues"
+  },
+  "keywords": [
+    "minecraft",
+    "mod-manager",
+    "modpack",
+    "mrpack",
+    "modrinth",
+    "cli",
+    "tui",
+    "fabric",
+    "forge",
+    "neoforge",
+    "quilt",
+    "prism-launcher",
+    "multimc",
+    "tlauncher",
+    "legacy-launcher"
+  ],
   "type": "module",
+  "main": "./dist/index.js",
   "bin": {
     "loadmoder": "./dist/index.js",
     "lm": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "engines": {
     "node": ">=20.0.0"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",

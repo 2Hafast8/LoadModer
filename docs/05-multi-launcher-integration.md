@@ -61,9 +61,16 @@ Setiap launcher menyimpan informasi versi Minecraft, mod loader, dan konfigurasi
   * `baseModLoader.name`: `"forge-47.2.0"` $\rightarrow$ diparsing ke `forge`
 * **Path Folder Mods**: `<instance_dir>/mods/`
 
-### D. Official Vanilla Launcher
-* **Direktori**: `.minecraft/versions` dan `.minecraft/mods`
-* Sistem memindai file `.json` di tiap folder versi (`.minecraft/versions/<version>/<version>.json`) dan memeriksa nama file `.jar` yang ada di folder `mods/` untuk menentukan loader dan versi game aktif.
+### D. Official Vanilla Launcher (First-Party) & Kebijakan Aditif
+* **Direktori Utama**: `%APPDATA%\.minecraft` (Windows), `~/Library/Application Support/minecraft` (macOS), `~/.minecraft` (Linux).
+* **Prioritas Standar**: Ditandai sebagai `vanilla-default` dengan nama `Official Minecraft (Default)` dan ditempatkan di urutan teratas saat inisialisasi awal.
+* **Diferensiasi Wadah Bersama (%APPDATA%\.minecraft)**:
+  - Folder `%APPDATA%\.minecraft` digunakan bersama oleh Official Minecraft dan TLauncher.
+  - LoadModer memprioritaskan pemeriksaan marker unik TLauncher (`TLauncher.exe`, `TLauncher32bit.exe`, `TlauncherProfiles.json`, `tlauncher-2.0.properties`, dll.).
+  - Jika marker TLauncher ditemukan, instansi ditetapkan sebagai **`TLauncher`**.
+  - Jika tidak ada marker pihak ketiga dan terdapat file profil resmi Mojang (`launcher_profiles.json` / `launcher_accounts.json`), barulah instansi diklasifikasikan sebagai **`Official Minecraft (Default)`**.
+* **Kebijakan Aditif Murni**:
+  - Penambahan instansi baru (baik Official Minecraft maupun launcher pihak ketiga) tidak akan pernah menimpa atau menghapus konfigurasi yang sudah tersimpan di `config.json` pengguna.
 
 ### E. TLauncher & Wadah Versi Mandiri (`versions/<container>/`)
 * **Pola Wadah Client**: Setiap instalasi atau modpack TLauncher dibuat sebagai folder terpisah di `.minecraft/versions/<container_name>/` (misalnya `mypack(fabric)`, `mypack(forge)`, `mypack(fabric-1.21)`).

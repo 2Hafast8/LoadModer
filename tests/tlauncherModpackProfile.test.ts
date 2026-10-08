@@ -542,7 +542,7 @@ describe("TLauncher Instance Detector Integration", () => {
 
     const vanilla = await (detector as any).scanVanilla();
     expect(vanilla?.launcher).toBe("TLauncher");
-    expect(vanilla?.name).toBe("TLauncher (Default)");
+    expect(vanilla?.name).toBe("TLauncher");
 
     await rm(tempDir, { recursive: true, force: true });
   });

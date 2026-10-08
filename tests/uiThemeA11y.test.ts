@@ -10,6 +10,7 @@ import {
 import {ui, renderFooter} from "../src/ui/interactive.js";
 import {createModsTable, createSearchTable} from "../src/ui/tables.js";
 import {p} from "../src/ui/prompts.js";
+import {APP_VERSION} from "../src/constants.js";
 
 describe("UI/UX & Accessibility (Theme & Responsive)", () => {
   const originalEnv = {...process.env};
@@ -164,7 +165,7 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
       expect(consoleSpy).toHaveBeenCalled();
       const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
       expect(output).toContain("LOADMODER");
-      expect(output).toContain("v2.0.0");
+      expect(output).toContain(`v${APP_VERSION}`);
     });
   });
 
@@ -199,7 +200,7 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
       });
       expect(consoleSpy).toHaveBeenCalled();
       const output = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
-      expect(output).toContain("LOADMODER v2.0.0");
+      expect(output).toContain(`LOADMODER v${APP_VERSION}`);
       expect(output).toContain("Test Instance");
       expect(output).toContain("fabric 1.20.1");
       expect(output).toContain("8/10");

@@ -22,6 +22,7 @@ import {formatBytes} from "../../utils/format.js";
 import {ModpackProfileManager} from "../../core/modpack/profileManager.js";
 import {runInteractiveModpackProfileManager} from "./modpackProfileManager.js";
 import {getLauncherCapabilities} from "../../core/instance/capabilities.js";
+import {instanceDetector} from "../../core/instance/detector.js";
 
 interface CachedInstanceStats {
   dir: string;
@@ -81,7 +82,26 @@ export async function launchHomeDashboard(): Promise<void> {
   try {
     while (isRunning) {
       await instanceConfig.load();
-      const active = instanceConfig.getActiveInstance();
+      let active = instanceConfig.getActiveInstance();
+
+      // Jika belum ada activeInstance (pertama kali memakai LoadModer), inisialisasi Official Minecraft default
+      if (!active) {
+        const defaultVanilla = await instanceDetector.getDefaultVanillaInstance();
+        instanceConfig.saveInstance(
+          defaultVanilla.id,
+          {
+            name: defaultVanilla.name,
+            launcher: defaultVanilla.launcher,
+            rootDir: defaultVanilla.rootDir,
+            modsDir: defaultVanilla.modsDir,
+            gameVersion: defaultVanilla.gameVersion ?? "1.21.1",
+            loader: defaultVanilla.loader ?? "fabric",
+            mode: "default",
+          },
+          true,
+        );
+        await instanceConfig.save();
+      }
       const now = Date.now();
 
       if (active?.modsDir) {
@@ -236,12 +256,15 @@ export async function launchHomeDashboard(): Promise<void> {
             loader: active?.loader,
             mode: active?.mode ?? "default",
             activeContainer: active?.activeContainer,
+            supportsModeSwitch: caps.supportsModeSwitch,
             modsCount: stats.modsCount,
             activeCount: stats.activeCount,
             storageUsage: stats.storageUsage,
-            statusText: activeModpack?.activeProfile
-              ? `● Modpack: ${activeModpack.name ?? activeModpack.activeProfile}`
-              : "● Siap (Clean State)",
+            statusText: caps.supportsContainers
+              ? (activeModpack?.activeProfile
+                  ? `● Modpack: ${activeModpack.name ?? activeModpack.activeProfile}`
+                  : "● Siap (Clean State)")
+              : "● Siap",
           });
         },
         {

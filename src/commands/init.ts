@@ -219,6 +219,13 @@ export async function initCommand(opts: InitOptions = {}) {
       instances = deduplicateInstances([...instances, ...driveInstances]);
     }
 
+    // Official Minecraft (vanilla-default) selalu diprioritaskan di urutan teratas sebagai launcher resmi default
+    instances.sort((a, b) => {
+      if (a.id === 'vanilla-default') return -1;
+      if (b.id === 'vanilla-default') return 1;
+      return 0;
+    });
+
     target = await pickTarget(instances, Boolean(opts.allowCancel), activeKey);
     if (!target) {
       return;
