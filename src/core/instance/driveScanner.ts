@@ -6,8 +6,6 @@ import pLimit from "p-limit";
 
 export const MINECRAFT_DIR_NAMES: ReadonlySet<string> = new Set([".minecraft", "minecraft"]);
 
-// A folder named "minecraft" is only treated as a game directory if it contains at least one
-// of these, otherwise unrelated folders (source trees, wallpapers, backups) would match.
 export const GAME_DIR_MARKERS = [
   "versions",
   "mods",
@@ -77,7 +75,6 @@ export async function isMinecraftGameDir(dir: string): Promise<boolean> {
   return checks.some(Boolean);
 }
 
-// Disconnected network drives can block stat() for tens of seconds on Windows.
 async function probeWithTimeout(target: string): Promise<boolean> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<boolean>((resolve) => {
@@ -154,12 +151,13 @@ export async function findMinecraftDirs(
           opts.onProgress?.(dir, visitedDirs);
 
           for (const entry of entries) {
-            // Dirent.isDirectory() is false for symlinks and junctions, so they are never
-            // followed; this prevents cycles such as "Application Data" junction loops.
             if (!entry.isDirectory()) continue;
             const full = path.join(dir, entry.name);
 
-            if (MINECRAFT_DIR_NAMES.has(entry.name.toLowerCase()) && (await isMinecraftGameDir(full))) {
+            if (
+              MINECRAFT_DIR_NAMES.has(entry.name.toLowerCase()) &&
+              (await isMinecraftGameDir(full))
+            ) {
               found.add(full);
               continue;
             }
@@ -192,8 +190,10 @@ export function normalizeUserPath(
   env: NodeJS.ProcessEnv = process.env,
   home: string = os.homedir(),
 ): string {
-  // Windows Explorer's "Copy as path" wraps the value in double quotes.
-  let p = input.trim().replace(/^["']+|["']+$/g, "").trim();
+  let p = input
+    .trim()
+    .replace(/^["']+|["']+$/g, "")
+    .trim();
   if (!p) return "";
 
   if (p === "~" || p.startsWith("~/") || p.startsWith("~\\")) {
@@ -202,7 +202,9 @@ export function normalizeUserPath(
   p = p.replace(/%([^%]+)%/g, (match, name: string) => lookupEnv(env, name) ?? match);
 
   // path.resolve("D:") yields the process cwd on drive D, not the drive root.
-  if (/^[a-zA-Z]:$/.test(p)) p += path.sep;
+  if (/^[a-zA-Z]:$/.test(p)) {
+    return process.platform === "win32" ? path.win32.resolve(p + "\\") : `${p.toUpperCase()}\\`;
+  }
 
   return path.resolve(p);
 }

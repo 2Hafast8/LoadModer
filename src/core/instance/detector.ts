@@ -43,110 +43,108 @@ export interface DetectedLauncherInfo {
   notes?: string;
 }
 
+function extractBasename(targetPath: string): string {
+  const trimmed = targetPath.replace(/[\\/]+$/, "");
+  const lastIndex = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return lastIndex >= 0 ? trimmed.slice(lastIndex + 1) : trimmed;
+}
+
 export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo {
   const norm = path.resolve(targetPath);
-  const isWindows = process.platform === "win32";
-  const isDriveC = isWindows && /^[c][:]/i.test(norm);
+  const sub = extractBasename(targetPath);
 
-  // 1. Jika di Local Disk C (analisis segmen setelah AppData/Roaming)
-  if (isDriveC) {
-    const roamingMatch = norm.match(/[\\/]AppData[\\/]Roaming[\\/](.+)$/i);
-    if (roamingMatch) {
-      const rel = roamingMatch[1].toLowerCase();
+  // 1. Jika di AppData/Roaming (analisis segmen setelah AppData/Roaming)
+  const roamingMatch =
+    targetPath.match(/[\\/]AppData[\\/]Roaming[\\/](.+)$/i) ??
+    norm.match(/[\\/]AppData[\\/]Roaming[\\/](.+)$/i);
 
-      // Legacy Launcher (.tlauncher/legacy/Minecraft/game atau files atau subfolder lainnya)
-      if (
-        rel.includes(".tlauncher\\legacy") ||
-        rel.includes(".tlauncher/legacy") ||
-        rel.includes("legacy\\minecraft") ||
-        rel.includes("legacy/minecraft") ||
-        rel.includes("legacylauncher")
-      ) {
-        const sub = path.basename(norm);
-        return {
-          launcher: "Legacy",
-          name: `Legacy Launcher (${sub})`,
-          id: `legacy-${sub.toLowerCase()}`,
-        };
-      }
+  if (roamingMatch) {
+    const rel = roamingMatch[1].toLowerCase();
 
-      // TLauncher (.tlauncher biasa tanpa legacy)
-      if (rel.includes(".tlauncher")) {
-        return {
-          launcher: "TLauncher",
-          name: "TLauncher",
-          id: "tlauncher-default",
-        };
-      }
+    // Legacy Launcher (.tlauncher/legacy/Minecraft/game atau files atau subfolder lainnya)
+    if (
+      rel.includes(".tlauncher\\legacy") ||
+      rel.includes(".tlauncher/legacy") ||
+      rel.includes("legacy\\minecraft") ||
+      rel.includes("legacy/minecraft") ||
+      rel.includes("legacylauncher")
+    ) {
+      return {
+        launcher: "Legacy",
+        name: `Legacy Launcher (${sub})`,
+        id: `legacy-${sub.toLowerCase()}`,
+      };
+    }
 
-      // SKLauncher (.sklauncher)
-      if (rel.includes(".sklauncher")) {
-        const sub = path.basename(norm);
-        return {
-          launcher: "SKLauncher",
-          name: `SKLauncher (${sub})`,
-          id: `sklauncher-${sub.toLowerCase()}`,
-        };
-      }
+    // TLauncher (.tlauncher biasa tanpa legacy)
+    if (rel.includes(".tlauncher")) {
+      return {
+        launcher: "TLauncher",
+        name: "TLauncher",
+        id: "tlauncher-default",
+      };
+    }
 
-      // Prism Launcher
-      if (rel.includes("prismlauncher")) {
-        const sub = path.basename(norm);
-        return {
-          launcher: "Prism",
-          name: `Prism (${sub})`,
-          id: `prism-${sub.toLowerCase()}`,
-        };
-      }
+    // SKLauncher (.sklauncher)
+    if (rel.includes(".sklauncher")) {
+      return {
+        launcher: "SKLauncher",
+        name: `SKLauncher (${sub})`,
+        id: `sklauncher-${sub.toLowerCase()}`,
+      };
+    }
 
-      // MultiMC
-      if (rel.includes("multimc")) {
-        const sub = path.basename(norm);
-        return {
-          launcher: "MultiMC",
-          name: `MultiMC (${sub})`,
-          id: `multimc-${sub.toLowerCase()}`,
-        };
-      }
+    // Prism Launcher
+    if (rel.includes("prismlauncher")) {
+      return {
+        launcher: "Prism",
+        name: `Prism (${sub})`,
+        id: `prism-${sub.toLowerCase()}`,
+      };
+    }
 
-      // Modrinth App
-      if (rel.includes("com.modrinth.theseus") || rel.includes("modrinthapp")) {
-        const sub = path.basename(norm);
-        return {
-          launcher: "Modrinth",
-          name: `Modrinth (${sub})`,
-          id: `modrinth-${sub.toLowerCase()}`,
-        };
-      }
+    // MultiMC
+    if (rel.includes("multimc")) {
+      return {
+        launcher: "MultiMC",
+        name: `MultiMC (${sub})`,
+        id: `multimc-${sub.toLowerCase()}`,
+      };
+    }
 
-      // CurseForge
-      if (rel.includes("curseforge")) {
-        const sub = path.basename(norm);
-        return {
-          launcher: "CurseForge",
-          name: `CurseForge (${sub})`,
-          id: `cf-${sub.toLowerCase()}`,
-        };
-      }
+    // Modrinth App
+    if (rel.includes("com.modrinth.theseus") || rel.includes("modrinthapp")) {
+      return {
+        launcher: "Modrinth",
+        name: `Modrinth (${sub})`,
+        id: `modrinth-${sub.toLowerCase()}`,
+      };
+    }
 
-      // Official Minecraft / Vanilla (.minecraft)
-      if (rel.includes(".minecraft")) {
-        return {
-          launcher: "Vanilla",
-          name: "Official Minecraft (Default)",
-          id: "vanilla-default",
-        };
-      }
+    // CurseForge
+    if (rel.includes("curseforge")) {
+      return {
+        launcher: "CurseForge",
+        name: `CurseForge (${sub})`,
+        id: `cf-${sub.toLowerCase()}`,
+      };
+    }
+
+    // Official Minecraft / Vanilla (.minecraft)
+    if (rel.includes(".minecraft")) {
+      return {
+        launcher: "Vanilla",
+        name: "Official Minecraft (Default)",
+        id: "vanilla-default",
+      };
     }
   }
 
-  // 2. Jika selain Local Disk C (D:, E:, portable, linux/mac) atau di Disk C di luar Roaming:
-  // Analisis dari path awal / seluruh path
-  const fullLower = norm.toLowerCase();
+  // 2. Jika selain AppData/Roaming (D:, E:, portable, linux/mac):
+  const fullLower = targetPath.toLowerCase();
 
   // Prism Launcher
   if (fullLower.includes("prismlauncher") || fullLower.includes("prism")) {
-    const sub = path.basename(norm);
     return {
       launcher: "Prism",
       name: `Prism (${sub})`,
@@ -156,7 +154,6 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
 
   // MultiMC
   if (fullLower.includes("multimc")) {
-    const sub = path.basename(norm);
     return {
       launcher: "MultiMC",
       name: `MultiMC (${sub})`,
@@ -171,7 +168,6 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
     fullLower.includes("legacy/minecraft") ||
     (fullLower.includes(".tlauncher") && fullLower.includes("legacy"))
   ) {
-    const sub = path.basename(norm);
     return {
       launcher: "Legacy",
       name: `Legacy Launcher (${sub})`,
@@ -181,7 +177,6 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
 
   // TLauncher
   if (fullLower.includes(".tlauncher") || fullLower.includes("tlauncher")) {
-    const sub = path.basename(norm);
     return {
       launcher: "TLauncher",
       name: `TLauncher (${sub})`,
@@ -191,7 +186,6 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
 
   // SKLauncher
   if (fullLower.includes("sklauncher")) {
-    const sub = path.basename(norm);
     return {
       launcher: "SKLauncher",
       name: `SKLauncher (${sub})`,
@@ -201,7 +195,6 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
 
   // CurseForge
   if (fullLower.includes("curseforge")) {
-    const sub = path.basename(norm);
     return {
       launcher: "CurseForge",
       name: `CurseForge (${sub})`,
@@ -211,7 +204,6 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
 
   // Modrinth
   if (fullLower.includes("modrinth")) {
-    const sub = path.basename(norm);
     return {
       launcher: "Modrinth",
       name: `Modrinth (${sub})`,
@@ -221,7 +213,10 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
 
   // Official / Standard Minecraft
   if (fullLower.endsWith(".minecraft") || fullLower.endsWith("minecraft")) {
-    const rootLetter = path.parse(norm).root.replace(/[\\/]+$/, "") || "/";
+    const driveMatch = targetPath.match(/^([a-zA-Z]:)/);
+    const rootLetter = driveMatch
+      ? driveMatch[1]
+      : (path.parse(norm).root.replace(/[\\/]+$/, "") || "/");
     return {
       launcher: "Vanilla",
       name: `Minecraft (${rootLetter})`,
@@ -232,7 +227,7 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
   // Fallback Kustom
   return {
     launcher: "Custom",
-    name: `Custom (${path.basename(norm)})`,
+    name: `Custom (${sub})`,
     id: instanceIdFromPath(norm),
   };
 }
