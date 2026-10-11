@@ -13,6 +13,7 @@ import {
   Boxes,
   FolderOpen,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext.js';
 
 interface ModItem {
   name: string;
@@ -40,6 +41,7 @@ interface ModsViewProps {
 }
 
 export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
+  const { t } = useLanguage();
   const [assetType, setAssetType] = useState<'mods' | 'shaders' | 'resourcepacks'>('mods');
   const [mods, setMods] = useState<ModItem[]>([]);
   const [packs, setPacks] = useState<PackItem[]>([]);
@@ -51,6 +53,12 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
   const [storageUsage, setStorageUsage] = useState('0 B');
   const [activeCount, setActiveCount] = useState(0);
   const [actionMessage, setActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const assetTypeName = useMemo(() => {
+    if (assetType === 'mods') return t.topbar.mods;
+    if (assetType === 'shaders') return t.mods.tabShaders;
+    return t.mods.tabResourcepacks;
+  }, [assetType, t]);
 
   const fetchMods = async () => {
     setLoading(true);
@@ -92,7 +100,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
       const data = await window.api.instances.getAll();
       const active = data?.active;
       if (!active?.rootDir) {
-        showNotification('Tidak ada instance aktif', 'error');
+        showNotification(t.mods.noActiveInstance, 'error');
         return;
       }
       let folderToOpen = active.modsDir;
@@ -130,9 +138,12 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
     try {
       const res = await window.api.mods.toggle(mod.fileName, nextState);
       if (res.success) {
-        showNotification(`${mod.name} ${nextState ? 'diaktifkan' : 'dinonaktifkan'}`);
+        const msg = nextState
+          ? t.mods.statusEnabled.replace('{name}', mod.name)
+          : t.mods.statusDisabled.replace('{name}', mod.name);
+        showNotification(msg);
       } else {
-        showNotification(res.error ?? 'Gagal mengubah status mod', 'error');
+        showNotification(res.error ?? t.mods.toggleFailed, 'error');
         fetchMods();
       }
     } catch (err: any) {
@@ -142,13 +153,13 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
   };
 
   const handleDelete = async (fileName: string) => {
-    if (!window.confirm(`Hapus berkas ${fileName}?`)) return;
+    if (!window.confirm(t.mods.confirmDelete.replace('{file}', fileName))) return;
 
     try {
       const type = assetType === 'mods' ? 'mod' : assetType === 'shaders' ? 'shader' : 'resourcepack';
       const res = await window.api.mods.remove(fileName, true, undefined, type);
       if (res.success) {
-        showNotification(`${fileName} berhasil dihapus`);
+        showNotification(t.mods.deleteSuccess.replace('{file}', fileName));
         if (assetType === 'mods') {
           setMods((prev) => prev.filter((m) => m.fileName !== fileName));
           setActiveCount((c) => Math.max(0, c - 1));
@@ -156,7 +167,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
           setPacks((prev) => prev.filter((p) => p.fileName !== fileName));
         }
       } else {
-        showNotification(res.error ?? 'Gagal menghapus berkas', 'error');
+        showNotification(res.error ?? t.mods.deleteFailed, 'error');
       }
     } catch (err: any) {
       showNotification(err.message, 'error');
@@ -176,9 +187,9 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
 
       if (list.length === 0) {
         const info = (!Array.isArray(res) && res?.gameVersion) ? ` (${res.gameVersion} • ${res.loader})` : '';
-        showNotification(`Seluruh ${mods.length} mod sudah versi terbaru yang kompatibel${info}! ✨`);
+        showNotification(t.mods.allUpToDate.replace('{count}', String(mods.length)).replace('{info}', info));
       } else {
-        showNotification(`Ditemukan ${list.length} mod yang memiliki pembaruan!`);
+        showNotification(t.mods.updatesFound.replace('{count}', String(list.length)));
         setStatusFilter('updates');
       }
     } catch (err: any) {
@@ -192,7 +203,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
     try {
       const res = await window.api.mods.applyUpdate(item.currentFile);
       if (res.success) {
-        showNotification(`Berhasil memperbarui ke ${item.nextFileName}`);
+        showNotification(t.mods.updateSuccess.replace('{file}', item.nextFileName));
         setUpdates((prev) => {
           const next = { ...prev };
           delete next[item.currentFile];
@@ -200,7 +211,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
         });
         fetchMods();
       } else {
-        showNotification(res.error ?? 'Gagal memperbarui mod', 'error');
+        showNotification(res.error ?? t.mods.updateFailed, 'error');
       }
     } catch (err: any) {
       showNotification(err.message, 'error');
@@ -241,7 +252,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
               }`}
             >
               <Boxes className="w-3.5 h-3.5" />
-              <span>Mods (.jar)</span>
+              <span>{t.mods.tabMods}</span>
             </button>
             <button
               onClick={() => setAssetType('shaders')}
@@ -252,7 +263,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Shaders</span>
+              <span>{t.mods.tabShaders}</span>
             </button>
             <button
               onClick={() => setAssetType('resourcepacks')}
@@ -263,7 +274,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
               }`}
             >
               <Palette className="w-3.5 h-3.5" />
-              <span>Resource Packs</span>
+              <span>{t.mods.tabResourcepacks}</span>
             </button>
           </div>
         </div>
@@ -274,7 +285,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`Cari ${assetType}...`}
+            placeholder={t.mods.searchPlaceholder.replace('{type}', assetTypeName)}
             className="w-full bg-obsidian-card border border-obsidian-border rounded pl-9 pr-3 py-1.5 text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary transition-colors"
           />
         </div>
@@ -291,7 +302,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                       : 'text-nordic-muted hover:text-nordic-text'
                   }`}
                 >
-                  Semua ({mods.length})
+                  {t.mods.filterAll} ({mods.length})
                 </button>
                 <button
                   onClick={() => setStatusFilter('active')}
@@ -301,7 +312,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                       : 'text-nordic-muted hover:text-nordic-text'
                   }`}
                 >
-                  Aktif ({activeCount})
+                  {t.mods.filterActive} ({activeCount})
                 </button>
                 <button
                   onClick={() => setStatusFilter('disabled')}
@@ -311,7 +322,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                       : 'text-nordic-muted hover:text-nordic-text'
                   }`}
                 >
-                  Nonaktif ({mods.length - activeCount})
+                  {t.mods.filterDisabled} ({mods.length - activeCount})
                 </button>
                 {Object.keys(updates).length > 0 && (
                   <button
@@ -322,7 +333,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                         : 'text-status-warning hover:bg-status-warning/10'
                     }`}
                   >
-                    Update ({Object.keys(updates).length})
+                    {t.mods.filterUpdates.replace('{count}', String(Object.keys(updates).length))}
                   </button>
                 )}
               </div>
@@ -331,10 +342,10 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                 onClick={handleCheckUpdates}
                 disabled={checkingUpdates}
                 className="flex items-center space-x-1 px-2.5 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
-                title="Periksa pembaruan versi"
+                title={t.mods.checkUpdatesTooltip}
               >
                 <ArrowUpCircle className={`w-3.5 h-3.5 ${checkingUpdates ? 'animate-spin' : ''}`} />
-                <span>Cek Update</span>
+                <span>{t.mods.checkUpdates}</span>
               </button>
             </>
           )}
@@ -342,17 +353,17 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
           <button
             onClick={handleOpenFolder}
             className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
-            title={`Buka folder ${assetType} di Windows File Explorer`}
+            title={t.mods.openFolderTooltip.replace('{type}', assetTypeName)}
           >
             <FolderOpen className="w-3.5 h-3.5" />
-            <span>Buka Folder</span>
+            <span>{t.mods.openFolder}</span>
           </button>
 
           <button
             onClick={fetchMods}
             disabled={loading}
             className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
-            title="Refresh Daftar"
+            title={t.mods.refreshTooltip}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -380,7 +391,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 space-y-2 text-nordic-muted">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />
-            <span className="text-xs">Memindai berkas {assetType}...</span>
+            <span className="text-xs">{t.mods.scanning.replace('{type}', assetTypeName)}</span>
           </div>
         ) : assetType === 'mods' ? (
           filteredMods.length === 0 ? (
@@ -388,12 +399,10 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
               <Package className="w-10 h-10 text-nordic-muted/50" />
               <div className="space-y-1">
                 <p className="text-sm font-medium text-nordic-text">
-                  {searchQuery ? 'Mod tidak ditemukan' : 'Belum ada mod terpasang'}
+                  {searchQuery ? t.mods.emptySearchTitle : t.mods.emptyModsTitle}
                 </p>
                 <p className="text-xs text-nordic-muted max-w-sm">
-                  {searchQuery
-                    ? 'Coba gunakan kata kunci pencarian yang berbeda.'
-                    : 'Instance aktif belum memiliki mod di foldernya. Anda dapat mencari dan memasang mod melalui tab Explore.'}
+                  {searchQuery ? t.mods.emptySearchDesc : t.mods.emptyModsDesc}
                 </p>
               </div>
               {!searchQuery && onGoToExplore && (
@@ -401,7 +410,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                   onClick={onGoToExplore}
                   className="mt-2 px-3 py-1.5 rounded bg-emerald-primary text-obsidian-bg text-xs font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
                 >
-                  Jelajahi Katalog
+                  {t.mods.browseCatalogue}
                 </button>
               )}
             </div>
@@ -410,11 +419,11 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-obsidian-border bg-obsidian-surface text-nordic-muted font-mono uppercase text-[10px]">
-                    <th className="py-2.5 px-3 w-12 text-center">Status</th>
-                    <th className="py-2.5 px-3">Nama Mod / Berkas</th>
-                    <th className="py-2.5 px-3 w-32 text-center">Update</th>
-                    <th className="py-2.5 px-3 w-28 text-right">Ukuran</th>
-                    <th className="py-2.5 px-3 w-20 text-center">Aksi</th>
+                    <th className="py-2.5 px-3 w-12 text-center">{t.mods.colStatus}</th>
+                    <th className="py-2.5 px-3">{t.mods.colName}</th>
+                    <th className="py-2.5 px-3 w-32 text-center">{t.mods.colUpdate}</th>
+                    <th className="py-2.5 px-3 w-28 text-right">{t.mods.colSize}</th>
+                    <th className="py-2.5 px-3 w-20 text-center">{t.mods.colAction}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-obsidian-border">
@@ -432,7 +441,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                             className={`w-7 h-4 rounded-full transition-colors relative cursor-pointer ${
                               mod.enabled ? 'bg-emerald-primary' : 'bg-nordic-muted/30'
                             }`}
-                            title={mod.enabled ? 'Klik untuk menonaktifkan' : 'Klik untuk mengaktifkan'}
+                            title={mod.enabled ? t.mods.toggleDisable : t.mods.toggleEnable}
                           >
                             <div
                               className={`w-3 h-3 rounded-full bg-white absolute top-0.5 transition-transform ${
@@ -462,7 +471,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                             <button
                               onClick={() => handleApplyUpdate(updateInfo)}
                               className="px-2 py-0.5 rounded bg-status-warning/20 border border-status-warning/40 text-status-warning hover:bg-status-warning hover:text-obsidian-bg text-[10px] font-mono font-semibold transition-colors cursor-pointer"
-                              title={`Update ke ${updateInfo.nextFileName}`}
+                              title={t.mods.updateTo.replace('{version}', updateInfo.nextFileName)}
                             >
                               ⬆ {updateInfo.nextVersion}
                             </button>
@@ -479,7 +488,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                           <button
                             onClick={() => handleDelete(mod.fileName)}
                             className="p-1 rounded text-nordic-muted hover:text-status-danger hover:bg-status-danger/10 transition-colors cursor-pointer"
-                            title="Hapus mod dari disk"
+                            title={t.mods.deleteTooltip}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -492,7 +501,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
             </div>
           )
         ) : (
-          /* Shaders & Resource Packs View */
           filteredPacks.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 space-y-2 text-center text-nordic-muted">
               {assetType === 'shaders' ? (
@@ -501,7 +509,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                 <Palette className="w-8 h-8 opacity-40" />
               )}
               <span className="text-xs">
-                Tidak ada berkas {assetType} (.zip) di folder instance.
+                {t.mods.emptyPacksDesc.replace('{type}', assetTypeName)}
               </span>
             </div>
           ) : (
@@ -509,9 +517,9 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-obsidian-border bg-obsidian-surface text-nordic-muted font-mono uppercase text-[10px]">
-                    <th className="py-2.5 px-3">Nama Berkas</th>
-                    <th className="py-2.5 px-3 w-28 text-right">Ukuran</th>
-                    <th className="py-2.5 px-3 w-20 text-center">Aksi</th>
+                    <th className="py-2.5 px-3">{t.mods.colPackFile}</th>
+                    <th className="py-2.5 px-3 w-28 text-right">{t.mods.colSize}</th>
+                    <th className="py-2.5 px-3 w-20 text-center">{t.mods.colAction}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-obsidian-border">
@@ -527,7 +535,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                         <button
                           onClick={() => handleDelete(pack.fileName)}
                           className="p-1 rounded text-nordic-muted hover:text-status-danger hover:bg-status-danger/10 transition-colors cursor-pointer"
-                          title="Hapus berkas"
+                          title={t.mods.deletePackTooltip}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -545,19 +553,19 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
         <div className="flex items-center space-x-3">
           {assetType === 'mods' ? (
             <>
-              <span>{mods.length} berkas mod</span>
+              <span>{t.mods.footerModsCount.replace('{count}', String(mods.length))}</span>
               <span>•</span>
-              <span className="text-emerald-active">{activeCount} aktif</span>
+              <span className="text-emerald-active">{t.mods.footerActive.replace('{count}', String(activeCount))}</span>
               <span>•</span>
-              <span>{mods.length - activeCount} nonaktif</span>
+              <span>{t.mods.footerDisabled.replace('{count}', String(mods.length - activeCount))}</span>
             </>
           ) : (
-            <span>{packs.length} berkas {assetType} terpasang</span>
+            <span>{t.mods.footerPacksCount.replace('{count}', String(packs.length)).replace('{type}', assetTypeName)}</span>
           )}
         </div>
         <div className="flex items-center space-x-1.5">
           <HardDrive className="w-3.5 h-3.5" />
-          <span>Penggunaan disk: {storageUsage}</span>
+          <span>{t.mods.footerDiskUsage.replace('{size}', storageUsage)}</span>
         </div>
       </div>
     </div>

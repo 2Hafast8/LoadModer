@@ -13,7 +13,6 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  /* Sleek custom scrollbars */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;

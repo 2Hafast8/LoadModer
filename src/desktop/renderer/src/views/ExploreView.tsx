@@ -10,7 +10,6 @@ import {
   Palette,
   AlertCircle,
   FileArchive,
-  ArrowUpDown,
   ArrowLeft,
   ExternalLink,
   Code2,
@@ -18,12 +17,11 @@ import {
   BookOpen,
   MessageSquare,
   Users,
-  Calendar,
   Shield,
-  FileCode,
   X,
 } from 'lucide-react';
 import { MarkdownViewer } from '../components/MarkdownViewer.js';
+import { useLanguage } from '../i18n/LanguageContext.js';
 
 interface ProjectHit {
   project_id: string;
@@ -39,6 +37,7 @@ interface ProjectHit {
 }
 
 export const ExploreView: React.FC = () => {
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [projectType, setProjectType] = useState<'mod' | 'modpack' | 'shader' | 'resourcepack'>('mod');
   const [loader, setLoader] = useState<'all' | 'fabric' | 'forge' | 'neoforge'>('all');
@@ -139,7 +138,7 @@ export const ExploreView: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Search failed:', err);
-      setStatusMessage({ text: err.message || 'Gagal memuat katalog aset', type: 'error' });
+      setStatusMessage({ text: err.message || t.explore.loadError, type: 'error' });
       setHits([]);
     } finally {
       setLoading(false);
@@ -206,12 +205,12 @@ export const ExploreView: React.FC = () => {
         setInstalledMap((prev) => ({ ...prev, [id]: true, [slug]: true }));
         await fetchInstalledIndex();
         setStatusMessage({
-          text: res.message ?? `Berhasil memasang ${slug}`,
+          text: res.message ?? t.explore.installSuccess.replace('{name}', slug),
           type: 'success',
         });
       } else {
         setStatusMessage({
-          text: res.error ?? `Gagal memasang ${slug}`,
+          text: res.error ?? t.explore.installFailed.replace('{name}', slug),
           type: 'error',
         });
       }
@@ -241,12 +240,12 @@ export const ExploreView: React.FC = () => {
         }));
         await fetchInstalledIndex();
         setStatusMessage({
-          text: res.message ?? `Berhasil memasang versi ${v.version_number}`,
+          text: res.message ?? t.explore.installVersionSuccess.replace('{version}', v.version_number),
           type: 'success',
         });
       } else {
         setStatusMessage({
-          text: res.error ?? `Gagal memasang versi ${v.version_number}`,
+          text: res.error ?? t.explore.installVersionFailed.replace('{version}', v.version_number),
           type: 'error',
         });
       }
@@ -264,7 +263,7 @@ export const ExploreView: React.FC = () => {
       const res = await window.api.modrinth.installLocalMrpack();
       if (res.success) {
         setStatusMessage({
-          text: res.message ?? 'Modpack lokal berhasil dipasang!',
+          text: res.message ?? t.explore.mrpackSuccess,
           type: 'success',
         });
       } else if (res.error) {
@@ -289,7 +288,7 @@ export const ExploreView: React.FC = () => {
             className="flex items-center space-x-2 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-emerald-primary" />
-            <span>Kembali ke Jelajahi</span>
+            <span>{t.explore.backToExplore}</span>
           </button>
 
           {projectDetail && (
@@ -315,17 +314,17 @@ export const ExploreView: React.FC = () => {
                 {isInstalling ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Memasang & Resolusi Dependensi...</span>
+                    <span>{t.explore.installingWithDeps}</span>
                   </>
                 ) : isInstalled ? (
                   <>
                     <Check className="w-3.5 h-3.5" />
-                    <span>Sudah Terpasang</span>
+                    <span>{t.explore.alreadyInstalled}</span>
                   </>
                 ) : (
                   <>
                     <Download className="w-3.5 h-3.5" />
-                    <span>Pasang Proyek Ini</span>
+                    <span>{t.explore.installThisProject}</span>
                   </>
                 )}
               </button>
@@ -354,7 +353,7 @@ export const ExploreView: React.FC = () => {
           {detailLoading ? (
             <div className="flex flex-col items-center justify-center h-64 space-y-3 text-nordic-muted text-xs">
               <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />
-              <span>Memuat rincian aset...</span>
+              <span>{t.explore.loadingDetails}</span>
             </div>
           ) : projectDetail ? (
             <div className="max-w-4xl mx-auto space-y-6">
@@ -378,16 +377,16 @@ export const ExploreView: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-nordic-muted">
                     <span className="flex items-center space-x-1">
                       <Download className="w-3.5 h-3.5 text-emerald-primary" />
-                      <span>{projectDetail.downloads ? projectDetail.downloads.toLocaleString() : 0} unduhan</span>
+                      <span>{t.explore.downloadsCount.replace('{count}', String(projectDetail.downloads ? projectDetail.downloads.toLocaleString() : 0))}</span>
                     </span>
                     <span className="flex items-center space-x-1">
                       <Users className="w-3.5 h-3.5 text-nordic-muted" />
-                      <span>{projectDetail.followers || projectDetail.follows ? (projectDetail.followers || projectDetail.follows).toLocaleString() : 0} pengikut</span>
+                      <span>{t.explore.followersCount.replace('{count}', String(projectDetail.followers || projectDetail.follows ? (projectDetail.followers || projectDetail.follows).toLocaleString() : 0))}</span>
                     </span>
                     {projectDetail.license?.name && (
                       <span className="flex items-center space-x-1">
                         <Shield className="w-3.5 h-3.5 text-nordic-muted" />
-                        <span>Lisensi: {projectDetail.license.name}</span>
+                        <span>{t.explore.license.replace('{license}', projectDetail.license.name)}</span>
                       </span>
                     )}
                   </div>
@@ -403,7 +402,7 @@ export const ExploreView: React.FC = () => {
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors"
                   >
                     <Code2 className="w-3.5 h-3.5" />
-                    <span>Source Code</span>
+                    <span>{t.explore.sourceCode}</span>
                     <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
                   </a>
                 )}
@@ -415,7 +414,7 @@ export const ExploreView: React.FC = () => {
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors"
                   >
                     <Bug className="w-3.5 h-3.5" />
-                    <span>Issue Tracker</span>
+                    <span>{t.explore.issues}</span>
                     <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
                   </a>
                 )}
@@ -427,7 +426,7 @@ export const ExploreView: React.FC = () => {
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors"
                   >
                     <BookOpen className="w-3.5 h-3.5" />
-                    <span>Dokumentasi / Wiki</span>
+                    <span>{t.explore.wiki}</span>
                     <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
                   </a>
                 )}
@@ -439,7 +438,7 @@ export const ExploreView: React.FC = () => {
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors"
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
-                    <span>Komunitas Discord</span>
+                    <span>{t.explore.discord}</span>
                     <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
                   </a>
                 )}
@@ -454,7 +453,7 @@ export const ExploreView: React.FC = () => {
                       : 'border-transparent text-nordic-muted hover:text-nordic-text'
                   }`}
                 >
-                  Deskripsi Lengkap
+                  {t.explore.tabDescription}
                 </button>
                 <button
                   onClick={() => setDetailTab('versions')}
@@ -464,7 +463,7 @@ export const ExploreView: React.FC = () => {
                       : 'border-transparent text-nordic-muted hover:text-nordic-text'
                   }`}
                 >
-                  Daftar Versi ({projectVersions.length})
+                  {t.explore.tabVersions.replace('{count}', String(projectVersions.length))}
                 </button>
               </div>
 
@@ -477,19 +476,19 @@ export const ExploreView: React.FC = () => {
                   <table className="w-full text-left text-xs">
                     <thead className="bg-obsidian-card text-nordic-muted font-medium border-b border-obsidian-border">
                       <tr>
-                        <th className="px-4 py-2.5">Rilis Versi</th>
-                        <th className="px-4 py-2.5">Minecraft</th>
-                        <th className="px-4 py-2.5">Loader</th>
-                        <th className="px-4 py-2.5">Tipe</th>
-                        <th className="px-4 py-2.5">Tanggal</th>
-                        <th className="px-4 py-2.5 text-right">Aksi</th>
+                        <th className="px-4 py-2.5">{t.explore.colVersion}</th>
+                        <th className="px-4 py-2.5">{t.explore.colMinecraft}</th>
+                        <th className="px-4 py-2.5">{t.explore.colLoaders}</th>
+                        <th className="px-4 py-2.5">{t.explore.colChannel}</th>
+                        <th className="px-4 py-2.5">{t.explore.colDate}</th>
+                        <th className="px-4 py-2.5 text-right">{t.explore.colAction}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-obsidian-border">
                       {projectVersions.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="px-4 py-6 text-center text-nordic-muted">
-                            Tidak ada versi yang cocok dengan filter saat ini.
+                            {t.explore.noVersionsFiltered}
                           </td>
                         </tr>
                       ) : (
@@ -508,7 +507,7 @@ export const ExploreView: React.FC = () => {
                             (v.loaders &&
                               (v.loaders.map((l: string) => l.toLowerCase()).includes(activeInstance.loader.toLowerCase()) ||
                                 (activeInstance.loader.toLowerCase() === 'quilt' &&
-                                  v.loaders.map((l: string) => l.toLowerCase()).includes('fabric'))));
+                                   v.loaders.map((l: string) => l.toLowerCase()).includes('fabric'))));
 
                           const isGameVerMatch =
                             !activeInstance?.gameVersion ||
@@ -524,10 +523,10 @@ export const ExploreView: React.FC = () => {
                                   {!isCompatible && (
                                     <span
                                       className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-600/40 text-[10px] font-semibold text-amber-400"
-                                      title={`Versi ini berbeda dengan instance aktif (${activeInstance?.loader?.toUpperCase()} ${activeInstance?.gameVersion})`}
+                                      title={t.explore.diffWarningTooltip.replace('{loader}', activeInstance?.loader?.toUpperCase() ?? '').replace('{gameVersion}', activeInstance?.gameVersion ?? '')}
                                     >
                                       <AlertCircle className="w-3 h-3 text-amber-400" />
-                                      <span>Beda {!isLoaderMatch ? 'Loader' : 'MC'}</span>
+                                      <span>{t.explore.diffWarning.replace('{diff}', !isLoaderMatch ? 'Loader' : 'MC')}</span>
                                     </span>
                                   )}
                                 </div>
@@ -559,26 +558,26 @@ export const ExploreView: React.FC = () => {
                                 {isThisVerInstalled ? (
                                   <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-emerald-dark/30 border border-emerald-primary/40 text-[11px] font-semibold text-emerald-active">
                                     <Check className="w-3 h-3" />
-                                    <span>Terpasang</span>
+                                    <span>{t.explore.verInstalled}</span>
                                   </span>
                                 ) : !isCompatible ? (
                                   <button
                                     disabled
                                     className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card/40 border border-obsidian-border text-nordic-muted/40 text-[11px] font-semibold cursor-not-allowed"
-                                    title={`Tidak dapat dipasang: versi ini tidak kompatibel dengan instance aktif (${activeInstance?.loader?.toUpperCase()} ${activeInstance?.gameVersion})`}
+                                    title={t.explore.verIncompatibleTooltip.replace('{loader}', activeInstance?.loader?.toUpperCase() ?? '').replace('{gameVersion}', activeInstance?.gameVersion ?? '')}
                                   >
                                     <Download className="w-3 h-3" />
-                                    <span>Tidak Cocok</span>
+                                    <span>{t.explore.verIncompatible}</span>
                                   </button>
                                 ) : isAnyVerInstalled ? (
                                   <button
                                     onClick={() => handleInstallVersion(v)}
                                     disabled={installingId === v.id}
                                     className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 text-[11px] font-semibold transition-colors cursor-pointer"
-                                    title="Ganti ke versi ini (versi lama akan digantikan otomatis)"
+                                    title={t.explore.verSwitchTooltip}
                                   >
                                     <RefreshCw className={`w-3 h-3 ${installingId === v.id ? 'animate-spin' : ''}`} />
-                                    <span>Ganti Versi</span>
+                                    <span>{t.explore.verSwitch}</span>
                                   </button>
                                 ) : (
                                   <button
@@ -587,7 +586,7 @@ export const ExploreView: React.FC = () => {
                                     className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-emerald-primary text-obsidian-bg text-[11px] font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
                                   >
                                     <Download className={`w-3 h-3 ${installingId === v.id ? 'animate-spin' : ''}`} />
-                                    <span>Pasang</span>
+                                    <span>{t.explore.verInstall}</span>
                                   </button>
                                 )}
                               </td>
@@ -602,7 +601,7 @@ export const ExploreView: React.FC = () => {
             </div>
           ) : (
             <div className="text-center text-nordic-muted py-12 text-xs">
-              Detail proyek tidak ditemukan.
+              {t.explore.detailsNotFound}
             </div>
           )}
         </div>
@@ -626,7 +625,7 @@ export const ExploreView: React.FC = () => {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Cari mod, modpack, shader, resource pack..."
+              placeholder={t.explore.searchPlaceholder}
               className="w-full bg-obsidian-card border border-obsidian-border rounded pl-9 pr-20 py-1.5 text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary transition-colors"
             />
             {query && (
@@ -634,7 +633,7 @@ export const ExploreView: React.FC = () => {
                 type="button"
                 onClick={() => setQuery('')}
                 className="absolute right-14 text-nordic-muted hover:text-nordic-text p-1 cursor-pointer transition-colors"
-                title="Hapus pencarian"
+                title={t.explore.clearSearch}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -643,17 +642,17 @@ export const ExploreView: React.FC = () => {
               type="submit"
               className="absolute right-1 px-2.5 py-1 rounded bg-emerald-primary text-obsidian-bg text-[11px] font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
             >
-              Cari
+              {t.explore.searchBtn}
             </button>
           </form>
 
           <button
             onClick={handleInstallLocalMrpack}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            title="Pilih dan pasang berkas .mrpack dari komputer"
+            title={t.explore.installMrpackTooltip}
           >
             <FileArchive className="w-3.5 h-3.5" />
-            <span>Pasang .mrpack</span>
+            <span>{t.explore.installMrpack}</span>
           </button>
         </div>
 
@@ -668,7 +667,7 @@ export const ExploreView: React.FC = () => {
               }`}
             >
               <Package className="w-3 h-3" />
-              <span>Mod</span>
+              <span>{t.explore.typeMod}</span>
             </button>
             <button
               onClick={() => setProjectType('modpack')}
@@ -679,7 +678,7 @@ export const ExploreView: React.FC = () => {
               }`}
             >
               <Layers className="w-3 h-3" />
-              <span>Modpack</span>
+              <span>{t.explore.typeModpack}</span>
             </button>
             <button
               onClick={() => setProjectType('shader')}
@@ -690,7 +689,7 @@ export const ExploreView: React.FC = () => {
               }`}
             >
               <Sparkles className="w-3 h-3" />
-              <span>Shader</span>
+              <span>{t.explore.typeShader}</span>
             </button>
             <button
               onClick={() => setProjectType('resourcepack')}
@@ -701,7 +700,7 @@ export const ExploreView: React.FC = () => {
               }`}
             >
               <Palette className="w-3 h-3" />
-              <span>Resource Pack</span>
+              <span>{t.explore.typeResourcepack}</span>
             </button>
           </div>
 
@@ -710,7 +709,7 @@ export const ExploreView: React.FC = () => {
             onChange={(e) => setLoader(e.target.value as any)}
             className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
           >
-            <option value="all">Semua Loader</option>
+            <option value="all">{t.explore.loaderAll}</option>
             <option value="fabric">Fabric</option>
             <option value="forge">Forge</option>
             <option value="neoforge">NeoForge</option>
@@ -721,17 +720,17 @@ export const ExploreView: React.FC = () => {
             onChange={(e) => setSortIndex(e.target.value as any)}
             className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
           >
-            <option value="downloads">Terpopuler</option>
-            <option value="relevance">Relevansi</option>
-            <option value="updated">Terbaru Diperbarui</option>
-            <option value="newest">Rilis Baru</option>
+            <option value="downloads">{t.explore.sortDownloads}</option>
+            <option value="relevance">{t.explore.sortRelevance}</option>
+            <option value="updated">{t.explore.sortUpdated}</option>
+            <option value="newest">{t.explore.sortNewest}</option>
           </select>
 
           <button
             onClick={() => searchModrinth()}
             disabled={loading}
             className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer shrink-0"
-            title="Muat Ulang Katalog"
+            title={t.explore.refreshTooltip}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -759,12 +758,12 @@ export const ExploreView: React.FC = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 space-y-3 text-nordic-muted text-xs">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />
-            <span>Memuat daftar aset...</span>
+            <span>{t.explore.loadingCatalogue}</span>
           </div>
         ) : hits.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 space-y-2 text-nordic-muted text-xs">
             <Search className="w-8 h-8 opacity-40 text-emerald-primary" />
-            <span>Tidak ada hasil yang cocok dengan kriteria pencarian.</span>
+            <span>{t.explore.emptyResults}</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -795,7 +794,7 @@ export const ExploreView: React.FC = () => {
                         {isInstalled && (
                           <span className="shrink-0 px-1.5 py-0.5 rounded bg-emerald-dark/30 border border-emerald-primary/40 text-[10px] font-semibold text-emerald-active flex items-center space-x-0.5">
                             <Check className="w-2.5 h-2.5" />
-                            <span>Terpasang</span>
+                            <span>{t.explore.installedBadge}</span>
                           </span>
                         )}
                       </div>
@@ -807,8 +806,8 @@ export const ExploreView: React.FC = () => {
 
                   <div className="flex items-center justify-between pt-2 border-t border-obsidian-border text-[11px] text-nordic-muted">
                     <div className="flex items-center space-x-3 truncate">
-                      <span>{hit.downloads ? hit.downloads.toLocaleString() : 0} unduhan</span>
-                      <span className="truncate">oleh {hit.author}</span>
+                      <span>{t.explore.downloadsCount.replace('{count}', String(hit.downloads ? hit.downloads.toLocaleString() : 0))}</span>
+                      <span className="truncate">{t.explore.byAuthor.replace('{author}', hit.author)}</span>
                     </div>
 
                     <button
@@ -824,7 +823,7 @@ export const ExploreView: React.FC = () => {
                           ? 'bg-obsidian-card border border-emerald-primary/40 text-emerald-primary cursor-default'
                           : 'bg-emerald-primary text-obsidian-bg hover:bg-emerald-active cursor-pointer'
                       }`}
-                      title={isInstalled ? 'Aset ini sudah terpasang di instance aktif' : 'Pasang aset ini'}
+                      title={isInstalled ? t.explore.installedTooltip : t.explore.installTooltip}
                     >
                       {isInstalling ? (
                         <RefreshCw className="w-3 h-3 animate-spin" />
@@ -833,7 +832,13 @@ export const ExploreView: React.FC = () => {
                       ) : (
                         <Download className="w-3 h-3" />
                       )}
-                      <span>{isInstalling ? 'Memasang...' : isInstalled ? 'Terpasang' : 'Pasang'}</span>
+                      <span>
+                        {isInstalling
+                          ? t.explore.installingBtn
+                          : isInstalled
+                          ? t.explore.installedBtn
+                          : t.explore.installBtn}
+                      </span>
                     </button>
                   </div>
                 </div>

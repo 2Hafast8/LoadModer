@@ -1,14 +1,11 @@
 import React, { useMemo } from 'react';
 import { marked } from 'marked';
+import { useLanguage } from '../i18n/LanguageContext.js';
 
 interface MarkdownViewerProps {
   content: string;
 }
 
-/**
- * Sanitize and clean HTML output from marked parser.
- * Removes dangerous script/iframe tags and on* attributes while preserving safe HTML and formatting.
- */
 function sanitizeAndProcessHtml(rawHtml: string): string {
   if (typeof window === 'undefined' || !window.DOMParser) {
     return rawHtml;
@@ -17,7 +14,6 @@ function sanitizeAndProcessHtml(rawHtml: string): string {
   const parser = new DOMParser();
   const doc = parser.parseFromString(rawHtml, 'text/html');
 
-  // Remove dangerous executable or embedding tags
   const dangerousTags = [
     'script',
     'style',
@@ -35,10 +31,8 @@ function sanitizeAndProcessHtml(rawHtml: string): string {
     doc.querySelectorAll(tag).forEach((el) => el.remove());
   }
 
-  // Sanitize all elements & attributes
   const allElements = doc.querySelectorAll('*');
   allElements.forEach((el) => {
-    // Strip on* event handlers (onclick, onload, onerror, etc.)
     const attrNames = Array.from(el.attributes).map((a) => a.name);
     for (const name of attrNames) {
       if (name.toLowerCase().startsWith('on')) {
@@ -48,7 +42,6 @@ function sanitizeAndProcessHtml(rawHtml: string): string {
 
     const tagName = el.tagName.toLowerCase();
 
-    // Secure anchor links
     if (tagName === 'a') {
       const href = el.getAttribute('href') || '';
       const cleanHref = href.trim().toLowerCase();
@@ -64,7 +57,6 @@ function sanitizeAndProcessHtml(rawHtml: string): string {
       }
     }
 
-    // Secure image tags
     if (tagName === 'img') {
       const src = el.getAttribute('src') || '';
       const cleanSrc = src.trim().toLowerCase();
@@ -83,10 +75,12 @@ function sanitizeAndProcessHtml(rawHtml: string): string {
 }
 
 export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content }) => {
+  const { t } = useLanguage();
+
   if (!content || !content.trim()) {
     return (
       <div className="text-nordic-muted text-xs italic py-4">
-        Tidak ada deskripsi detail yang disediakan oleh pembuat proyek.
+        {t.markdown.noDescription}
       </div>
     );
   }

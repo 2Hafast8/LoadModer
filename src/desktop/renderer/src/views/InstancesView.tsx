@@ -4,7 +4,6 @@ import {
   Folder,
   RefreshCw,
   CheckCircle2,
-  HardDrive,
   Cpu,
   Gamepad2,
   AlertCircle,
@@ -14,6 +13,7 @@ import {
   PackageCheck,
   Undo2,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext.js';
 
 interface InstanceItem {
   id: string;
@@ -30,6 +30,7 @@ interface InstancesViewProps {
 }
 
 export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged }) => {
+  const { t } = useLanguage();
   const [instances, setInstances] = useState<InstanceItem[]>([]);
   const [activeInstance, setActiveInstance] = useState<InstanceItem | null>(null);
   const [modpackProfiles, setModpackProfiles] = useState<any[]>([]);
@@ -72,14 +73,14 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         setActiveInstance(inst);
         if (onInstanceChanged) onInstanceChanged(inst.name);
         setNotification({
-          text: `Instance aktif dialihkan ke "${inst.name}"`,
+          text: t.instances.switchedInstance.replace('{name}', inst.name),
           type: 'success',
         });
         const profiles = await window.api.modpack.listProfiles().catch(() => []);
         setModpackProfiles(profiles ?? []);
       } else {
         setNotification({
-          text: res.error ?? 'Gagal memilih instance',
+          text: res.error ?? t.instances.switchFailed,
           type: 'error',
         });
       }
@@ -102,12 +103,12 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           return [...prev, ...added];
         });
         setNotification({
-          text: `Pemindaian drive selesai. Ditemukan ${found.length} direktori game Minecraft.`,
+          text: t.instances.deepScanSuccess.replace('{count}', String(found.length)),
           type: 'success',
         });
       } else {
         setNotification({
-          text: 'Tidak ada instalasi Minecraft tambahan yang ditemukan di drive lokal.',
+          text: t.instances.deepScanNone,
           type: 'success',
         });
       }
@@ -122,7 +123,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
     try {
       const res = await window.api.instances.openFolder(folderPath);
       if (!res.success && res.error) {
-        setNotification({ text: `Gagal membuka folder: ${res.error}`, type: 'error' });
+        setNotification({ text: t.instances.openFolderFailed.replace('{error}', res.error), type: 'error' });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
@@ -137,7 +138,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         setActiveInstance(res.instance);
         if (onInstanceChanged) onInstanceChanged(res.instance.name);
         setNotification({
-          text: `Folder instance "${res.instance.name}" berhasil ditambahkan dan diaktifkan.`,
+          text: t.instances.folderAdded.replace('{name}', res.instance.name),
           type: 'success',
         });
       } else if (res.error) {
@@ -152,10 +153,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
     try {
       const res = await window.api.modpack.switchProfile(profileId);
       if (res.success) {
-        setNotification({ text: `Wadah modpack berhasil dialihkan ke "${profileId}"`, type: 'success' });
+        setNotification({ text: t.instances.containerSwitched.replace('{name}', profileId), type: 'success' });
         loadInstances();
       } else {
-        setNotification({ text: res.error ?? 'Gagal beralih wadah', type: 'error' });
+        setNotification({ text: res.error ?? t.instances.containerSwitchFailed, type: 'error' });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
@@ -166,10 +167,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
     try {
       const res = await window.api.modpack.disableActive();
       if (res.success) {
-        setNotification({ text: 'Wadah modpack dinonaktifkan. Instance kembali ke mode bersih/vanilla.', type: 'success' });
+        setNotification({ text: t.instances.containerDisabled, type: 'success' });
         loadInstances();
       } else {
-        setNotification({ text: res.error ?? 'Gagal menonaktifkan modpack', type: 'error' });
+        setNotification({ text: res.error ?? t.instances.containerDisableFailed, type: 'error' });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
@@ -181,10 +182,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
       <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xs font-semibold text-nordic-text uppercase tracking-wider">
-            Pengelola Launcher & Instance
+            {t.instances.title}
           </h2>
           <p className="text-[11px] text-nordic-muted">
-            Pilih instance target yang akan dikelola oleh LoadModer
+            {t.instances.subtitle}
           </p>
         </div>
 
@@ -193,37 +194,37 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
             <button
               onClick={() => handleOpenFolder(activeInstance.rootDir)}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-emerald-dark/30 border border-emerald-primary/40 text-xs text-emerald-active hover:bg-emerald-dark/50 transition-colors cursor-pointer"
-              title="Buka direktori instance aktif di Windows File Explorer"
+              title={t.instances.openActiveFolderTooltip}
             >
               <FolderOpen className="w-3.5 h-3.5" />
-              <span>Buka Folder Aktif</span>
+              <span>{t.instances.openActiveFolder}</span>
             </button>
           )}
 
           <button
             onClick={handleBrowseFolder}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
-            title="Pilih folder .minecraft secara manual"
+            title={t.instances.customFolderTooltip}
           >
             <FolderPlus className="w-3.5 h-3.5" />
-            <span>Folder Manual</span>
+            <span>{t.instances.customFolder}</span>
           </button>
 
           <button
             onClick={handleDeepScan}
             disabled={deepScanning}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
-            title="Pindai seluruh drive lokal (C:, D:, E:)"
+            title={t.instances.scanDrivesTooltip}
           >
             <FolderSearch className={`w-3.5 h-3.5 ${deepScanning ? 'animate-spin' : ''}`} />
-            <span>Pindai Drive</span>
+            <span>{t.instances.scanDrives}</span>
           </button>
 
           <button
             onClick={loadInstances}
             disabled={loading}
             className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
-            title="Refresh"
+            title={t.instances.refreshTooltip}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -254,7 +255,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
               <div className="flex items-center space-x-2">
                 <PackageCheck className="w-4 h-4 text-emerald-primary" />
                 <span className="text-xs font-bold text-nordic-text uppercase font-mono">
-                  Wadah Modpack Tersimpan ({modpackProfiles.length})
+                  {t.instances.modpackContainers.replace('{count}', String(modpackProfiles.length))}
                 </span>
               </div>
               <button
@@ -262,7 +263,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                 className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-[11px] text-nordic-muted hover:text-status-warning hover:border-status-warning/40 transition-colors cursor-pointer"
               >
                 <Undo2 className="w-3 h-3" />
-                <span>Mode Vanilla (Nonaktifkan Wadah)</span>
+                <span>{t.instances.vanillaMode}</span>
               </button>
             </div>
 
@@ -281,7 +282,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                       {prof.name}
                     </span>
                     <span className="text-[10px] font-mono opacity-70">
-                      {prof.filesCount ?? 0} berkas • {prof.loader ?? 'modpack'}
+                      {t.instances.filesCount.replace('{count}', String(prof.filesCount ?? 0))} • {prof.loader ?? 'modpack'}
                     </span>
                   </div>
 
@@ -294,7 +295,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                         : 'bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary hover:text-emerald-primary'
                     }`}
                   >
-                    {prof.isActive ? 'Aktif' : 'Pilih'}
+                    {prof.isActive ? t.common.active : t.common.install}
                   </button>
                 </div>
               ))}
@@ -305,12 +306,12 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 space-y-2 text-nordic-muted">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />
-            <span className="text-xs">Mendeteksi launcher Minecraft lokal...</span>
+            <span className="text-xs">{t.instances.detectingLaunchers}</span>
           </div>
         ) : instances.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 space-y-2 text-center text-nordic-muted">
             <Layers className="w-8 h-8 opacity-40" />
-            <span className="text-xs">Tidak ada instance Minecraft yang ditemukan di sistem.</span>
+            <span className="text-xs">{t.instances.noInstancesFound}</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -337,7 +338,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                       {isActive && (
                         <span className="flex items-center space-x-1 text-[11px] font-semibold text-emerald-active bg-emerald-dark/30 px-2 py-0.5 rounded border border-emerald-primary/40">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Instance Aktif</span>
+                          <span>{t.instances.activeBadge}</span>
                         </span>
                       )}
                     </div>
@@ -349,16 +350,16 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                     <div className="space-y-1.5 mb-4 text-[11px]">
                       <div className="flex items-center space-x-2 text-nordic-muted">
                         <Gamepad2 className="w-3.5 h-3.5 shrink-0 text-emerald-muted" />
-                        <span>Versi Game:</span>
+                        <span>{t.instances.gameVersionLabel}</span>
                         <span className="font-mono text-nordic-text font-medium">
-                          {inst.gameVersion ?? 'Auto-detect'}
+                          {inst.gameVersion ?? t.instances.autoDetect}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2 text-nordic-muted">
                         <Cpu className="w-3.5 h-3.5 shrink-0 text-emerald-muted" />
-                        <span>Loader:</span>
+                        <span>{t.instances.loaderLabel}</span>
                         <span className="font-mono text-nordic-text font-medium capitalize">
-                          {inst.loader ?? 'Universal'}
+                          {inst.loader ?? t.instances.universal}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2 text-nordic-muted">
@@ -374,10 +375,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                     <button
                       onClick={() => handleOpenFolder(inst.rootDir)}
                       className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
-                      title="Buka direktori instance di Windows File Explorer"
+                      title={t.instances.openFolderTooltip}
                     >
                       <FolderOpen className="w-3.5 h-3.5" />
-                      <span>Buka Folder</span>
+                      <span>{t.instances.openFolderBtn}</span>
                     </button>
 
                     <button
@@ -392,10 +393,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                       }`}
                     >
                       {isActive
-                        ? 'Sedang Dipakai'
+                        ? t.instances.currentInUse
                         : isSwitching
-                        ? 'Mengalihkan...'
-                        : 'Pilih Instance Ini'}
+                        ? t.instances.switchingBtn
+                        : t.instances.selectBtn}
                     </button>
                   </div>
                 </div>

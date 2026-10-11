@@ -6,11 +6,11 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  HelpCircle,
-  Layers,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext.js';
 
 export const BisectView: React.FC = () => {
+  const { t } = useLanguage();
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(1);
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -71,10 +71,10 @@ export const BisectView: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-nordic-text">
-                Alat Diagnostik Crash Bisect
+                {t.bisect.title}
               </h2>
               <p className="text-xs text-nordic-muted">
-                Isolasi mod penyebab crash secara efisien menggunakan algoritma pencarian biner (O(log n))
+                {t.bisect.subtitle}
               </p>
             </div>
           </div>
@@ -87,10 +87,10 @@ export const BisectView: React.FC = () => {
             </div>
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-nordic-text">
-                Mod Penyebab Crash Terdeteksi!
+                {t.bisect.culpritTitle}
               </h3>
               <p className="text-xs text-nordic-muted">
-                Sistem berhasil mengisolasi mod bermasalah:
+                {t.bisect.culpritDesc}
               </p>
               <div className="mt-2 py-2 px-4 rounded bg-obsidian-bg border border-status-danger/50 text-status-danger font-mono text-xs font-semibold inline-block">
                 {culprit}
@@ -101,7 +101,7 @@ export const BisectView: React.FC = () => {
                 onClick={() => handleAction('reset')}
                 className="px-4 py-2 rounded bg-emerald-primary text-obsidian-bg text-xs font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
               >
-                Selesaikan & Pulihkan Mod Lainnya
+                {t.bisect.completeBtn}
               </button>
             </div>
           </div>
@@ -111,22 +111,22 @@ export const BisectView: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-active animate-pulse" />
                 <span className="text-xs font-semibold text-nordic-text uppercase font-mono">
-                  Sesi Bisect Berjalan — Tahap {step}
+                  {t.bisect.runningTitle.replace('{step}', String(step))}
                 </span>
               </div>
               {remaining !== null && (
                 <span className="text-[11px] font-mono text-nordic-muted bg-obsidian-surface px-2.5 py-1 rounded border border-obsidian-border">
-                  Tersisa {remaining} kandidat
+                  {t.bisect.candidatesRemaining.replace('{count}', String(remaining))}
                 </span>
               )}
             </div>
 
             <div className="space-y-2 text-center py-2">
               <p className="text-xs font-medium text-nordic-text">
-                Separuh mod telah dinonaktifkan sementara.
+                {t.bisect.promptLine1}
               </p>
               <p className="text-xs text-nordic-muted max-w-md mx-auto">
-                Silakan luncurkan game Minecraft Anda sekarang. Apakah game berhasil masuk ke menu utama tanpa crash?
+                {t.bisect.promptLine2}
               </p>
             </div>
 
@@ -137,7 +137,7 @@ export const BisectView: React.FC = () => {
                 className="flex items-center justify-center space-x-2 py-3 rounded bg-emerald-dark/40 border border-emerald-primary/60 text-emerald-active hover:bg-emerald-dark/60 text-xs font-semibold transition-colors cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Berhasil Masuk (Good)</span>
+                <span>{t.bisect.goodBtn}</span>
               </button>
 
               <button
@@ -146,7 +146,7 @@ export const BisectView: React.FC = () => {
                 className="flex items-center justify-center space-x-2 py-3 rounded bg-status-danger/20 border border-status-danger/60 text-status-danger hover:bg-status-danger/30 text-xs font-semibold transition-colors cursor-pointer"
               >
                 <XCircle className="w-4 h-4" />
-                <span>Masih Crash (Bad)</span>
+                <span>{t.bisect.badBtn}</span>
               </button>
             </div>
 
@@ -157,7 +157,7 @@ export const BisectView: React.FC = () => {
                 className="inline-flex items-center space-x-1.5 text-xs text-nordic-muted hover:text-status-danger transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Batalkan Sesi & Pulihkan File Mod</span>
+                <span>{t.bisect.cancelBtn}</span>
               </button>
             </div>
           </div>
@@ -165,10 +165,10 @@ export const BisectView: React.FC = () => {
           <div className="border border-obsidian-border bg-obsidian-card rounded p-6 space-y-5 text-center">
             <div className="space-y-2 max-w-md mx-auto">
               <h3 className="text-xs font-bold text-nordic-text uppercase tracking-wide">
-                Mulai Investigasi Crash
+                {t.bisect.readyTitle}
               </h3>
               <p className="text-xs text-nordic-muted leading-relaxed">
-                Jika Minecraft mengalami crash saat loading dan Anda memiliki puluhan mod, jangan uji coba satu per satu secara manual. LoadModer akan otomatis membagi dua daftar mod hingga mod penyebab crash terisolasi dalam hitungan langkah.
+                {t.bisect.readyDesc}
               </p>
             </div>
 
@@ -178,7 +178,7 @@ export const BisectView: React.FC = () => {
               className="inline-flex items-center space-x-2 px-5 py-2.5 rounded bg-emerald-primary text-obsidian-bg text-xs font-bold hover:bg-emerald-active transition-colors cursor-pointer"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Mulai Diagnostik Bisect</span>
+              <span>{t.bisect.startBtn}</span>
             </button>
           </div>
         )}

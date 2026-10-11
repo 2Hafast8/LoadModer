@@ -39,7 +39,6 @@ function setupWatcher(modsDir: string, instanceDir: string, getMainWindow?: () =
     activeWatcher.on('file-event', notifyRenderer);
     activeWatcher.start();
   } catch {
-    // Graceful fallback if watching fails
   }
 }
 
@@ -432,7 +431,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       let gameVersion = active.gameVersion;
       let loader = active.loader;
 
-      // Auto-detect version and loader if missing
       if (!gameVersion || !loader) {
         try {
           const inspected = await instanceDetector.inspectGameDir(active.rootDir, {
@@ -753,7 +751,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
             sha512: primaryFile.hashes.sha512,
           });
 
-          // Check required shader dependencies (e.g. Iris/Oculus/Fabric API)
           let depCount = 0;
           try {
             const project = await modrinthClient.getProject(slugOrId).catch(() => undefined);
@@ -777,7 +774,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           return { success: true, message: `Shader pack ${safeName} berhasil dipasang.${depMsg}` };
         }
 
-        // Handle Resource Packs
         if (pType === 'resourcepack') {
           let targetVersion: any;
           if (options?.versionId) {
@@ -802,7 +798,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
             sha512: primaryFile.hashes.sha512,
           });
 
-          // Check required resourcepack dependencies (e.g. ETF/EMF/CIT Resewn/Continuity)
           let depCount = 0;
           try {
             const project = await modrinthClient.getProject(slugOrId).catch(() => undefined);
@@ -835,7 +830,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
             gameVersion: gameVersion ?? undefined,
           });
 
-          // Fallback to loader matching if snapshot gameVersion returns no indexed builds
           if ((!versions || versions.length === 0) && gameVersion) {
             versions = await modrinthClient.getProjectVersions(slugOrId, {
               loader: loader ?? undefined,
@@ -936,7 +930,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           dependencies: (targetVersion.dependencies ?? []).map((d: any) => d.project_id).filter(Boolean),
         });
 
-        // Automatically resolve and install required dependencies
         let depCount = 0;
         try {
           const project = await modrinthClient.getProject(slugOrId).catch(() => undefined);

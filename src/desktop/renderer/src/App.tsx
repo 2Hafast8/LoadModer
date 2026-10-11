@@ -5,9 +5,12 @@ import { ExploreView } from './views/ExploreView.js';
 import { InstancesView } from './views/InstancesView.js';
 import { BisectView } from './views/BisectView.js';
 
+import { useLanguage } from './i18n/LanguageContext.js';
+
 export const App: React.FC = () => {
+  const { t } = useLanguage();
   const [currentTab, setCurrentTab] = useState<NavTab>('mods');
-  const [activeInstanceName, setActiveInstanceName] = useState<string>('Memuat...');
+  const [activeInstanceName, setActiveInstanceName] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchActive = async () => {
@@ -16,7 +19,7 @@ export const App: React.FC = () => {
         if (data.active?.name) {
           setActiveInstanceName(data.active.name);
         } else {
-          setActiveInstanceName('Belum Ada');
+          setActiveInstanceName(undefined);
         }
       } catch (err) {
         console.error('Failed to get active instance:', err);
