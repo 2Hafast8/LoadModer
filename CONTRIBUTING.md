@@ -77,13 +77,13 @@ npm run build
 
 We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `feat(scope): ...` — New feature or capability
-- `fix(scope): ...` — Bug fix
-- `refactor(scope): ...` — Code change that neither fixes a bug nor adds a feature
-- `perf(scope): ...` — Performance optimization
-- `test(scope): ...` — Adding or correcting tests
-- `docs(scope): ...` — Documentation updates
-- `chore(scope): ...` — Tooling, dependencies, or configuration changes
+- `feat(scope): ...`: New feature or capability
+- `fix(scope): ...`: Bug fix
+- `refactor(scope): ...`: Code change that neither fixes a bug nor adds a feature
+- `perf(scope): ...`: Performance optimization
+- `test(scope): ...`: Adding or correcting tests
+- `docs(scope): ...`: Documentation updates
+- `chore(scope): ...`: Tooling, dependencies, or configuration changes
 
 ---
 

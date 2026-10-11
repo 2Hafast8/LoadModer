@@ -1,22 +1,23 @@
-# 01 — Arsitektur & Visi Sistem LoadModer
+# 01: Arsitektur dan Visi Sistem LoadModer
 
-Dokumen ini menjelaskan arsitektur perangkat lunak, batas modular, alur data, dan mekanisme komunikasi API pada **LoadModer** (`lm`).
+Dokumen ini menjelaskan arsitektur perangkat lunak, batas modular, alur data, dan mekanisme komunikasi API pada LoadModer (`lm`).
 
 ---
 
-## 1. Visi & Masalah yang Diselesaikan
+## 1. Visi dan Masalah yang Diselesaikan
 
 Pengelolaan mod Minecraft konvensional memiliki beberapa masalah praktis:
 1. **Launcher GUI Berat**: Membutuhkan resource sistem tinggi dan tidak dapat dijalankan di terminal headless atau server VPS.
 2. **Pemasangan Manual**: Menyalin file `.jar` secara manual ke folder `mods/` rentan kesalahan versi, tidak mendeteksi library dependensi wajib, dan meninggalkan file usang tak terpakai saat mod dihapus.
 3. **Konflik Multi-Versi**: Berpindah versi Minecraft dalam instance yang sama sering mencampurkan file `.jar` dari versi berbeda yang menyebabkan game crash saat startup.
 
-**LoadModer** menyelesaikan masalah ini dengan pendekatan package manager modern:
+LoadModer menyelesaikan masalah ini dengan pendekatan package manager modern:
 * **Eksekusi Cepat**: Berbasis Node.js 20+ native fetch tanpa runtime berat.
 * **Pendeteksi Otomatis**: Memindai direktori launcher Minecraft di komputer pengguna.
 * **Resolusi Dependensi**: Mendeteksi dan mengunduh library yang diwajibkan secara otomatis sesuai loader dan versi Minecraft aktif.
-* **Isolasi State & Profil**: Mengarsipkan file mod per kombinasi versi game dan loader dalam snapshot lokal (`.loadmoder/snapshots/`).
+* **Isolasi State dan Profil**: Mengarsipkan file mod per kombinasi versi game dan loader dalam snapshot lokal (`.loadmoder/snapshots/`).
 * **Deterministik**: Mencatat relasi modul pada lockfile (`loadmoder.lock.json`) untuk mencegah duplikasi dan membersihkan dependensi yatim (*orphan pruning*).
+* **Multi-Interface**: Menyediakan antarmuka terminal (CLI & TUI) serta aplikasi desktop grafis (Electron & React 19) dengan installer drag-and-drop.
 
 ---
 
@@ -26,23 +27,24 @@ Sistem dibagi menjadi empat lapisan dengan pemisahan tanggung jawab yang tegas:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   PRESENTATION LAYER (CLI & DUAL UX)                   │
-│  Interactive TUI Dashboard (Home) │ Commander Router (CLI Commands)    │
-│  Keyboard Navigation (@inquirer)  │ Figlet & Nordic Clean Theme        │
-│  Boxen Cards & Metadata           │ Cli-Table3 Border Tables           │
+│                   PRESENTATION LAYER (MULTI-INTERFACE)                 │
+│  Desktop GUI (Electron 32 + React 19) │ Interactive TUI Dashboard (lm) │
+│  Commander CLI Router (Direct Args)   │ IPC Preload Security Gateway   │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                    APPLICATION / ORCHESTRATION LAYER                   │
 │   Install Orchestrator │ Update Engine │ Bisect Runner │ Watch Engine  │
+│   Local Archive Router │ Log Analyzer  │ Modpack Export Coordinator    │
 └───────────────────┬───────────────────────────────┬────────────────────┘
                     │                               │
 ┌───────────────────▼───────────────┐   ┌───────────▼────────────────────┐
 │        CORE DOMAIN ENGINES        │   │    INSTANCE & STATE DOMAIN     │
-│ • Modpack Engine (.mrpack unpack) │   │ • Launcher Auto-Discovery      │
+│ • Modpack Engine (Unpack/Export)  │   │ • Launcher Auto-Discovery      │
 │ • Dependency Resolver & DAG Graph │   │ • Lockfile Manager (.lock.json)│
 │ • Dynamic Minecraft Versions API  │   │ • Profile Snapshot Manager     │
 │ • Environment Filter (Client/Srv) │   │ • Mod Disabler (.disabled)     │
+│ • Local File Drag-Drop Installer  │   │ • Crash Log Pattern Analyzer   │
 └───────────────────┬───────────────┘   └───────────┬────────────────────┘
                     │                               │
 ┌───────────────────▼───────────────────────────────▼────────────────────┐
@@ -52,7 +54,8 @@ Sistem dibagi menjadi empat lapisan dengan pemisahan tanggung jawab yang tegas:
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### A. Presentation Layer (Dual-Mode CLI & TUI)
+### A. Presentation Layer (Multi-Interface)
+* **Desktop GUI (Electron + React 19)**: Antarmuka jendela modern dengan drag-and-drop installer, inspeksi otomatis berkas arsip ZIP, visualisasi crash log, filter pencarian instan, dan dukungan dwibahasa (ID/EN).
 * **Interactive Dashboard TUI (`lm` / `lm home`)**: Antarmuka berbasis menu interaktif `@inquirer/prompts` dengan kontrol panah (`↑`/`↓`) atau vim-keys (`j`/`k`).
 * **Direct Command Router (`commander`)**: Parser CLI langsung (`lm install`, `lm search`, `lm profile`, `lm bisect`).
 * **Komponen Visual**: Header banner Nordic Clean (`src/ui/theme.ts`), kartu ringkasan (`boxen`), dan tabel status (`cli-table3`).
@@ -69,10 +72,14 @@ Sistem dibagi menjadi empat lapisan dengan pemisahan tanggung jawab yang tegas:
   Mengambil daftar versi rilis resmi Minecraft ($\ge$ 1.16) langsung dari endpoint Modrinth API, mengurutkan secara semantik, dan menyimpannya dalam cache lokal (TTL 1 jam) dengan fallback offline.
 * **Automatic Dependency Resolver** (`src/core/dependency/resolver.ts`):
   Mendeteksi library yang dibutuhkan melalui metadata resmi API Modrinth dan parsing deskripsi mod, lalu mengunduh versi yang cocok untuk loader dan versi game aktif.
-* **Modpack Engine** (`src/core/modpack/unpacker.ts`):
-  Membaca dan mengekstrak berkas `.mrpack`, memvalidasi manifest `modrinth.index.json` via Zod, memproses folder `overrides/`, dan memfilter komponen sesuai target `client` atau `server`.
+* **Modpack Engine** (`src/core/modpack/unpacker.ts` & `src/core/modpack/exporter.ts`):
+  Membaca dan mengekstrak berkas `.mrpack`, memvalidasi manifest `modrinth.index.json` via Zod, memproses folder `overrides/`, memfilter komponen sesuai target `client` atau `server`, serta mengekspor modpack dari instance lokal ke format `.mrpack` atau `.zip`.
+* **Local Archive Installer** (`src/core/instance/localInstaller.ts`):
+  Memeriksa isi arsip lokal (apakah mod `.jar`, shader pack dengan folder `shaders/`, resource pack dengan `pack.mcmeta`, atau modpack dengan `modrinth.index.json`) lalu mendistribusikannya ke direktori target yang benar.
+* **Crash Log Analyzer** (`src/core/troubleshoot/logAnalyzer.ts`):
+  Memindai `latest.log` atau berkas crash report Minecraft untuk mendeteksi mod penyebab error menggunakan pattern matching regex.
 * **Modpack Profile Vault & Baseline Manager** (`src/core/modpack/profileManager.ts` & `src/core/modpack/baselineManager.ts`):
-  Mengisolasi profil modpack ke dalam brankas `.loadmoder/profiles/<id>/` pada setiap wadah client (TLauncher `versions/` maupun Legacy `home/`), mencadangkan kondisi asli wadah ke baseline permanen (`.loadmoder/baseline/`), memfasilitasi pertukaran modpack instan tanpa unduh ulang, serta membersihkan wadah kerja (*clean state*) dengan pemulihan baseline otomatis dan proteksi file engine launcher.
+  Mengisolasi profil modpack ke dalam brankas `.loadmoder/profiles/<id>/` pada setiap wadah client, mencadangkan kondisi asli wadah ke baseline permanen (`.loadmoder/baseline/`), dan memfasilitasi pertukaran modpack tanpa unduh ulang.
 * **Profile Snapshot Manager** (`src/core/profile/snapshotManager.ts`):
   Mengarsipkan dan memulihkan berkas mod ke folder snapshot saat pengguna berganti konfigurasi via `lm profile switch`.
 * **Dependency DAG & Lockfile Manager** (`src/core/dependency/graph.ts`):
@@ -93,8 +100,8 @@ Sistem dibagi menjadi empat lapisan dengan pemisahan tanggung jawab yang tegas:
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Pengguna / CMD
-    participant CLI as Presentation (CLI / TUI)
+    actor User as Pengguna (CLI / GUI)
+    participant Presentation as Presentation Layer
     participant Orch as Install Orchestrator
     participant Prof as Profile / Instance State
     participant Resolver as Dependency Resolver
@@ -103,10 +110,10 @@ sequenceDiagram
     participant Lock as Lockfile Manager
     participant FS as Local File System (mods/)
 
-    User->>CLI: lm install sodium
-    CLI->>Prof: Ambil versi MC & loader profil aktif
-    Prof-->>CLI: Instance Aktif: 1.21.1 / Fabric
-    CLI->>Orch: Pasang "sodium" (1.21.1, fabric)
+    User->>Presentation: Pasang mod (misal: "sodium")
+    Presentation->>Prof: Ambil versi MC & loader profil aktif
+    Prof-->>Presentation: Instance Aktif: 1.21.1 / Fabric
+    Presentation->>Orch: Pasang "sodium" (1.21.1, fabric)
     Orch->>API: GET /v2/project/sodium/version
     API-->>Orch: Versi rilis yang kompatibel + Berkas utama
     
@@ -118,7 +125,7 @@ sequenceDiagram
         Resolver-->>Orch: Daftar library yang harus diunduh (misal: fabric-api)
     end
 
-    Orch->>CLI: Tampilkan ringkasan unduhan
+    Orch->>Presentation: Tampilkan ringkasan unduhan
     par Unduh Paralel (p-limit)
         Orch->>CDN: Unduh file sodium ke sodium.jar.part
         CDN-->>FS: Tulis chunk ke disk
@@ -130,8 +137,8 @@ sequenceDiagram
     Orch->>Lock: Perbarui loadmoder.lock.json (catat root & dependensi)
     Lock-->>FS: Tulis lockfile baru
     Orch->>Prof: Perbarui snapshot profil aktif
-    Orch->>CLI: Selesai
-    CLI-->>User: Tampilkan konfirmasi sukses
+    Orch->>Presentation: Selesai
+    Presentation-->>User: Tampilkan konfirmasi sukses
 ```
 
 ---
@@ -141,7 +148,7 @@ sequenceDiagram
 ### A. Kebijakan Header User-Agent
 Setiap permintaan HTTP menyertakan header `User-Agent` terstruktur:
 ```text
-User-Agent: hafiznovelrianto/loadmoder/2.5.0 (contact@example.com)
+User-Agent: hafiznovelrianto/loadmoder/2.6.0 (contact@example.com)
 ```
 Informasi kontak dapat ditentukan pengguna melalui variabel lingkungan `LOADMODER_CONTACT`.
 
@@ -158,4 +165,4 @@ Modrinth membatasi permintaan hingga 300 req/menit per IP:
 * Berkas sementara diunduh dengan ekstensi `.part`.
 * Checksum SHA-512 diverifikasi secara streaming setelah unduhan selesai.
 * Jika checksum tidak cocok, berkas `.part` langsung dihapus dan operasi dibatalkan.
-* Berkas hanya di-*rename* menjadi `.jar` setelah checksum diverifikasi valid.
+* Berkas hanya diubah namanya menjadi `.jar` setelah checksum diverifikasi valid.

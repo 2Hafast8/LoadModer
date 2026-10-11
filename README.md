@@ -1,7 +1,7 @@
 # 📦 LoadModer (`lm`)
 
-> **CLI & TUI package manager untuk mod, modpack (.mrpack), shader, dan resource pack Minecraft berbasis Modrinth API v2.**  
-> Ditulis menggunakan TypeScript (ESM) dengan arsitektur DAG dependency resolution, isolasi profil snapshot, dan pendeteksi multi-launcher otomatis.
+> **CLI, TUI, dan Desktop GUI package manager untuk mod, modpack (.mrpack), shader, dan resource pack Minecraft berbasis Modrinth API v2.**  
+> Ditulis menggunakan TypeScript (ESM) dengan arsitektur DAG dependency resolution, isolasi profil snapshot, pendeteksi multi-launcher otomatis, dan distribusi standalone Windows executable (`.exe`).
 
 [![Version](https://img.shields.io/badge/version-2.6.0-38bdf8.svg)](package.json)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
@@ -26,7 +26,8 @@
   - Menetapkan Official Minecraft (`vanilla-default`) sebagai launcher resmi standar saat inisialisasi awal.
   - Pengenalan pintar wadah bersama `%APPDATA%\.minecraft` (memprioritaskan file executable/profil TLauncher sebelum mengasumsikan instalasi resmi Mojang).
   - Kebijakan aditif murni: penambahan launcher baru tidak akan pernah menimpa atau menghapus konfigurasi instance yang sudah disimpan pengguna di `config.json`.
-* **🎯 Operasi Dual-Mode (Nordic Clean TUI & Direct CLI)**:
+* **🎯 Operasi Multi-Interface (Desktop GUI, Nordic Clean TUI & Direct CLI)**:
+  - **Desktop GUI**: Antarmuka visual native Windows berbasis Electron 32 dan React 19 dengan live updates.
   - **Interactive TUI Dashboard**: Header adaptif Figlet ASCII + 4-line Nordic Cyber Status Box, Live Badges navigasi instan, dan kontrol keyboard panah (`↑`/`↓` atau `j`/`k`).
   - **Direct CLI**: Jalankan `lm install`, `lm search`, `lm update` langsung dengan flag dan argumen untuk skrip otomasi maupun terminal.
 * **🏰 Legacy Launcher Dual-Path Modpack Architecture**:
@@ -39,22 +40,19 @@
   - Menghapus fitur penimpaan langsung saat modpack aktif untuk mencegah tabrakan berkas.
   - Pilihan tegas: `❌ Cancel` (batalkan tanpa sentuh disk) atau `🧹 Clean Install` (arsipkan modpack aktif ke brankas profil `.loadmoder/profiles/<id>`, bersihkan live files, pasang modpack baru secara bersih).
 * **📦 TLauncher Modpack Profile Vault & Multi-Client Isolation**:
-  - **Wadah Client Terisolasi**: Pemisahan wadah client TLauncher per loader (`fabric`, `forge`) dan versi game (misal: `mypack(fabric)`, `mypack(forge)`, `mypack(fabric-1.21)`).
+  - **Wadah Client Terisolasi**: Pemisahan wadah client TLauncher per loader (`fabric`, `forge`) dan versi game.
   - **Brankas Profil Lokal (`.loadmoder/profiles/`)**: Beralih antar-modpack secara instan tanpa unduh ulang (`lm modpack switch`).
   - **Clean State & Global Disable**: Mengarsipkan seluruh modpack aktif ke brankas dan membersihkan wadah kerja kembali ke kondisi Vanilla awal (`lm modpack disable`).
-  - **Panduan Terintegrasi**: Panduan pembuatan wadah client di TLauncher dan Legacy Launcher langsung di TUI.
 * **🏷️ Browser Cepat & Horizontal Filter Chips**:
   - Filter chip bar 2 baris ringkas menggantikan tabel vertikal, menampilkan hasil pencarian pertama langsung di layar tanpa scroll.
 * **⚡ Validasi Status Terpasang Konkuren**:
   - Pengecekan paralel aset terpasang (via `loadmoder.lock.json` dan pemindaian disk) saat proses pencarian berlangsung (`lm search` dan TUI Browser) tanpa latensi tambahan.
-  - Kartu rincian mod menampilkan status akurat: `✔ Terpasang (Aktif)`, `○ Terpasang (Nonaktif)`, atau `🌐 Belum Terpasang (Modrinth)` beserta perbandingan versi lokal vs rilis terbaru.
 * **🗃️ Mod Manager Canggih (Segmented Tabs & Batch Operations)**:
   - Tab segmen status: `● Semua Mod`, `✔ Aktif`, `○ Nonaktif`, dan pengukur kapasitas penyimpanan (*storage gauge*).
   - Operasi massal (*batch toggle*) untuk mengaktifkan, menonaktifkan, atau menghapus banyak mod sekaligus dalam satu aksi.
 * **♿ Aksesibilitas Penuh (WCAG 2.2 AA & `NO_COLOR`)**:
   - Seluruh token warna memenuhi rasio kontras $\ge 4.5:1$ pada dark mode maupun light mode.
   - Standar `NO_COLOR` dan mode `ACCESSIBLE=true` (preservasi buffer *scrollback* terminal).
-  - Indikator ganda berbasis simbol teks (`✔`, `○`, `🌐`, `●`, `▲`, `✖`), tidak pernah mengandalkan warna semata.
 * **🎮 Multi-Drive Launcher Locator**:
   - Mendeteksi launcher pihak ketiga (Prism, MultiMC, Modrinth App, CurseForge, TLauncher, Vanilla) di seluruh partisi drive Windows (`C:`, `D:`, `E:`, dll.) secara otomatis.
 * **🧩 Resolusi Dependensi Otomatis & Lockfile DAG**:
@@ -66,8 +64,8 @@
   - Menyimpan file mod per versi game dan loader ke snapshot lokal (`.loadmoder/snapshots/`), mencegah bentrok file saat berganti konfigurasi via `lm profile switch`.
 * **👀 Pemantau Folder Real-Time (`lm watch`)**:
   - Memantau folder `mods/` menggunakan Node.js native `fs.watch` dengan debouncing untuk mendeteksi penambahan, penghapusan, atau perubahan nama file manual.
-* **🩺 Diagnostik Crash ($O(\log_2 N)$)**:
-  - Melacak mod penyebab crash menggunakan algoritma pencarian biner otomatis (`lm bisect`).
+* **🩺 Diagnostik Crash ($O(\log_2 N)$) & Crash Log Analyzer**:
+  - Melacak mod penyebab crash menggunakan algoritma pencarian biner otomatis (`lm bisect`) dan pemindai crash log regex.
 
 ---
 
@@ -122,8 +120,8 @@ npm run dev
 | `lm list` | Menampilkan tabel status mod, ukuran berkas, dan relasi lockfile | `lm list` |
 | `lm update` | Memeriksa dan memperbarui mod ke versi rilis yang kompatibel | `lm update -y` |
 | `lm remove <slug...>` | Menghapus mod beserta dependensi yatim | `lm remove iris --prune` |
-| `lm enable <mod>` | Mengaktifkan mod yang dinonaktifkan (`.jar.disabled` $\rightarrow$ `.jar`) | `lm enable sodium` |
-| `lm disable <mod>` | Menonaktifkan mod tanpa menghapus file (`.jar` $\rightarrow$ `.jar.disabled`) | `lm disable sodium` |
+| `lm enable <mod>` | Mengaktifkan mod yang dinonaktifkan (`.jar.disabled` -> `.jar`) | `lm enable sodium` |
+| `lm disable <mod>` | Menonaktifkan mod tanpa menghapus file (`.jar` -> `.jar.disabled`) | `lm disable sodium` |
 | `lm bisect <action>` | Pencarian biner isolasi mod penyebab crash (`start` \| `good` \| `bad` \| `reset`) | `lm bisect start` |
 | `lm watch` | Memantau folder mods secara real-time dan menyinkronkan data | `lm watch` |
 | `lm modpack <action>` | Mengelola profil modpack terisolasi (`list` \| `switch` \| `disable`) | `lm modpack switch zombie-apocalypse` |
@@ -146,24 +144,24 @@ npm run dev
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   PRESENTATION LAYER (CLI & DUAL UX)                   │
-│  Interactive TUI Dashboard (Home) │ Commander Router (CLI Commands)    │
-│  Keyboard Navigation (@inquirer)  │ Figlet & Nordic Clean Theme        │
-│  Boxen Cards & Metadata           │ Cli-Table3 Border Tables           │
+│                   PRESENTATION LAYER (MULTI-INTERFACE)                 │
+│  Desktop GUI (Electron 32 + React 19) │ Interactive TUI Dashboard (lm) │
+│  Commander CLI Router (Direct Args)   │ IPC Preload Security Gateway   │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                    APPLICATION / ORCHESTRATION LAYER                   │
 │   Install Orchestrator │ Update Engine │ Bisect Runner │ Watch Engine  │
+│   Local Archive Router │ Log Analyzer  │ Modpack Export Coordinator    │
 └───────────────────┬───────────────────────────────┬────────────────────┘
                     │                               │
 ┌───────────────────▼───────────────┐   ┌───────────▼────────────────────┐
 │        CORE DOMAIN ENGINES        │   │    INSTANCE & STATE DOMAIN     │
-│ • Modpack Engine (.mrpack unpack) │   │ • Launcher Auto-Discovery      │
-│ • Modpack Profile Vault & Manager │   │ • Lockfile Manager (.lock.json)│
-│ • Dependency Resolver & DAG Graph │   │ • Profile Snapshot Manager     │
-│ • Dynamic Minecraft Versions API  │   │ • Mod Disabler (.disabled)     │
-│ • Environment Filter (Client/Srv) │   │ • Multi-Drive Path Resolver    │
+│ • Modpack Engine (Unpack/Export)  │   │ • Launcher Auto-Discovery      │
+│ • Dependency Resolver & DAG Graph │   │ • Lockfile Manager (.lock.json)│
+│ • Dynamic Minecraft Versions API  │   │ • Profile Snapshot Manager     │
+│ • Environment Filter (Client/Srv) │   │ • Mod Disabler (.disabled)     │
+│ • Local File Drag-Drop Installer  │   │ • Crash Log Pattern Analyzer   │
 └───────────────────┬───────────────┘   └───────────┬────────────────────┘
                     │                               │
 ┌───────────────────▼───────────────────────────────▼────────────────────┐
@@ -179,17 +177,17 @@ npm run dev
 
 Dokumentasi arsitektur dan spesifikasi lengkap tersedia di folder [`docs/`](docs/README.md):
 
-* [**01. Arsitektur & Visi Sistem**](docs/01-architecture-and-vision.md) — Struktur berlapis, alur data end-to-end, dan tata kelola kuota API.
-* [**02. Kurasi Tech Stack & Pustaka**](docs/02-tech-stack-and-libraries.md) — Pemilihan pustaka runtime, performa cold-start, dan batasan konkurensi.
-* [**03. Spesifikasi Perintah & UX CLI**](docs/03-cli-commands-and-ux.md) — Detail opsi perintah, flag global, perintah `lm modpack`, dan tata letak visual TUI.
-* [**04. Mesin Modpack (.mrpack Engine) & Profile Vault**](docs/04-modpack-engine.md) — Parsing spesifikasi `.mrpack`, ekstraksi streaming, brankas profil modpack, dan isolasi wadah TLauncher.
-* [**05. Integrasi Multi-Launcher & TLauncher**](docs/05-multi-launcher-integration.md) — Auto-discovery Prism, MultiMC, Modrinth App, CurseForge, Vanilla, dan wadah TLauncher.
-* [**06. Dependency Graph & Lockfile**](docs/06-dependency-graph-and-lockfile.md) — Resolusi dependensi otomatis, Directed Acyclic Graph, dan reference counting.
-* [**07. Diagnostik Crash & Bisect Engine**](docs/07-troubleshooting-and-bisect.md) — Algoritma pencarian biner isolasi crash dan toggle status mod.
-* [**08. Panduan Pengembang & API**](docs/08-developer-guide-and-api.md) — Struktur berkas, alur pengujian, variabel lingkungan, dan kompilasi.
-* [**09. Spesifikasi Desain UI/UX (Nordic Clean TUI)**](docs/09-ui-ux-design-specification.md) — Filosofi visual, palet warna, aksesibilitas WCAG AA, dan arsitektur TUI.
-* [**Cetak Biru Arsitektur LoadModer**](docs/LOADMODER_ARCHITECTURE.md) — Spesifikasi platform menyeluruh dan pilar rekayasa sistem.
-* [**Katalog Agent Skills**](docs/SKILL.md) — Indeks 18 skill agen yang memandu kualitas kode dan standar arsitektur.
+* [**01. Arsitektur dan Visi Sistem**](docs/01-architecture-and-vision.md): Struktur berlapis, alur data end-to-end, Desktop GUI subsystem, dan tata kelola kuota API.
+* [**02. Kurasi Tech Stack dan Pustaka**](docs/02-tech-stack-and-libraries.md): Pemilihan pustaka runtime CLI dan Desktop GUI (Electron 32, React 19, Vite, Tailwind CSS, electron-builder).
+* [**03. Spesifikasi Perintah dan UX LoadModer**](docs/03-cli-commands-and-ux.md): Detail opsi perintah, flag global, peluncuran desktop, dan tata letak visual TUI.
+* [**04. Mesin Modpack (.mrpack Engine)**](docs/04-modpack-engine.md): Parsing spesifikasi `.mrpack`, ekstraksi streaming, ekspor modpack, brankas profil modpack, dan isolasi wadah.
+* [**05. Integrasi Multi-Launcher**](docs/05-multi-launcher-integration.md): Auto-discovery Official Vanilla, Prism, MultiMC, Modrinth App, CurseForge, TLauncher, dan Legacy Launcher.
+* [**06. Dependency Graph dan Lockfile**](docs/06-dependency-graph-and-lockfile.md): Resolusi dependensi otomatis, Directed Acyclic Graph (DAG), dan reference counting.
+* [**07. Diagnostik Crash dan Bisect Engine**](docs/07-troubleshooting-and-bisect.md): Algoritma pencarian biner isolasi crash, toggle status mod, dan Crash Log Analyzer.
+* [**08. Panduan Pengembang dan Distribusi Binary**](docs/08-developer-guide-and-api.md): Struktur direktori lengkap, pengujian Vitest, kompilasi bundle, dan packaging Windows standalone `.exe`.
+* [**09. Spesifikasi Desain UI/UX (Nordic Clean)**](docs/09-ui-ux-design-specification.md): Filosofi visual, palet warna, aksesibilitas WCAG AA, dan arsitektur komponen TUI & Desktop.
+* [**C4 Architecture Specification**](docs/c4-architecture.md): Dokumentasi C4 Model resmi (System Context, Container, Component, dan Code Data Flow) untuk subsistem CLI dan Desktop.
+* [**Katalog Agent Skills**](docs/SKILL.md): Indeks 18 skill agen yang memandu kualitas kode dan standar arsitektur.
 
 ---
 
@@ -207,28 +205,9 @@ npx vitest
 ```
 
 **Hasil Pengujian:**
-- `tests/installedIndex.test.ts` (5 tests)
-- `tests/dependencyGraph.test.ts` (8 tests)
-- `tests/dependencyResolver.test.ts` (11 tests)
-- `tests/driveScanner.test.ts` (29 tests)
-- `tests/security.test.ts` (8 tests)
-- `tests/minecraftVersions.test.ts` (10 tests)
-- `tests/snapshotManager.test.ts` (3 tests)
-- `tests/uiThemeA11y.test.ts` (22 tests)
-- `tests/detailCard.test.ts` (5 tests)
-- `tests/e2eUiFlow.test.ts` (2 tests)
-- `tests/compatibility.test.ts` (5 tests)
-- `tests/bisect.test.ts` (6 tests)
-- `tests/architectureRefactor.test.ts` (6 tests)
-- `tests/instanceConfig.test.ts` (4 tests)
-- `tests/searchFilters.test.ts` (6 tests)
-- `tests/performance.test.ts` (2 tests)
-- `tests/instanceDetector.test.ts` (2 tests)
-- `tests/modsWatcher.test.ts` (3 tests)
-- `tests/cliJsonOutput.test.ts` (2 tests)
-- `tests/crypto.test.ts` (3 tests)
-- `tests/tlauncherModpackProfile.test.ts` (15 tests)
-- **Total: 21 test files, 157 tests passed (100%)**.
+- 34 test files lulus (100%)
+- 244 unit & integration tests lulus (100%)
+- Cakupan: Dependency Graph, Resolver, Drive Scanner, Multi-Launcher Detection, Legacy Launcher Dual-Path, TLauncher Profile Vault, Log Analyzer, Bisect Runner, Modpack Exporter, Local Installer, Desktop Dual-Mode IPC, Desktop I18n, UI Theme & Accessibility.
 
 ---
 

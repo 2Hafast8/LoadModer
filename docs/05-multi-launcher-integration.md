@@ -1,4 +1,4 @@
-# 05 — Integrasi Multi-Launcher, Auto-Discovery & Profile Snapshots
+# 05: Integrasi Multi-Launcher, Auto-Discovery dan Profile Snapshots
 
 Dokumen ini mendokumentasikan mekanisme pendeteksian otomatis (*auto-discovery*) instance Minecraft dari berbagai launcher pihak ketiga maupun resmi, serta arsitektur isolasi profil berbasis snapshot pada sistem operasi Windows, macOS, dan Linux.
 
@@ -35,10 +35,10 @@ Setiap launcher menyimpan informasi versi Minecraft, mod loader, dan konfigurasi
   }
   ```
 * **Pemetaan Loader**:
-  * `net.fabricmc.fabric-loader` $\rightarrow$ `fabric`
-  * `net.minecraftforge` $\rightarrow$ `forge`
-  * `net.neoforged` $\rightarrow$ `neoforge`
-  * `org.quiltmc.quilt-loader` $\rightarrow$ `quilt`
+  * `net.fabricmc.fabric-loader` -> `fabric`
+  * `net.minecraftforge` -> `forge`
+  * `net.neoforged` -> `neoforge`
+  * `org.quiltmc.quilt-loader` -> `quilt`
 * **Path Folder Mods**: `<instance_dir>/.minecraft/mods/`
 
 ### B. Modrinth App (Theseus)
@@ -58,7 +58,7 @@ Setiap launcher menyimpan informasi versi Minecraft, mod loader, dan konfigurasi
 * **Berkas Konfigurasi**: `<instance_dir>/minecraftinstance.json`
 * Field target:
   * `gameVersion`: `"1.20.1"`
-  * `baseModLoader.name`: `"forge-47.2.0"` $\rightarrow$ diparsing ke `forge`
+  * `baseModLoader.name`: `"forge-47.2.0"` -> diparsing ke `forge`
 * **Path Folder Mods**: `<instance_dir>/mods/`
 
 ### D. Official Vanilla Launcher (First-Party) & Kebijakan Aditif
@@ -78,8 +78,8 @@ Setiap launcher menyimpan informasi versi Minecraft, mod loader, dan konfigurasi
   * `TLauncherAdditional.json`: Metadata modpack TL MODS. Versi Minecraft dibaca dari `modpack.version.gameVersionDTO.name` atau `minecraftVersionTypes[0].name`.
   * `<container_name>.json`: Metadata versi engine launcher yang mencatat `inheritsFrom` dan dependencies engine.
 * **Filosofi Integrasi Non-Intrusif (Read-Only Version & Wadah TLauncher)**:
-  * Wadah baru dan pemilihan versi/loader dikelola langsung oleh pemain di aplikasi TLauncher melalui tombol **TL MODS** $\rightarrow$ **Create Modpack**.
-  * TLauncher memiliki sistem registrasi internal yang ketat terhadap folder versi baru. Untuk menjamin stabilitas dan kompatibilitas 100%, LoadModer tidak memodifikasi atau membuat file engine secara paksa dari luar, melainkan membaca metadata secara akurat (*read-only*) dan mengelola ekosistem mod di dalam wadah tersebut.
+  * Wadah baru dan pemilihan versi/loader dikelola langsung oleh pemain di aplikasi TLauncher melalui tombol **TL MODS** -> **Create Modpack**.
+  * TLauncher memiliki sistem registrasi internal yang ketat terhadap folder versi baru. Untuk menjamin stabilitas dan kompatibilitas, LoadModer tidak memodifikasi atau membuat file engine secara paksa dari luar, melainkan membaca metadata secara akurat (*read-only*) dan mengelola ekosistem mod di dalam wadah tersebut.
 * **Path Folder Mods & Brankas**:
   * Root wadah: `.minecraft/versions/<container_name>/`
   * Folder mods kerja: `.minecraft/versions/<container_name>/mods/`
@@ -101,7 +101,6 @@ Setiap launcher menyimpan informasi versi Minecraft, mod loader, dan konfigurasi
 * **Sistem Cadangan Baseline Satu Kali (`BaselineManager`)**:
   * Sebelum modpack pertama diekstrak, kondisi awal lingkungan wadah (termasuk `options.txt` awal) dikunci ke `.loadmoder/baseline/`.
   * Saat wadah dinonaktifkan (`lm modpack disable`), lingkungan game live dibersihkan dan dipulihkan kembali ke setelan baseline asli pemain tanpa menghapus berkas master baseline.
-
 
 ---
 
@@ -143,7 +142,7 @@ export const instanceDetector = new InstanceDetector();
 
 ---
 
-## 4. Pencarian Multi-Drive & Input Path Manual (`src/core/instance/driveScanner.ts`)
+## 4. Pencarian Multi-Drive dan Input Path Manual (`src/core/instance/driveScanner.ts`)
 
 Jika pemain tidak menyimpan instalasi Minecraft di drive sistem (`C:\`), LoadModer menyediakan dua mekanisme pendeteksian:
 
@@ -156,14 +155,14 @@ Jika pemain tidak menyimpan instalasi Minecraft di drive sistem (`C:\`), LoadMod
 ### B. Input Path Manual (`resolveManualMinecraftPath`)
 - Pengguna dapat memasukkan path secara langsung via menu interaktif atau flag `lm init --path <dir>`.
 - **Penanganan Cerdas**:
-  - Otomatis menghapus tanda petik dari fitur Windows Explorer *"Copy as path"*.
+  - Otomatis menghapus tanda petik dari fitur Windows Explorer "Copy as path".
   - Mengekspansi tilde (`~`) dan variabel lingkungan seperti `%APPDATA%`.
   - Jika diarahkan ke subfolder `mods/`, otomatis naik satu tingkat ke root direktori game.
   - Jika diarahkan ke folder induk (misalnya `D:\Games`), otomatis mendeteksi subfolder `.minecraft` atau `minecraft` di dalamnya.
 
 ---
 
-## 5. Isolasi Profil & Snapshot Manager (`src/core/profile/snapshotManager.ts`)
+## 5. Isolasi Profil dan Snapshot Manager (`src/core/profile/snapshotManager.ts`)
 
 Berganti versi game pada instance yang sama (misal dari `1.21.1 Fabric` ke `1.20.1 Forge`) berisiko menyebabkan game crash jika file mod versi lama masih tertinggal di folder `mods/`.
 
@@ -180,4 +179,3 @@ LoadModer menangani ini melalui **ProfileSnapshotManager**:
    Folder `mods/` dikosongkan dari mod versi sebelumnya, lalu jika snapshot target (`forge-1.20.1`) sudah pernah ada sebelumnya, file mod dan state lockfile target otomatis dipulihkan.
 3. **Penyelarasan Perintah `install`**:
    Perintah `lm install` selalu memverifikasi versi game dan loader aktif untuk memastikan library yang diunduh cocok dengan konfigurasi instance.
-

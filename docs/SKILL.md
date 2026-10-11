@@ -1,34 +1,34 @@
-# Katalog & Panduan Keahlian Agen (Agent Skills) — LoadModer
+# Katalog dan Panduan Keahlian Agen (Agent Skills): LoadModer
 
 Dokumen ini berisi indeks lengkap seluruh **Agent Skills** yang terpasang di dalam direktori [`.agent/skills/`](../.agent/skills). Setiap keahlian memberikan instruksi khusus, standar kualitas, serta pola arsitektur untuk memandu agen AI dalam mengembangkan, mereview, dan memelihara proyek **LoadModer**.
 
 ---
 
-## 🗺️ Peta Kategori Skills
+## Peta Kategori Skills
 
 ```
 .agent/skills/
-├── 🛡️ Anti-Slop & Human Experience
+├── Anti-Slop & Human Experience
 │   ├── antislop                     # Filter utama anti kode generik/berantakan
 │   ├── antislop-code                # Higienitas komentar kode (tanpa komentar basi)
 │   ├── antislop-copywriting         # Penulisan pesan, teks CLI, & dokumentasi
 │   ├── antislop-human               # Aksesibilitas, kontras warna, & navigasi
 │   └── antislop-ui                  # Tata letak visual, konsistensi warna terminal
-├── 🏛️ Arsitektur & Desain Sistem
+├── Arsitektur & Desain Sistem
 │   ├── system-design                # Desain batas layanan & pemodelan data
 │   ├── software-architecture        # Prinsip Clean Architecture & DDD
 │   ├── backend-patterns             # Pola server-side, API design, & stream I/O
 │   └── c4-code                      # Dokumentasi struktur level C4 (Code)
-├── ⚡ Bahasa & Scaffolding
+├── Bahasa & Scaffolding
 │   ├── javascript-pro               # ES6+, Node.js asynchronous, streams & event loop
 │   ├── javascript-typescript-typescript-scaffold # Setup boilerplate TypeScript & modern tooling
 │   └── clean-code                   # Standar penulisan pragmatis & no over-engineering
-├── 🔒 Kualitas, Keamanan & Performa
+├── Kualitas, Keamanan & Performa
 │   ├── performance-optimization     # Profiling memori, optimasi I/O, & pooling
 │   ├── backend-security-coder       # Validasi input, sanitasi path traversal, rate-limit
 │   ├── code-review                  # Review otomatis standar kode vs spesifikasi
 │   └── git-workflow                 # Konvensi commit, percabangan, & rilis
-└── 🎨 Desain Antarmuka & UX
+└── Desain Antarmuka & UX
     ├── ui-styling                   # Styling antarmuka & konsistensi tema
     └── ui-ux-pro-max                # Sistem desain menyeluruh, palet warna, & tipografi
 ```
@@ -45,7 +45,7 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 * **Penerapan di LoadModer**: Mencegah pembuatan komponen visual yang berlebihan, memastikan CLI to-the-point, dan menghilangkan teks basa-basi pada pesan error atau konfirmasi.
 
 ### 2. [`antislop-code`](../.agent/skills/antislop-code/SKILL.md)
-* **Deskripsi**: Higienitas komentar kode — menghapus komentar generik yang menjelaskan hal yang sudah jelas, mempertahankan komentar bernilai tinggi (alasan desain/algoritma).
+* **Deskripsi**: Higienitas komentar kode: menghapus komentar generik yang menjelaskan hal yang sudah jelas, mempertahankan komentar bernilai tinggi (alasan desain/algoritma).
 * **Kapan Digunakan**: Saat menulis atau mengedit file TypeScript (`.ts`).
 * **Penerapan di LoadModer**: Melarang komentar seperti `// increment counter` atau `// return response`. Hanya mendokumentasikan alasan non-trivial seperti *"alasan menunggu X-Ratelimit-Reset + 250ms buffer"*.
 
@@ -81,7 +81,7 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 ### 8. [`backend-patterns`](../.agent/skills/backend-patterns/SKILL.md)
 * **Deskripsi**: Pola arsitektur server-side, desain API, streaming I/O, dan optimasi data di Node.js.
 * **Kapan Digunakan**: Membangun pipeline download file dan ekstraksi arsip ZIP.
-* **Penerapan di LoadModer**: Menggunakan streaming pipeline (`Readable.fromWeb` $\rightarrow$ `Transform` $\rightarrow$ `WriteStream`) untuk menghitung hash SHA-512 sambil mengunduh tanpa membebani memori RAM.
+* **Penerapan di LoadModer**: Menggunakan streaming pipeline (`Readable.fromWeb` -> `Transform` -> `WriteStream`) untuk menghitung hash SHA-512 sambil mengunduh tanpa membebani memori RAM.
 
 ### 9. [`c4-code`](../.agent/skills/c4-code/SKILL.md)
 * **Deskripsi**: Spesialis dokumentasi tingkat C4 (Code Level) untuk menganalisis tanda tangan fungsi, tipe argumen, dan dependensi modul.
@@ -102,7 +102,7 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 * **Penerapan di LoadModer**: Mengonfigurasi `tsup.config.ts` untuk mem-bundel seluruh kode menjadi satu file JavaScript mandiri dengan eksekusi instan.
 
 ### 12. [`clean-code`](../.agent/skills/clean-code/SKILL.md)
-* **Deskripsi**: Standar kode pragmatis — ringkas, langsung, tanpa rekayasa berlebihan (*no over-engineering*).
+* **Deskripsi**: Standar kode pragmatis: ringkas, langsung, tanpa rekayasa berlebihan (*no over-engineering*).
 * **Kapan Digunakan**: Setiap penulisan fungsi dan class baru.
 * **Penerapan di LoadModer**: Memilih fungsi murni dan class sederhana daripada pola abstract factory yang rumit jika tidak dibutuhkan.
 
@@ -133,7 +133,7 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 ## 5. Desain Antarmuka & UX
 
 ### 17. [`ui-styling`](../.agent/skills/ui-styling/SKILL.md)
-* **Deskripsi**: Penciptaan antarmuka visual yang indah, konsisten, dan mudah diakses.
+* **Deskripsi**: Penciptaan antarmuka visual yang konsisten dan mudah diakses.
 * **Penerapan di LoadModer**: Penerapan warna status yang konsisten: Hijau untuk sukses (`✔`), Biru/Cyan untuk aksi aktif (`ℹ️`), Kuning untuk peringatan kompatibilitas (`⚠️`), dan Merah untuk kegagalan (`❌`).
 
 ### 18. [`ui-ux-pro-max`](../.agent/skills/ui-ux-pro-max/SKILL.md)
@@ -142,7 +142,7 @@ Kumpulan keahlian ini memastikan kode, teks, antarmuka, dan komentar tidak terke
 
 ---
 
-## 📌 Ringkasan Penerapan Skills pada Siklus Hidup LoadModer
+## Ringkasan Penerapan Skills pada Siklus Hidup LoadModer
 
 | Tahapan Pengembangan | Skill yang Diaktifkan |
 | :--- | :--- |

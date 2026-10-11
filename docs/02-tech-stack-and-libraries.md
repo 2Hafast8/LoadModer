@@ -1,16 +1,20 @@
-# 02 — Kurasi Tech Stack & Pustaka (The Golden Stack)
+# 02: Kurasi Tech Stack dan Pustaka (The Golden Stack)
 
-Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pustaka (*libraries*) yang dipilih untuk membangun platform **LoadModer** (`lm`).
+Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pustaka (*libraries*) yang dipilih untuk membangun platform LoadModer (`lm`).
 
 ---
 
-## 1. Ringkasan "Golden Stack" LoadModer
+## 1. Ringkasan Golden Stack LoadModer
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    LOADMODER GOLDEN STACK                   │
 ├───────────────────────┬─────────────────────────────────────┤
-│ Bahasa & Runtime      │ TypeScript 5.5+ & Node.js 20+ (ESM) │
+│ Bahasa dan Runtime    │ TypeScript 5.5+ & Node.js 20+ (ESM) │
+│ Desktop Engine        │ Electron 32 (Main & Preload Bridge) │
+│ Desktop Frontend      │ React 19 + Vite 5 + Tailwind CSS v3 │
+│ Icon System           │ Lucide React                        │
+│ Standalone Packager   │ electron-builder (NSIS & Portable)  │
 │ CLI Command Router    │ commander (v12+)                    │
 │ TUI Dashboard & Nav   │ @inquirer/prompts (Raw Mode ANSI)   │
 │ Wizard & Setup Flow   │ @clack/prompts                      │
@@ -19,11 +23,12 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 │ Spinner & Progress    │ ora + cli-progress (multi-bar)      │
 │ Kontrol Konkurensi    │ p-limit                             │
 │ Streaming ZIP Engine  │ unzipper (streaming memory-safe)    │
+│ Modpack Exporter      │ archiver (zip level 9)              │
 │ Validasi Skema        │ zod                                 │
 │ Normalisasi Path      │ pathe                               │
 │ State Lockfile        │ write-file-atomic                   │
 │ File Watcher          │ node:fs native watch + debounce     │
-│ Pengujian Otomatis    │ vitest (221 tests / 28 files)       │
+│ Pengujian Otomatis    │ vitest (244 tests / 34 files)       │
 │ Bundler & Kompilasi   │ tsup (esbuild engine)               │
 └───────────────────────┴─────────────────────────────────────┘
 ```
@@ -32,53 +37,49 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 
 ## 2. Rasional Pemilihan Pustaka
 
-### A. CLI Router: `commander`
-* **Alasan Pemilihan**:
-  1. Sangat stabil, dokumentasi matang, dan tipe TypeScript bawaan yang presisi.
-  2. Waktu *cold start* sangat cepat (< 50ms), jauh lebih efisien dibanding framework CLI berat seperti `yargs`.
-  3. Mendukung sub-perintah bersarang (*nested subcommands*) dengan pemisahan berkas yang modular.
-  4. Penanganan argumen variadic (`<targets...>`), opsi negated (`--no-deps`), dan default values yang rapi.
-  5. Menghasilkan output `--help` terstruktur secara otomatis.
+### A. Desktop GUI Subsystem: Electron 32 + React 19 + Vite
+* **Electron 32**: Menyediakan isolasi proses yang aman antara Node.js main process dan renderer browser via `contextBridge` di preload script (`src/desktop/preload/index.ts`). Renderer tidak memiliki akses langsung ke filesystem mentah tanpa melalui IPC type-safe.
+* **React 19**: Menyediakan arsitektur komponen modular untuk dashboard desktop, state management reaktif, dan performa perenderan tinggi untuk daftar ratusan mod.
+* **Vite 5**: Mengompilasi kode renderer React dengan Hot Module Replacement (HMR) berkecepatan tinggi dan menghasilkan bundle produksi yang sangat teroptimasi.
+* **electron-builder**: Mengompilasi aplikasi desktop menjadi standalone executable Windows (`.exe`) dalam format instalasi NSIS (`LoadModer-Setup-2.6.0.exe`) dan versi portabel mandiri (`LoadModer-2.6.0-Portable.exe`).
 
-### B. Interaktivitas Terminal: Sinergi `@inquirer/prompts` & `@clack/prompts`
-* **Rasional Desain Hibrida**:
-  * **`@inquirer/prompts`**: Digunakan untuk navigasi menu utama dashboard (`askInteractiveMenu`) dan pencarian mod instan (`askSearchMenu`). Didukung algoritma *ANSI diff rendering* internal yang meniadakan *screen flickering*, mendukung kontrol panah (`↑`/`↓`), tombol Vim (`j`/`k`), dan fitur pagination bawaan (`pageSize`).
-  * **`@clack/prompts`**: Digunakan untuk alur wizard inisialisasi (`init`), dialog konfirmasi (`confirm`), dan visual rel vertikal (*rail layout*) yang rapi dan minimalis.
+### B. CLI Router: `commander`
+* Waktu cold-start sangat cepat (< 50ms), lebih efisien dibanding framework CLI berat.
+* Mendukung sub-perintah bersarang (*nested subcommands*) dengan pemisahan berkas yang modular.
+* Penanganan argumen variadic (`<targets...>`), opsi negated (`--no-deps`), dan default values yang rapi.
+* Menghasilkan output `--help` terstruktur secara otomatis.
 
-### C. Pewarnaan & Formatting: `picocolors` & `chalk`
-* **Rasional Penggunaan**:
-  * `picocolors` digunakan pada loop pengulangan tinggi dan log streaming karena bobotnya yang sangat kecil (< 7 KB) dan performa perenderan ANSI 3–4x lebih cepat tanpa dependensi tambahan.
-  * `chalk` dan `gradient-string` dimanfaatkan untuk merender banner ASCII logo pada header dashboard awal.
+### C. Interaktivitas Terminal: Sinergi `@inquirer/prompts` dan `@clack/prompts`
+* **`@inquirer/prompts`**: Digunakan untuk navigasi menu utama dashboard (`askInteractiveMenu`) dan pencarian mod instan (`askSearchMenu`). Didukung algoritma ANSI diff rendering internal yang meniadakan screen flickering, mendukung kontrol panah (`↑`/`↓`), tombol Vim (`j`/`k`), dan fitur pagination bawaan (`pageSize`).
+* **`@clack/prompts`**: Digunakan untuk alur wizard inisialisasi (`init`), dialog konfirmasi (`confirm`), dan visual rel vertikal (*rail layout*) yang rapi dan minimalis.
 
-### D. Progress Bar Unduhan Paralel: `cli-progress` vs `ora`
-* **Rasional Kombinasi**:
-  * `cli-progress` digunakan untuk unduhan multi-berkas dengan instansiasi **MultiBar**. Tiap file yang sedang diunduh memiliki progress bar terpisah dengan indikator byte transfer dan ukuran berkas.
-  * `ora` digunakan untuk indikator pemuatan tunggal (*single-task spinner*) saat membaca metadata API atau mengekstrak indeks modpack.
+### D. Pewarnaan dan Formatting: `picocolors` dan `chalk`
+* `picocolors` digunakan pada loop pengulangan tinggi dan log streaming karena bobotnya yang sangat kecil (< 7 KB) dan performa perenderan ANSI cepat tanpa dependensi tambahan.
+* `chalk` dan `gradient-string` dimanfaatkan untuk merender banner ASCII logo pada header dashboard awal.
 
-### E. Concurrency Limiter: `p-limit`
-* **Kebutuhan Teknis**:
-  * Ketika modpack menginstruksikan pengunduhan puluhan file sekaligus, mengeksekusi seluruh permintaan HTTP secara bersamaan berisiko memicu `ECONNRESET`, pemutusan koneksi TCP, atau pemblokiran IP oleh Cloudflare Modrinth (*burst rate limit*).
-  * Dengan `pLimit(4)`, antrean unduhan dibatasi tepat 4 koneksi simultan, menjaga throughput jaringan dan konsumsi memori sistem tetap stabil.
+### E. Progress Bar Unduhan Paralel: `cli-progress` vs `ora`
+* `cli-progress` digunakan untuk unduhan multi-berkas dengan instansiasi MultiBar. Tiap file yang sedang diunduh memiliki progress bar terpisah dengan indikator byte transfer dan ukuran berkas.
+* `ora` digunakan untuk indikator pemuatan tunggal (*single-task spinner*) saat membaca metadata API atau mengekstrak indeks modpack.
 
-### F. ZIP Streaming Engine: `unzipper`
-* **Keunggulan Teknis**:
-  * Berbeda dari library seperti `adm-zip` yang membaca keseluruhan arsip ZIP ke dalam RAM, `unzipper` memproses berkas sebagai **Node.js Stream**.
-  * File metadata seperti `modrinth.index.json` di dalam arsip `.mrpack` berukuran besar dapat dibaca langsung tanpa perlu mengekstrak seluruh arsip ke disk.
+### F. Concurrency Limiter: `p-limit`
+* Ketika modpack menginstruksikan pengunduhan puluhan file sekaligus, mengeksekusi seluruh permintaan HTTP secara bersamaan berisiko memicu `ECONNRESET` atau pemblokiran IP oleh Cloudflare Modrinth (*burst rate limit*).
+* Dengan `pLimit(4)`, antrean unduhan dibatasi tepat 4 koneksi simultan, menjaga throughput jaringan dan konsumsi memori sistem tetap stabil.
 
-### G. Validasi Skema Data: `zod`
-* **Keamanan Data**:
-  * Struktur respons API Modrinth, manifest `.mrpack`, dan file konfigurasi lokal divalidasi saat runtime.
-  * Mencegah serangan path traversal pada file `.mrpack` melalui validasi ketat path file tujuan.
+### G. ZIP Streaming Engine: `unzipper` dan `archiver`
+* `unzipper` memproses berkas arsip sebagai Node.js Stream tanpa perlu memuat seluruh isi berkas ke memori RAM.
+* `archiver` digunakan pada Modpack Exporter untuk mengompilasi mod aktif dan konfigurasi ke dalam format `.mrpack` atau `.zip` dengan kompresi tingkat 9.
 
-### H. File Watcher: Node.js Native `fs.watch`
-* **Keunggulan Teknis**:
-  * Menggunakan modul bawaan `node:fs` sehingga tidak menambah beban dependensi eksternal yang besar (seperti `chokidar`).
-  * Dilengkapi mekanisme debounce 300ms untuk menangani operasi batch filesystem saat pemain menghapus atau menambah banyak mod sekaligus.
+### H. Validasi Skema Data: `zod`
+* Struktur respons API Modrinth, manifest `.mrpack`, dan file konfigurasi lokal divalidasi saat runtime.
+* Mencegah serangan path traversal pada file `.mrpack` melalui validasi ketat path file tujuan.
 
-### I. Test Runner: `vitest`
-* **Kecepatan & Integrasi**:
-  * Eksekusi pengujian TypeScript instan tanpa tahap kompilasi terpisah.
-  * Kompatibilitas penuh dengan sintaks ESM modern dan mocking bawaan (`vi.spyOn`).
+### I. File Watcher: Node.js Native `fs.watch`
+* Menggunakan modul bawaan `node:fs` sehingga tidak menambah beban dependensi eksternal yang besar (seperti `chokidar`).
+* Dilengkapi mekanisme debounce 300ms untuk menangani operasi batch filesystem saat pemain menghapus atau menambah banyak mod sekaligus.
+
+### J. Test Runner: `vitest`
+* Eksekusi pengujian TypeScript instan tanpa tahap kompilasi terpisah.
+* Menjalankan 244 unit tests pada 34 test files dengan waktu eksekusi di bawah 3 detik.
 
 ---
 
@@ -87,8 +88,8 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 ```json
 {
   "name": "loadmoder",
-  "version": "2.5.0",
-  "description": "High-performance Minecraft mod & modpack manager CLI powered by Modrinth API",
+  "version": "2.6.0",
+  "description": "High-performance Minecraft mod & modpack manager CLI",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -101,63 +102,11 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup",
+    "build:all": "npm run build && npm run desktop:build",
+    "desktop": "npm run desktop:build && electron .",
+    "desktop:build": "npm run desktop:build:main && npm run desktop:build:renderer",
+    "dist:exe": "npm run build:all && electron-builder --win",
     "test": "vitest run"
-  },
-  "dependencies": {
-    "@clack/prompts": "^0.7.0",
-    "@inquirer/prompts": "^8.7.2",
-    "boxen": "^9.0.0",
-    "chalk": "^6.0.1",
-    "cli-progress": "^3.12.0",
-    "cli-table3": "^0.6.5",
-    "commander": "^12.1.0",
-    "figlet": "^1.12.0",
-    "gradient-string": "^3.0.0",
-    "ora": "^9.4.1",
-    "p-limit": "^5.0.0",
-    "pathe": "^1.1.2",
-    "picocolors": "^1.0.1",
-    "unzipper": "^0.12.3",
-    "write-file-atomic": "^5.0.1",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "@types/cli-progress": "^3.11.6",
-    "@types/figlet": "^1.7.0",
-    "@types/gradient-string": "^1.1.6",
-    "@types/node": "^22.0.0",
-    "@types/unzipper": "^0.10.10",
-    "@types/write-file-atomic": "^4.0.3",
-    "tsup": "^8.1.0",
-    "tsx": "^4.16.0",
-    "typescript": "^5.5.3",
-    "vitest": "^1.6.0"
   }
-}
-```
-
----
-
-## 4. Konfigurasi `tsconfig.json`
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "./dist",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "types": ["node"]
-  },
-  "include": [
-    "src/**/*",
-    "tests/**/*"
-  ]
 }
 ```

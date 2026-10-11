@@ -1,6 +1,6 @@
-# 07 — Diagnostik Crash & Bisect Engine
+# 07: Diagnostik Crash, Bisect Engine dan Crash Log Analyzer
 
-Dokumen ini mendokumentasikan alat pemecahan masalah (*troubleshooting*) bawaan **LoadModer**, mekanisme penonaktifan mod instan via ekstensi `.disabled`, serta algoritma pencarian biner (**Automated Mod Bisect**) untuk mengisolasi mod penyebab crash.
+Dokumen ini mendokumentasikan alat pemecahan masalah bawaan LoadModer, mekanisme penonaktifan mod instan via ekstensi `.disabled`, Crash Log Analyzer otomatis, serta algoritma pencarian biner (**Automated Mod Bisect**) untuk mengisolasi mod penyebab crash.
 
 ---
 
@@ -8,19 +8,45 @@ Dokumen ini mendokumentasikan alat pemecahan masalah (*troubleshooting*) bawaan 
 
 Semua mod loader (Fabric, Forge, NeoForge, Quilt) memindai folder `mods/` hanya untuk berkas yang berakhiran `.jar`. Berkas dengan ekstensi lain akan dilewati sepenuhnya.
 
-LoadModer memanfaatkan karakteristik ini untuk mengaktifkan atau menonaktifkan mod **secara instan tanpa menghapus file dari disk**:
-* `loadmoder disable optifabric` $\rightarrow$ mengubah `optifabric-1.14.0.jar` menjadi `optifabric-1.14.0.jar.disabled`.
-* `loadmoder enable optifabric` $\rightarrow$ mengembalikan nama file ke `optifabric-1.14.0.jar`.
+LoadModer memanfaatkan karakteristik ini untuk mengaktifkan atau menonaktifkan mod secara instan tanpa menghapus berkas dari disk:
+* `loadmoder disable optifabric` -> mengubah `optifabric-1.14.0.jar` menjadi `optifabric-1.14.0.jar.disabled`.
+* `loadmoder enable optifabric` -> mengembalikan nama file ke `optifabric-1.14.0.jar`.
 
 ---
 
-## 2. Mengapa Butuh Automated Mod Bisect?
+## 2. Crash Log Analyzer (`src/core/troubleshoot/logAnalyzer.ts`)
 
-Ketika sebuah modpack berisi 100+ mod dan game tiba-tiba mengalami crash saat peluncuran:
-* Mencopot satu per satu mod memakan waktu berjam-jam ($O(N)$ pengujian).
+LoadModer v2.6.0 menyertakan mesin analisis log otomatis yang dapat memindai berkas `latest.log` atau `crash-reports/crash-*.txt` terbaru.
+
+### Kategori Crash yang Didukung:
+1. **Missing Dependency**:
+   - Pola: `Mod '<id>' requires '<dep>'` atau `net.fabricmc.loader.impl.FormattedException`.
+   - Tindakan: Menyarankan instalasi library yang kurang melalui Modrinth API.
+2. **Incompatible Mod**:
+   - Pola: `Mod '<id>' is incompatible with '<other>'` atau tabrakan Mixin (`org.spongepowered.asm.mixin.transformer.throwables.MixinTransformerError`).
+   - Tindakan: Menyarankan penonaktifan mod yang berkonflik.
+3. **Java Version Incompatibility**:
+   - Pola: `has been compiled by a more recent version of the Java Runtime (class file version XX)`.
+   - Tindakan: Memberikan panduan versi Java Runtime Environment yang sesuai.
+4. **Out of Memory (OOM)**:
+   - Pola: `java.lang.OutOfMemoryError: Java heap space`.
+   - Tindakan: Menyarankan alokasi RAM (`-Xmx`) yang lebih tinggi pada launcher.
+5. **Corrupted File**:
+   - Pola: `ZipException: error in opening zip file` atau kegagalan pembacaan JAR.
+   - Tindakan: Menyarankan pengunduhan ulang mod yang rusak.
+
+### Integrasi Desktop GUI:
+Pada aplikasi desktop, tab **Bisect & Log Analyzer** menyediakan tombol pemindaian log instan. Ketika crash terdeteksi, panel menampilkan ringkasan akar masalah, cuplikan stack trace relevan, serta tombol aksi cepat untuk menonaktifkan mod bermasalah dalam 1 klik.
+
+---
+
+## 3. Algoritma Automated Mod Bisect
+
+Ketika sebuah modpack berisi 100+ mod dan game mengalami crash saat peluncuran:
+* Mencopot satu per satu mod memakan waktu lama ($O(N)$ pengujian).
 * Menghapus semua mod menghilangkan seluruh progres konfigurasi.
 
-**LoadModer Bisect** menggunakan algoritma **Pencarian Biner (Binary Search)**:
+LoadModer Bisect menggunakan algoritma **Pencarian Biner (Binary Search)**:
 $$\text{Langkah Maksimal} = \lceil \log_2(N) \rceil$$
 
 | Jumlah Mod Terpasang | Waktu Uji Manual ($O(N)$) | Waktu Uji Bisect LoadModer ($O(\log_2 N)$) |
@@ -31,7 +57,7 @@ $$\text{Langkah Maksimal} = \lceil \log_2(N) \rceil$$
 
 ---
 
-## 3. Alur Status (State Machine) Bisect
+## 4. Alur Status (State Machine) Bisect
 
 ```mermaid
 stateDiagram-v2
@@ -47,25 +73,25 @@ stateDiagram-v2
 ```
 
 ### Skenario Penggunaan Nyata:
-1. Pengguna mengetik `loadmoder bisect start`:
+1. Pengguna menjalankan `loadmoder bisect start`:
    - LoadModer mencatat daftar seluruh 60 mod aktif.
-   - LoadModer mengubah 30 mod menjadi `.jar.disabled`.
+   - Mengubah 30 mod menjadi `.jar.disabled`.
    - Menginstruksikan pengguna untuk membuka Minecraft.
 2. Jika Minecraft **berhasil masuk ke menu utama**:
-   - Pengguna mengetik `loadmoder bisect good`.
-   - LoadModer tahu bahwa mod penyebab crash berada di kelompok 30 mod yang sedang dinonaktifkan.
+   - Pengguna menjalankan `loadmoder bisect good`.
+   - LoadModer mengetahui bahwa mod penyebab crash berada di kelompok 30 mod yang sedang dinonaktifkan.
 3. Jika Minecraft **tetap crash**:
-   - Pengguna mengetik `loadmoder bisect bad`.
-   - LoadModer tahu mod penyebab crash berada di kelompok 30 mod yang sedang aktif.
+   - Pengguna menjalankan `loadmoder bisect bad`.
+   - LoadModer mengetahui mod penyebab crash berada di kelompok 30 mod yang sedang aktif.
 4. LoadModer membagi lagi kelompok tersangka menjadi 15 mod, lalu 7, lalu 3, lalu 1.
 5. Dalam 6 langkah, LoadModer menampilkan hasil:
-   `"🎯 Ditemukan! Mod penyebab crash adalah: [rubidium-mc1.21.jar]"`.
+   `Ditemukan! Mod penyebab crash adalah: [rubidium-mc1.21.jar]`.
 
 ---
 
-## 4. Implementasi Modul Bisect (`src/core/troubleshoot/bisect.ts`)
+## 5. Implementasi Modul Bisect (`src/core/troubleshoot/bisect.ts`)
 
-Kelas `BisectRunner` mengelola state biner di file `.loadmoder_bisect.json` dan memanipulasi penamaan file `.jar` / `.jar.disabled`:
+Kelas `BisectRunner` mengelola status biner di file `.loadmoder_bisect.json` dan memanipulasi penamaan file `.jar` / `.jar.disabled`:
 
 ```typescript
 import path from 'node:path';
@@ -154,38 +180,5 @@ export class BisectRunner {
       await rm(this.stateFile, { force: true });
     } catch {}
   }
-
-  async toggleMod(modQuery: string, enable: boolean): Promise<string> {
-    const files = await readdir(this.modsDir);
-    const targetSuffix = enable ? '.jar.disabled' : '.jar';
-    const replaceSuffix = enable ? '.jar' : '.jar.disabled';
-
-    const match = files.find(
-      (f) => f.toLowerCase().includes(modQuery.toLowerCase()) && f.endsWith(targetSuffix)
-    );
-
-    if (!match) {
-      throw new Error(`Berkas "${modQuery}" dengan status ${enable ? 'nonaktif' : 'aktif'} tidak ditemukan.`);
-    }
-
-    const oldPath = path.join(this.modsDir, match);
-    const newName = match.replace(new RegExp(`\\${targetSuffix}$`), replaceSuffix);
-    const newPath = path.join(this.modsDir, newName);
-
-    await rename(oldPath, newPath);
-    return newName;
-  }
 }
 ```
-
----
-
-## 5. Rencana Pemindaian Log Crash (Roadmap)
-
-> [!NOTE]
-> Fitur parser crash log otomatis berikut direncanakan untuk rilis mendatang guna melengkapi `BisectRunner`.
-
-Pola umum yang akan dipindai dari `logs/latest.log` atau `crash-reports/crash-*.txt`:
-* **Missing Dependency**: Pola `Mod '<id>' requires '<dep-id>'`. LoadModer dapat menyarankan resolusi otomatis via Modrinth API.
-* **Mixin Conflict**: Pola `org.spongepowered.asm.mixin.transformer.throwables.MixinTransformerError`.
-* **Incompatible Java Runtime**: Pola `has been compiled by a more recent version of the Java Runtime (class file version XX)`. Memberikan rekomendasi versi JRE yang sesuai.

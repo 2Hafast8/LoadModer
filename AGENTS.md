@@ -1,4 +1,4 @@
-# LoadModer — AI Coding Agent Guidelines (`AGENTS.md`)
+# LoadModer: AI Coding Agent Guidelines (`AGENTS.md`)
 
 This document defines architectural boundaries, quality standards, testing protocols, and engineering practices for AI coding agents operating on **LoadModer**.
 

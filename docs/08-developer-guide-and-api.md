@@ -1,6 +1,6 @@
-# 08 — Panduan Pengembang & Distribusi Binary
+# 08: Panduan Pengembang dan Distribusi Binary
 
-Dokumen ini adalah panduan lengkap bagi kontributor dan pengembang yang ingin mengembangkan, menguji, dan mendistribusikan **LoadModer** sebagai aplikasi mandiri (*single-file executable*) maupun paket CLI berbasis Node.js 20+.
+Dokumen ini adalah panduan lengkap bagi kontributor dan pengembang yang ingin mengembangkan, menguji, dan mendistribusikan LoadModer sebagai aplikasi desktop mandiri (`.exe`) maupun paket CLI berbasis Node.js 20+.
 
 ---
 
@@ -8,8 +8,9 @@ Dokumen ini adalah panduan lengkap bagi kontributor dan pengembang yang ingin me
 
 ```text
 LoadModer/
-├── dist/                      # Bundle kompilasi JavaScript ESM tunggal (dist/index.js)
-├── docs/                      # Dokumentasi arsitektur dan spesifikasi sistem
+├── dist/                      # Bundle kompilasi CLI ESM tunggal (dist/index.js)
+├── dist-desktop/              # Bundle kompilasi Desktop (main, preload, dan assets web)
+├── docs/                      # Dokumentasi teknis, spesifikasi, dan C4 architecture
 ├── src/
 │   ├── commands/              # Action handlers untuk setiap perintah CLI
 │   │   ├── bisect.ts          # Perintah diagnostik crash bisect
@@ -24,108 +25,92 @@ LoadModer/
 │   │   ├── toggle.ts          # Pengaktifan / penonaktifan mod (.disabled)
 │   │   ├── update.ts          # Pembaruan massal mod terpasang
 │   │   └── watch.ts           # Pemantau folder mods real-time
-│   ├── core/                  # Mesin logika domain inti (terisolasi dari CLI UI)
+│   ├── core/                  # Mesin logika domain inti (terisolasi dari UI)
 │   │   ├── dependency/
 │   │   │   ├── graph.ts       # DAG & Reference Counting lockfile (loadmoder.lock.json)
-│   │   │   └── resolver.ts    # Resolusi dependensi otomatis (API metadata & deskripsi)
+│   │   │   └── resolver.ts    # Resolusi dependensi otomatis
 │   │   ├── instance/
-│   │   │   ├── capabilities.ts # Matriks kemampuan & strategi launcher (Legacy, TLauncher, dll.)
+│   │   │   ├── capabilities.ts # Matriks kemampuan launcher
 │   │   │   ├── config.ts      # Konfigurasi persistent (~/.loadmoder/config.json)
-│   │   │   └── detector.ts    # Pemindai Prism, MultiMC, Modrinth, CurseForge, Vanilla, TLauncher, Legacy
+│   │   │   ├── detector.ts    # Pemindai launcher (Prism, Vanilla, TLauncher, dll.)
+│   │   │   ├── driveScanner.ts# Scanner drive lokal & input path manual
+│   │   │   └── localInstaller.ts # Drag-and-drop archive parser & classifier
 │   │   ├── minecraft/
-│   │   │   └── versions.ts    # Dynamic Minecraft versions API (>= 1.16, TTL cache 1 jam)
+│   │   │   └── versions.ts    # Dynamic Minecraft versions API (>= 1.16)
 │   │   ├── modpack/
-│   │   │   ├── baselineManager.ts # One-Time Golden Baseline snapshot & restore permanen
-│   │   │   ├── legacy/        # Engine dual-path Legacy Launcher (versions/ vs home/)
-│   │   │   │   ├── containerResolver.ts
-│   │   │   │   ├── preservedItems.ts
-│   │   │   │   └── versionDetector.ts
-│   │   │   ├── profileManager.ts # Brankas profil modpack, isolasi wadah & clean state
-│   │   │   └── unpacker.ts    # Ekstraktor streaming .mrpack, overrides, dan env filter
+│   │   │   ├── baselineManager.ts # Baseline snapshot & pemulihan permanen
+│   │   │   ├── exporter.ts    # Kompilasi modpack ke .mrpack / .zip
+│   │   │   ├── legacy/        # Engine dual-path Legacy Launcher
+│   │   │   ├── profileManager.ts # Brankas profil modpack & isolasi wadah
+│   │   │   └── unpacker.ts    # Ekstraktor streaming .mrpack & env filter
 │   │   ├── profile/
 │   │   │   └── snapshotManager.ts # Isolasi mod per profil & versi game
 │   │   ├── troubleshoot/
-│   │   │   └── bisect.ts      # Algoritma pencarian biner isolasi crash O(log2 N)
+│   │   │   ├── bisect.ts      # Binary search isolasi mod crash O(log2 N)
+│   │   │   └── logAnalyzer.ts # Crash log & stack trace regex analyzer
 │   │   └── watcher/
 │   │       └── modsWatcher.ts # Pemantau perubahan file mods via native fs.watch
+│   ├── desktop/               # Aplikasi Desktop GUI Electron
+│   │   ├── main/              # Electron Main process & IPC handlers
+│   │   ├── preload/           # contextBridge type-safe security gateway
+│   │   ├── renderer/          # React 19 Frontend (Vite + Tailwind CSS)
+│   │   │   ├── components/    # TopBar, DropZoneOverlay, Toast, Modals
+│   │   │   └── views/         # ModsView, ExploreView, InstancesView, BisectView
+│   │   └── types/             # Deklarasi IPC dan interface Desktop
 │   ├── api/                   # Komunikasi HTTP & Modrinth API v2
-│   │   ├── client.ts          # Client fetch dengan retry rate-limit, timeout & streaming
+│   │   ├── client.ts          # Fetch client dengan rate-limit backoff & streaming
 │   │   └── cache.ts           # In-memory TTL cache hemat kuota API
-│   ├── ui/                    # Komponen antarmuka terminal & TUI
-│   │   ├── dashboard/         # Layar TUI interaktif modular
-│   │   │   ├── browser.ts     # Peramban mod/modpack dengan paginasi & filter
-│   │   │   ├── detail.ts      # Layar detail proyek & opsi instalasi
-│   │   │   ├── home.ts        # Dashboard menu utama & tabel filter aktif vertikal
-│   │   │   └── manager.ts     # Pengelola mod terpasang (status, toggle, hapus)
-│   │   ├── interactive.ts     # Helper navigasi keyboard raw mode
-│   │   ├── progress.ts        # Instansiasi MultiBar cli-progress
-│   │   ├── prompts.ts         # Pembungkus prompt @clack & @inquirer
-│   │   ├── tables.ts          # Formatter tabel cli-table3
-│   │   └── theme.ts           # Palet Nordic Clean TUI, ASCII banner, formatting utilitas
+│   ├── ui/                    # Komponen terminal TUI (Nordic Clean)
+│   │   ├── dashboard/         # Layar TUI interaktif (home, browser, manager)
+│   │   └── theme.ts           # Palet Nordic Clean, ASCII banner, kontras
 │   ├── types/                 # Skema Zod & tipe data TypeScript
-│   │   ├── instance.ts
-│   │   ├── lockfile.ts
-│   │   ├── modrinth.ts
-│   │   ├── mrpack.ts
-│   │   └── snapshot.ts
 │   ├── utils/                 # Utilitas filesystem, streaming hash, & format
-│   │   ├── crypto.ts
-│   │   ├── format.ts
-│   │   └── markdown.ts
-│   ├── constants.ts           # Metadata aplikasi, versi, dan konfigurasi path
+│   ├── constants.ts           # Metadata aplikasi, versi (2.6.0), dan konstanta
 │   └── index.ts               # Titik masuk utama CLI (Entry Point)
-├── tests/                     # Pengujian unit & integrasi (Vitest: 28 files, 221 tests)
-│   ├── baselineManager.test.ts # Uji pencadangan & restorasi One-Time Golden Baseline
-│   ├── crypto.test.ts         # Uji fungsi hashing SHA-1, SHA-512, dan hashFile
-│   ├── defaultOfficialMinecraft.test.ts # Uji prioritas Official Minecraft & navigasi murni vanilla
-│   ├── dependencyGraph.test.ts# Uji DAG reference counting & orphan pruning
-│   ├── dependencyResolver.test.ts # Uji deteksi library API & regex deskripsi
-│   ├── launcherCapabilities.test.ts # Uji matriks kapabilitas & strategi per-launcher
-│   ├── legacyLauncherDetection.test.ts # Uji deteksi path Legacy dari Roaming & disk lain
-│   ├── legacyModpackIntegration.test.ts # Uji integrasi modpack, baseline, & options.txt Legacy
-│   ├── legacyModpackProfile.test.ts # Uji brankas profil modpack dual-path Legacy
-│   ├── minecraftVersions.test.ts  # Uji fetching versi dinamis & cache TTL
-│   ├── searchFilters.test.ts  # Uji filter kustom pencarian & query facets
-│   ├── snapshotManager.test.ts# Uji isolasi profil & pergantian versi mod
-│   └── tlauncherModpackProfile.test.ts # Uji brankas profil modpack & isolasi wadah
-├── tsup.config.ts             # Konfigurasi bundler esbuild
+├── tests/                     # 34 berkas pengujian Vitest (244 tests)
+├── electron-builder.json      # Konfigurasi packaging Windows .exe (NSIS & Portable)
+├── tsup.config.ts             # Bundler esbuild untuk CLI
+├── tsup.desktop.config.ts     # Bundler esbuild untuk Desktop main & preload
+├── vite.config.desktop.ts     # Bundler Vite untuk Desktop React renderer
 ├── package.json
 └── tsconfig.json
 ```
 
 ---
 
-## 2. Alur Kerja Pengembangan (Development Workflow)
+## 2. Alur Kerja Pengembangan
 
 ### A. Persiapan Lingkungan
-Pastikan Anda menggunakan Node.js versi 20 LTS atau lebih baru:
+Gunakan Node.js versi 20 LTS atau lebih baru:
 ```bash
 node -v # Harus >= 20.0.0
 npm install
 ```
 
-### B. Menjalankan Kode Langsung (Mode Cepat)
-Menggunakan `tsx` untuk mengeksekusi TypeScript secara langsung tanpa kompilasi manual:
+### B. Menjalankan Desktop GUI
+```bash
+# Otomatis mengompilasi main, preload, dan renderer lalu menjalankan Electron:
+npm run desktop
+```
+
+### C. Menjalankan CLI dalam Mode Pengembangan
 ```bash
 # Menjalankan menu bantuan CLI
 npx tsx src/index.ts --help
 
-# Membuka Dashboard TUI
+# Membuka Dashboard TUI interaktif
 npx tsx src/index.ts home
 
 # Menguji pencarian mod
 npx tsx src/index.ts search "sodium" -v 1.21.1 -l fabric
-
-# Menguji simulasi instalasi (dry-run)
-npx tsx src/index.ts install sodium --dry-run
 ```
 
-### C. Pengujian Kualitas Kode (Type Checking & Unit Tests)
+### D. Pengujian Kualitas Kode
 ```bash
-# 1. Validasi tipe TypeScript di seluruh src/ dan tests/
+# 1. Validasi tipe TypeScript
 npx tsc --noEmit
 
-# 2. Menjalankan seluruh test suite unit & integrasi
+# 2. Menjalankan seluruh 244 unit tests
 npm test
 
 # 3. Menjalankan pengujian dalam mode interaktif
@@ -134,46 +119,36 @@ npx vitest
 
 ---
 
-## 3. Bundling Berkecepatan Tinggi dengan `tsup`
+## 3. Kompilasi Bundle Distribusi
 
-Berkas konfigurasi `tsup.config.ts`:
-
-```typescript
-import { defineConfig } from 'tsup';
-
-export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['esm'],
-  target: 'node20',
-  outDir: 'dist',
-  clean: true,
-  minify: true,
-  sourcemap: false,
-  banner: {
-    js: '#!/usr/bin/env node',
-  },
-});
-```
-
-Jalankan perintah build:
+### A. Build CLI Bundle
 ```bash
 npm run build
-# Menghasilkan dist/index.js (satu file bundel utuh ESM, < 200 KB)
+# Menghasilkan dist/index.js (ESM bundle tunggal dengan banner #!/usr/bin/env node)
+```
+
+### B. Build Seluruh Target (CLI & Desktop)
+```bash
+npm run build:all
+# Mengompilasi dist/index.js, dist-desktop/main.js, dist-desktop/preload.js, dan assets web Vite
 ```
 
 ---
 
-## 4. Distribusi Standalone Binary
+## 4. Distribusi Standalone Windows Executable (.exe)
 
-Untuk mendistribusikan LoadModer tanpa mewajibkan pemain menginstal Node.js di komputer mereka, gunakan compiler binary seperti `@yao-pkg/pkg` atau `bun build --compile`:
+LoadModer menggunakan **electron-builder** untuk menghasilkan berkas installer dan portable untuk pengguna Windows tanpa memerlukan instalasi Node.js:
 
 ```bash
-# Contoh kompilasi binary mandiri untuk Windows
-npx @yao-pkg/pkg dist/index.js --targets node20-win-x64 --output dist/loadmoder.exe
-
-# Contoh kompilasi binary mandiri untuk Linux
-npx @yao-pkg/pkg dist/index.js --targets node20-linux-x64 --output dist/loadmoder-linux
+# Mengompilasi installer dan portable .exe ke folder dist-desktop/
+npm run dist:exe
 ```
+
+Output kompilasi:
+* **`LoadModer-Setup-2.6.0.exe`**: NSIS installer wizard dengan pembuatan desktop shortcut dan uninstaller bersih.
+* **`LoadModer-2.6.0-Portable.exe`**: Executable mandiri yang dapat langsung dijalankan dari USB flashdisk atau folder mana pun.
+
+Distribusi ini juga terintegrasi dengan **GitHub Actions CI/CD** (`.github/workflows/release.yml`), yang secara otomatis mengompilasi dan mengunggah aset binary ke halaman GitHub Releases ketika tag rilis `v*` dipush.
 
 ---
 
@@ -195,4 +170,3 @@ export LOADMODER_HOME=/opt/loadmoder-data
 # Menyertakan identitas kontak untuk Modrinth rate-limit tracking
 export LOADMODER_CONTACT="admin@example.com"
 ```
-

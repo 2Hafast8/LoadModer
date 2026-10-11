@@ -1,10 +1,10 @@
-# 03 — Spesifikasi Perintah & UX CLI LoadModer
+# 03: Spesifikasi Perintah dan UX LoadModer
 
-Dokumen ini mendefinisikan hierarki perintah lengkap, opsi flag, alur navigasi TUI, dan panduan antarmuka terminal untuk **LoadModer** (`lm`).
+Dokumen ini mendefinisikan hierarki perintah lengkap, opsi flag, alur navigasi TUI, dan panduan antarmuka untuk LoadModer (`lm`).
 
 ---
 
-## 1. Opsi & Flag CLI
+## 1. Opsi dan Flag CLI
 
 Flag berikut tersedia pada perintah-perintah yang relevan di LoadModer:
 
@@ -56,7 +56,7 @@ loadmoder (alias: lm)
 Membuka antarmuka navigasi keyboard berbasis `@inquirer/prompts`:
 
 ```text
-  LOADMODER v2.5.0 • Minecraft Mod & Modpack Manager • Nordic Clean TUI
+  LOADMODER v2.6.0 • Minecraft Mod & Modpack Manager • Nordic Clean TUI
 
   Instance Aktif : [Prism] Fabulously Optimized (1.21.1 / fabric)
   Mod Terpasang  : 14 Mod (14 Aktif) • Ukuran: 28.4 MB
@@ -83,21 +83,31 @@ Kontrol navigasi:
 - `Enter` : Memilih menu
 - `Ctrl+C` : Keluar aplikasi
 
-### 3.2 `lm init`
+### 3.2 Menjalankan Desktop GUI
+Bagi pengguna antarmuka visual Windows:
+```bash
+# Mode pengembangan (otomatis rebuild main, preload, renderer dan jalankan Electron)
+npm run desktop
+
+# Kompilasi aplikasi mandiri .exe (NSIS Installer & Portable di dist-desktop/)
+npm run dist:exe
+```
+
+### 3.3 `lm init`
 Wizard interaktif untuk mendeteksi launcher Minecraft atau memilih folder `.minecraft`:
 ```bash
 # Inisialisasi standar dengan deteksi otomatis launcher
 lm init
 
-# Pindai seluruh drive lokal (C:, D:, E:, ...) untuk folder .minecraft / minecraft
+# Pindai seluruh drive lokal (C:, D:, E:, ...) untuk folder .minecraft / instances
 lm init --scan
 
-# Tentukan path folder .minecraft / minecraft secara langsung
+# Tentukan path folder .minecraft secara langsung
 lm init --path "D:\Games\.minecraft"
 ```
 
-### 3.3 `lm search <query>`
-Mencari konten di Modrinth dengan filter presisi:
+### 3.4 `lm search <query>`
+Mencari konten di Modrinth dengan filter:
 ```bash
 # Mencari mod optimasi untuk Fabric 1.21.1
 lm search sodium -v 1.21.1 -l fabric
@@ -109,7 +119,7 @@ lm search complementary -t shader
 lm search "fabulously optimized" -t modpack --json
 ```
 
-### 3.4 `lm install <targets...>`
+### 3.5 `lm install <targets...>`
 Memasang mod, modpack (`.mrpack`), atau URL proyek Modrinth:
 ```bash
 # Memasang mod dengan resolusi dependensi otomatis
@@ -117,7 +127,7 @@ lm install sodium iris fabric-api
 
 # Memasang modpack dari file lokal atau slug Modrinth
 lm install fabulously-optimized.mrpack
-lm install zombie--apocalypse
+lm install zombie-apocalypse
 
 # Simulasi pemasangan tanpa menulis ke disk
 lm install sodium --dry-run
@@ -126,12 +136,12 @@ lm install sodium --dry-run
 lm install custom-mod --no-deps
 ```
 
-#### Perlindungan Unduh Modpack Aktif & Zero-Overwrite Guard
+#### Perlindungan Unduh Modpack Aktif (Zero-Overwrite Guard)
 Ketika pengguna mencoba memasang modpack baru sementara wadah client aktif sudah menjalankan suatu profil modpack, sistem secara ketat **melarang penimpaan langsung (*zero-overwrite*)** demi mencegah konflik file atau kerusakan konfigurasi. LoadModer memunculkan dialog pencegahan:
-1. **Batalkan Pemasangan Modpack**: Menghentikan proses unduh secara aman tanpa menyentuh atau memodifikasi berkas disk wadah aktif.
-2. **Bersihkan Wadah & Pasang Modpack Baru (Clean Install)**: Mengarsipkan profil modpack saat ini ke brankas `.loadmoder/profiles/<id>/`, membersihkan folder kerja wadah client ke kondisi *clean state*, lalu memasang modpack baru secara bersih.
+1. **Batalkan Pemasangan Modpack**: Menghentikan proses unduh secara aman tanpa memodifikasi berkas disk wadah aktif.
+2. **Bersihkan Wadah dan Pasang Modpack Baru (Clean Install)**: Mengarsipkan profil modpack saat ini ke brankas `.loadmoder/profiles/<id>/`, membersihkan folder kerja ke kondisi *clean state*, lalu memasang modpack baru secara bersih.
 
-#### Pencadangan Baseline Emas Sekali Saja (One-Time Golden Baseline Snapshot)
+#### Pencadangan Baseline Satu Kali (One-Time Golden Baseline Snapshot)
 Sebelum modpack pertama dipasang pada wadah client aktif, LoadModer secara otomatis membuat **One-Time Golden Baseline Snapshot** di `.loadmoder/baseline/`:
 - Mencadangkan seluruh berkas konfigurasi murni bawaan awal (termasuk `options.txt` awal dan folder non-mod).
 - Folder `mods/` diabaikan karena lingkungan dasar diasumsikan murni (*vanilla/clean*).
@@ -142,25 +152,25 @@ Saat memasang modpack, pengguna dapat memilih salah satu dari dua mode:
 - **Full Modpack (Lengkap)**: Memasang seluruh komponen yang disediakan pembuat modpack (mods, overrides, configs, resourcepacks, shaders, dan defaultconfigs).
 - **Ringan / Esensial**: Hanya mengekstrak mod inti dan konfigurasi wajib, melewati resource pack atau shader berukuran besar untuk menghemat ruang disk dan RAM.
 
-### 3.5 `lm update`
+### 3.6 `lm update`
 Memeriksa versi mod lokal terhadap rilis terbaru di Modrinth:
 ```bash
 # Memperbarui semua mod dengan konfirmasi otomatis
 lm update -y
 
-# Menyertakan versi beta dan alpha
+# Menyertakan versi prerelease (alpha/beta)
 lm update --prerelease
 ```
 
-### 3.6 `lm remove <targets...>`
+### 3.7 `lm remove <targets...>`
 Menghapus mod dan dependensi yang tidak lagi digunakan:
 ```bash
 # Menghapus mod iris dan membersihkan library yatim yang tidak lagi dirujuk mod lain
 lm remove iris --prune -y
 ```
 
-### 3.7 `lm profile`
-Mengisolasi dan beralih antar kombinasi versi game pada instance launcher standar:
+### 3.8 `lm profile`
+Mengisolasi dan beralih antar kombinasi versi game pada instance launcher:
 ```bash
 # Menampilkan daftar snapshot profil tersimpan
 lm profile list
@@ -169,7 +179,7 @@ lm profile list
 lm profile switch -v 1.20.1 -l forge
 ```
 
-### 3.8 `lm bisect <action>`
+### 3.9 `lm bisect <action>`
 Melacak mod penyebab crash menggunakan algoritma pencarian biner ($O(\log_2 N)$):
 ```bash
 # Memulai sesi bisect (setengah mod dinonaktifkan sementara)
@@ -185,13 +195,13 @@ lm bisect bad
 lm bisect reset
 ```
 
-### 3.9 `lm watch`
+### 3.10 `lm watch`
 Memantau folder `mods/` secara real-time dan menyinkronkan status lockfile saat ada perubahan manual:
 ```bash
 lm watch
 ```
 
-### 3.10 `lm modpack <action>`
+### 3.11 `lm modpack <action>`
 Mengelola brankas profil modpack pada wadah client aktif (`.loadmoder/profiles/`):
 ```bash
 # Menampilkan tabel profil modpack tersimpan di wadah aktif beserta status aktif
@@ -205,7 +215,7 @@ lm modpack switch <profile-id>
 lm modpack disable
 ```
 
-### 3.11 `lm config <action>`
+### 3.12 `lm config <action>`
 Menampilkan atau mengubah konfigurasi lokal LoadModer:
 ```bash
 # Menampilkan konfigurasi instance aktif saat ini
@@ -217,4 +227,3 @@ lm config use <instance-id>
 # Mengatur opsi konfigurasi global
 lm config set defaultLoader fabric
 ```
-

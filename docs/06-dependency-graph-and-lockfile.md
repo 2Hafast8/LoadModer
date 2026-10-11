@@ -1,4 +1,4 @@
-# 06 — Dependency Graph, Lockfile & Automatic Resolver
+# 06: Dependency Graph, Lockfile dan Automatic Resolver
 
 Dokumen ini menjelaskan struktur data `loadmoder.lock.json`, algoritma pelacakan dependensi menggunakan **Directed Acyclic Graph (DAG)** dan **Reference Counting**, serta arsitektur **Automatic Dependency Resolver** yang mendeteksi dan menginstal library mod secara otomatis.
 
@@ -12,7 +12,7 @@ Pada sistem pengelolaan manual atau skrip sederhana:
 3. Berkas **B** dan **C** tertinggal di folder `mods/`. Seiring waktu, puluhan file pustaka tak terpakai menumpuk dan dapat memicu konflik kelas (*classloader crash*).
 4. Jika mod **D** juga membutuhkan pustaka **B**, menghapus mod **A** tidak boleh menghapus **B**.
 
-**LoadModer** menyelesaikan masalah ini dengan mekanisme **Dependency Reference Counting** melalui `loadmoder.lock.json` dan **Automated Dependency Resolver**.
+LoadModer menyelesaikan masalah ini dengan mekanisme **Dependency Reference Counting** melalui `loadmoder.lock.json` dan **Automated Dependency Resolver**.
 
 ---
 
@@ -27,7 +27,7 @@ File ini disimpan langsung di folder instance game pengguna:
   "gameVersion": "1.21.1",
   "loader": "fabric",
   "environment": "client",
-  "updatedAt": "2026-09-30T14:00:00.000Z",
+  "updatedAt": "2026-10-11T12:00:00.000Z",
   "mods": {
     "sodium": {
       "projectId": "AANobbMI",
@@ -79,7 +79,7 @@ File ini disimpan langsung di folder instance game pengguna:
 ```
 
 ### Logika Penambahan (Install):
-1. Jika pengguna meminta instalasi mod `A` $\rightarrow$ `A.isRoot = true`.
+1. Jika pengguna meminta instalasi mod `A` -> `A.isRoot = true`.
 2. Untuk setiap dependensi `B` yang dibutuhkan `A`:
    - Jika `B` belum ada di lockfile, pasang `B` dan tandai `B.isRoot = false`.
    - Tambahkan `A` ke dalam array `B.dependedBy`.
@@ -92,14 +92,14 @@ File ini disimpan langsung di folder instance game pengguna:
 2. **Evaluasi Yatim (Orphan Check)**:
    - Untuk setiap dependensi yang terpengaruh, periksa kondisi:
      `if (!mod.isRoot && mod.dependedBy.length === 0)`
-   - Library `fabric-api` masih memiliki `dependedBy: ["sodium"]` $\rightarrow$ **Pertahankan**.
-   - Jika nantinya `sodium` juga dihapus, maka `fabric-api.dependedBy` bernilai `[]` (0 referensi) $\rightarrow$ **Tandai sebagai yatim (orphan) dan hapus dari disk**.
+   - Library `fabric-api` masih memiliki `dependedBy: ["sodium"]` -> **Pertahankan**.
+   - Jika nantinya `sodium` juga dihapus, maka `fabric-api.dependedBy` bernilai `[]` (0 referensi) -> **Tandai sebagai yatim (orphan) dan hapus dari disk**.
 
 ---
 
 ## 4. Mesin Resolusi Dependensi Otomatis (`src/core/dependency/resolver.ts`)
 
-Sering kali pengguna mengunduh mod tanpa menyadari bahwa mod tersebut membutuhkan library pendukung (seperti *Fabric API*, *Cloth Config*, *Architectury*, atau *Indium*).
+Sering kali pengguna mengunduh mod tanpa menyadari bahwa mod tersebut membutuhkan library pendukung (seperti Fabric API, Cloth Config, Architectury, atau Indium).
 
 LoadModer mengintegrasikan mesin resolusi multi-tahap:
 
@@ -114,13 +114,13 @@ Endpoint API `GET /v2/version/{id}` menyediakan array `dependencies`:
 Resolver hanya mengambil dependensi dengan status `required`.
 
 ### B. Fallback Regex Parsing pada Teks Deskripsi
-Jika author mod tidak mendeklarasikan dependensi pada form versi Modrinth namun mencantumkannya di badan deskripsi mod (Markdown), fungsi `extractDependenciesFromText` menganalisis teks deskripsi menggunakan pola reguler:
+Jika pembuat mod tidak mendeklarasikan dependensi pada form versi Modrinth namun mencantumkannya di deskripsi mod (Markdown), fungsi `extractDependenciesFromText` menganalisis teks deskripsi menggunakan pola ekspresi reguler:
 * `"Requires Cloth Config to function"`
 * `"Depends on: Fabric API, Architectury"`
 * `"Dependency: YetAnotherConfigLib"`
 
 ### C. Verifikasi Keberadaan Lokal & Pencocokan Versi
-Sebelum mengunduh file baru dari internet, resolver melakukan:
-1. **Local Pre-Check**: Memindai folder `mods/` aktif. Jika file JAR library yang cocok (misalnya `fabric-api-0.102.0.jar`) sudah ada, proses pengunduhan dilewati (*skipped*).
-2. **Loader & Version Matching**: Mengambil rilis library yang secara presisi cocok dengan mod loader (`fabric`/`forge`) dan versi Minecraft instance pengguna saat ini.
+Sebelum mengunduh berkas baru dari internet, resolver melakukan:
+1. **Local Pre-Check**: Memindai folder `mods/` aktif. Jika file JAR library yang cocok (misalnya `fabric-api-0.102.0.jar`) sudah ada, proses pengunduhan dilewati.
+2. **Loader & Version Matching**: Mengambil rilis library yang cocok dengan mod loader (`fabric`/`forge`) dan versi Minecraft instance aktif.
 3. **Pencatatan DAG**: Memasukkan library yang diinstal ke dalam `loadmoder.lock.json` dengan status `isRoot: false` dan mencatat slug mod induk pada `dependedBy`.

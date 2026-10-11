@@ -130,7 +130,7 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 ## [2.0.0] - 2026-09-30
 
 ### Added
-- Rilis perdana platform LoadModer v2 — CLI/TUI manajer mod, modpack (`.mrpack`), shader, dan resource pack Minecraft berbasis Modrinth API v2.
+- Rilis perdana platform LoadModer v2: CLI/TUI manajer mod, modpack (`.mrpack`), shader, dan resource pack Minecraft berbasis Modrinth API v2.
 - Dukungan Directed Acyclic Graph (DAG) untuk pelacakan dependensi dan pembersihan dependensi yatim (*orphan pruning*).
 - Penulisan state atomik menggunakan `write-file-atomic` (`loadmoder.lock.json` dan `config.json`).
 
