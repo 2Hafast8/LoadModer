@@ -8,6 +8,10 @@ import {
   Cpu,
   Gamepad2,
   AlertCircle,
+  FolderSearch,
+  FolderPlus,
+  PackageCheck,
+  Undo2,
 } from 'lucide-react';
 
 interface InstanceItem {
@@ -27,7 +31,9 @@ interface InstancesViewProps {
 export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged }) => {
   const [instances, setInstances] = useState<InstanceItem[]>([]);
   const [activeInstance, setActiveInstance] = useState<InstanceItem | null>(null);
+  const [modpackProfiles, setModpackProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deepScanning, setDeepScanning] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -40,6 +46,12 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
       if (data.active?.name && onInstanceChanged) {
         onInstanceChanged(data.active.name);
       }
+
+      // Check modpack profiles for active instance
+      try {
+        const profiles = await window.api.modpack.listProfiles();
+        setModpackProfiles(profiles ?? []);
+      } catch {}
     } catch (err: any) {
       console.error('Failed to load instances:', err);
     } finally {
@@ -63,6 +75,8 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           text: `Instance aktif dialihkan ke "${inst.name}"`,
           type: 'success',
         });
+        const profiles = await window.api.modpack.listProfiles().catch(() => []);
+        setModpackProfiles(profiles ?? []);
       } else {
         setNotification({
           text: res.error ?? 'Gagal memilih instance',
@@ -76,10 +90,85 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
     }
   };
 
+  const handleDeepScan = async () => {
+    setDeepScanning(true);
+    setNotification(null);
+    try {
+      const found = await window.api.instances.deepScanDrives();
+      if (found.length > 0) {
+        setInstances((prev) => {
+          const ids = new Set(prev.map((i) => i.rootDir.toLowerCase()));
+          const added = found.filter((f: InstanceItem) => !ids.has(f.rootDir.toLowerCase()));
+          return [...prev, ...added];
+        });
+        setNotification({
+          text: `Pemindaian drive selesai. Ditemukan ${found.length} direktori game Minecraft.`,
+          type: 'success',
+        });
+      } else {
+        setNotification({
+          text: 'Tidak ada instalasi Minecraft tambahan yang ditemukan di drive lokal.',
+          type: 'success',
+        });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    } finally {
+      setDeepScanning(false);
+    }
+  };
+
+  const handleBrowseFolder = async () => {
+    try {
+      const res = await window.api.instances.browseFolder();
+      if (res.success && res.instance) {
+        setInstances((prev) => [res.instance, ...prev.filter((i) => i.id !== res.instance.id)]);
+        setActiveInstance(res.instance);
+        if (onInstanceChanged) onInstanceChanged(res.instance.name);
+        setNotification({
+          text: `Folder instance "${res.instance.name}" berhasil ditambahkan dan diaktifkan.`,
+          type: 'success',
+        });
+      } else if (res.error) {
+        setNotification({ text: res.error, type: 'error' });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    }
+  };
+
+  const handleSwitchModpackProfile = async (profileId: string) => {
+    try {
+      const res = await window.api.modpack.switchProfile(profileId);
+      if (res.success) {
+        setNotification({ text: `Wadah modpack berhasil dialihkan ke "${profileId}"`, type: 'success' });
+        loadInstances();
+      } else {
+        setNotification({ text: res.error ?? 'Gagal beralih wadah', type: 'error' });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    }
+  };
+
+  const handleDisableModpack = async () => {
+    try {
+      const res = await window.api.modpack.disableActive();
+      if (res.success) {
+        setNotification({ text: 'Wadah modpack dinonaktifkan. Instance kembali ke mode bersih/vanilla.', type: 'success' });
+        loadInstances();
+      } else {
+        setNotification({ text: res.error ?? 'Gagal menonaktifkan modpack', type: 'error' });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
       {/* Header Bar */}
-      <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex items-center justify-between">
+      <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xs font-semibold text-nordic-text uppercase tracking-wider">
             Pengelola Launcher & Instance
@@ -89,14 +178,36 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           </p>
         </div>
 
-        <button
-          onClick={loadInstances}
-          disabled={loading}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Pindai Ulang</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleBrowseFolder}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+            title="Pilih folder .minecraft secara manual"
+          >
+            <FolderPlus className="w-3.5 h-3.5" />
+            <span>Folder Manual</span>
+          </button>
+
+          <button
+            onClick={handleDeepScan}
+            disabled={deepScanning}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+            title="Pindai seluruh drive lokal (C:, D:, E:)"
+          >
+            <FolderSearch className={`w-3.5 h-3.5 ${deepScanning ? 'animate-spin' : ''}`} />
+            <span>Pindai Drive</span>
+          </button>
+
+          <button
+            onClick={loadInstances}
+            disabled={loading}
+            className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Notification Toast */}
@@ -117,8 +228,64 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         </div>
       )}
 
-      {/* Main Grid */}
-      <div className="flex-1 overflow-y-auto p-4">
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Modpack Container Management Panel (If Available) */}
+        {modpackProfiles.length > 0 && (
+          <div className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <PackageCheck className="w-4 h-4 text-emerald-primary" />
+                <span className="text-xs font-bold text-nordic-text uppercase font-mono">
+                  Wadah Modpack Tersimpan ({modpackProfiles.length})
+                </span>
+              </div>
+              <button
+                onClick={handleDisableModpack}
+                className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-[11px] text-nordic-muted hover:text-status-warning hover:border-status-warning/40 transition-colors cursor-pointer"
+              >
+                <Undo2 className="w-3 h-3" />
+                <span>Mode Vanilla (Nonaktifkan Wadah)</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {modpackProfiles.map((prof) => (
+                <div
+                  key={prof.id}
+                  className={`p-2.5 rounded border text-xs flex items-center justify-between ${
+                    prof.isActive
+                      ? 'bg-emerald-dark/20 border-emerald-primary/60 text-emerald-active'
+                      : 'bg-obsidian-card border-obsidian-border text-nordic-muted'
+                  }`}
+                >
+                  <div className="truncate min-w-0 mr-2">
+                    <span className="font-semibold block truncate text-nordic-text">
+                      {prof.name}
+                    </span>
+                    <span className="text-[10px] font-mono opacity-70">
+                      {prof.filesCount ?? 0} berkas • {prof.loader ?? 'modpack'}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => handleSwitchModpackProfile(prof.id)}
+                    disabled={prof.isActive}
+                    className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                      prof.isActive
+                        ? 'bg-emerald-primary text-obsidian-bg cursor-default'
+                        : 'bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary hover:text-emerald-primary'
+                    }`}
+                  >
+                    {prof.isActive ? 'Aktif' : 'Pilih'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Instances Grid */}
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 space-y-2 text-nordic-muted">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />

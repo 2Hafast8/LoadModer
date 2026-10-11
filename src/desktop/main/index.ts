@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerIpcHandlers } from './ipcHandlers.js';
 
+import { existsSync } from 'node:fs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -10,8 +12,9 @@ let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
   // Determine preload script location
-  // When compiled via tsup to dist-desktop/main.js, preload is at dist-desktop/preload.js
-  const preloadPath = path.resolve(__dirname, 'preload.js');
+  // When compiled to CJS in type:module, tsup outputs preload.cjs
+  const cjsPath = path.resolve(__dirname, 'preload.cjs');
+  const preloadPath = existsSync(cjsPath) ? cjsPath : path.resolve(__dirname, 'preload.js');
 
   mainWindow = new BrowserWindow({
     width: 1140,

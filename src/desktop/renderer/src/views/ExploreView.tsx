@@ -9,6 +9,8 @@ import {
   Layers,
   Palette,
   AlertCircle,
+  FileArchive,
+  ArrowUpDown,
 } from 'lucide-react';
 
 interface ProjectHit {
@@ -26,8 +28,9 @@ interface ProjectHit {
 
 export const ExploreView: React.FC = () => {
   const [query, setQuery] = useState('sodium');
-  const [projectType, setProjectType] = useState<'mod' | 'shader' | 'resourcepack'>('mod');
+  const [projectType, setProjectType] = useState<'mod' | 'modpack' | 'shader' | 'resourcepack'>('mod');
   const [loader, setLoader] = useState<'all' | 'fabric' | 'forge' | 'neoforge'>('all');
+  const [sortIndex, setSortIndex] = useState<'relevance' | 'downloads' | 'newest' | 'updated'>('relevance');
   const [hits, setHits] = useState<ProjectHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
@@ -43,11 +46,19 @@ export const ExploreView: React.FC = () => {
         type: projectType,
         loader: loader !== 'all' ? loader : undefined,
         limit: 24,
+        index: sortIndex,
       });
-      setHits(res.hits ?? []);
+
+      if (res.error) {
+        setStatusMessage({ text: res.error, type: 'error' });
+        setHits([]);
+      } else {
+        setHits(res.hits ?? []);
+      }
     } catch (err: any) {
       console.error('Search failed:', err);
-      setStatusMessage({ text: 'Gagal memuat hasil dari Modrinth API', type: 'error' });
+      setStatusMessage({ text: err.message || 'Gagal memuat hasil dari Modrinth API', type: 'error' });
+      setHits([]);
     } finally {
       setLoading(false);
     }
@@ -55,7 +66,7 @@ export const ExploreView: React.FC = () => {
 
   useEffect(() => {
     searchModrinth();
-  }, [projectType, loader]);
+  }, [projectType, loader, sortIndex]);
 
   const handleInstall = async (hit: ProjectHit) => {
     setInstallingId(hit.project_id);
@@ -69,7 +80,7 @@ export const ExploreView: React.FC = () => {
       if (res.success) {
         setInstalledMap((prev) => ({ ...prev, [hit.project_id]: true }));
         setStatusMessage({
-          text: `Berhasil mengunduh dan memasang ${hit.title}`,
+          text: res.message ?? `Berhasil memasang ${hit.title}`,
           type: 'success',
         });
       } else {
@@ -85,36 +96,67 @@ export const ExploreView: React.FC = () => {
     }
   };
 
+  const handleInstallLocalMrpack = async () => {
+    setLoading(true);
+    setStatusMessage(null);
+    try {
+      const res = await window.api.modrinth.installLocalMrpack();
+      if (res.success) {
+        setStatusMessage({
+          text: res.message ?? 'Modpack lokal berhasil dipasang!',
+          type: 'success',
+        });
+      } else if (res.error) {
+        setStatusMessage({ text: res.error, type: 'error' });
+      }
+    } catch (err: any) {
+      setStatusMessage({ text: err.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
       {/* Sub-header Filter & Search */}
       <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        {/* Search Bar */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            searchModrinth();
-          }}
-          className="relative flex-1 max-w-lg flex items-center"
-        >
-          <Search className="w-4 h-4 absolute left-3 text-nordic-muted" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari mod, shader, resource pack di Modrinth..."
-            className="w-full bg-obsidian-card border border-obsidian-border rounded pl-9 pr-20 py-1.5 text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary transition-colors"
-          />
-          <button
-            type="submit"
-            className="absolute right-1 px-2.5 py-1 rounded bg-emerald-primary text-obsidian-bg text-[11px] font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
+        {/* Search Bar & Local Pack Button */}
+        <div className="flex items-center space-x-2 flex-1 max-w-lg">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              searchModrinth();
+            }}
+            className="relative flex-1 flex items-center"
           >
-            Cari
+            <Search className="w-4 h-4 absolute left-3 text-nordic-muted" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cari mod, modpack, shader, resource pack..."
+              className="w-full bg-obsidian-card border border-obsidian-border rounded pl-9 pr-16 py-1.5 text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary transition-colors"
+            />
+            <button
+              type="submit"
+              className="absolute right-1 px-2.5 py-1 rounded bg-emerald-primary text-obsidian-bg text-[11px] font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
+            >
+              Cari
+            </button>
+          </form>
+
+          <button
+            onClick={handleInstallLocalMrpack}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap"
+            title="Pilih dan pasang file .mrpack dari komputer"
+          >
+            <FileArchive className="w-3.5 h-3.5" />
+            <span>Pasang .mrpack</span>
           </button>
-        </form>
+        </div>
 
         {/* Filters */}
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Project Type */}
           <div className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs">
             <button
@@ -127,6 +169,17 @@ export const ExploreView: React.FC = () => {
             >
               <Package className="w-3 h-3" />
               <span>Mod</span>
+            </button>
+            <button
+              onClick={() => setProjectType('modpack')}
+              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors ${
+                projectType === 'modpack'
+                  ? 'bg-emerald-primary text-obsidian-bg font-semibold'
+                  : 'text-nordic-muted hover:text-nordic-text'
+              }`}
+            >
+              <Layers className="w-3 h-3" />
+              <span>Modpack</span>
             </button>
             <button
               onClick={() => setProjectType('shader')}
@@ -156,12 +209,24 @@ export const ExploreView: React.FC = () => {
           <select
             value={loader}
             onChange={(e) => setLoader(e.target.value as any)}
-            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-muted focus:outline-none focus:border-emerald-primary cursor-pointer"
+            className="bg-obsidian-card border border-obsidian-border rounded px-2 py-1 text-xs text-nordic-muted focus:outline-none focus:border-emerald-primary cursor-pointer"
           >
             <option value="all">Semua Loader</option>
             <option value="fabric">Fabric</option>
             <option value="forge">Forge</option>
             <option value="neoforge">NeoForge</option>
+          </select>
+
+          {/* Sort Filter */}
+          <select
+            value={sortIndex}
+            onChange={(e) => setSortIndex(e.target.value as any)}
+            className="bg-obsidian-card border border-obsidian-border rounded px-2 py-1 text-xs text-nordic-muted focus:outline-none focus:border-emerald-primary cursor-pointer"
+          >
+            <option value="relevance">Relevansi</option>
+            <option value="downloads">Unduhan Terbanyak</option>
+            <option value="newest">Terbaru</option>
+            <option value="updated">Terakhir Diperbarui</option>
           </select>
         </div>
       </div>

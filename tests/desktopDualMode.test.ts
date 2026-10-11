@@ -8,12 +8,13 @@ describe('Desktop Dual-Mode Architecture', () => {
     expect(typeof launchDesktop).toBe('function');
   });
 
-  it('harus menghasilkan bundle distribusi desktop main.js dan preload.js di dist-desktop/', () => {
+  it('harus menghasilkan bundle distribusi desktop main.js dan preload.cjs di dist-desktop/', () => {
     const mainPath = path.resolve(process.cwd(), 'dist-desktop/main.js');
-    const preloadPath = path.resolve(process.cwd(), 'dist-desktop/preload.js');
+    const preloadCjsPath = path.resolve(process.cwd(), 'dist-desktop/preload.cjs');
+    const preloadJsPath = path.resolve(process.cwd(), 'dist-desktop/preload.js');
 
     expect(existsSync(mainPath)).toBe(true);
-    expect(existsSync(preloadPath)).toBe(true);
+    expect(existsSync(preloadCjsPath) || existsSync(preloadJsPath)).toBe(true);
 
     const mainContent = readFileSync(mainPath, 'utf8');
     expect(mainContent.length).toBeGreaterThan(1000);

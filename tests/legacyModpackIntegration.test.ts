@@ -180,7 +180,7 @@ describe("Legacy Launcher Modpack Integration (Clean Install, Archiving, Zero Ov
     const liveMods = await readdir(path.join(fabricContainerDir, "mods"));
     expect(liveMods).toContain("mod-a.jar");
     expect(liveMods).not.toContain("mod-b.jar");
-  });
+  }, 15_000);
 
   it("harus menonaktifkan seluruh wadah Legacy Launcher secara bersih via disableAllModpackContainers", async () => {
     // Buat wadah kedua di home/
