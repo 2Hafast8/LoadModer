@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Download,
@@ -21,6 +21,7 @@ import {
   Calendar,
   Shield,
   FileCode,
+  X,
 } from 'lucide-react';
 import { MarkdownViewer } from '../components/MarkdownViewer.js';
 
@@ -121,8 +122,28 @@ export const ExploreView: React.FC = () => {
     }
   };
 
+  const isFirstRender = useRef(true);
+
+  // Debounced instant live search as user types
   useEffect(() => {
-    searchModrinth();
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      searchModrinth(query);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      searchModrinth(query);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Immediate search when filter criteria change
+  useEffect(() => {
+    if (!isFirstRender.current) {
+      searchModrinth(query);
+    }
   }, [projectType, loader, sortIndex]);
 
   // Fetch full details when a project is selected
@@ -555,8 +576,18 @@ export const ExploreView: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cari mod, modpack, shader, resource pack..."
-              className="w-full bg-obsidian-card border border-obsidian-border rounded pl-9 pr-16 py-1.5 text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary transition-colors"
+              className="w-full bg-obsidian-card border border-obsidian-border rounded pl-9 pr-20 py-1.5 text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary transition-colors"
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-14 text-nordic-muted hover:text-nordic-text p-1 cursor-pointer transition-colors"
+                title="Hapus pencarian"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               type="submit"
               className="absolute right-1 px-2.5 py-1 rounded bg-emerald-primary text-obsidian-bg text-[11px] font-semibold hover:bg-emerald-active transition-colors cursor-pointer"

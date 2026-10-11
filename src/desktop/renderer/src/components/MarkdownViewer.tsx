@@ -1,7 +1,85 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { marked } from 'marked';
 
 interface MarkdownViewerProps {
   content: string;
+}
+
+/**
+ * Sanitize and clean HTML output from marked parser.
+ * Removes dangerous script/iframe tags and on* attributes while preserving safe HTML and formatting.
+ */
+function sanitizeAndProcessHtml(rawHtml: string): string {
+  if (typeof window === 'undefined' || !window.DOMParser) {
+    return rawHtml;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(rawHtml, 'text/html');
+
+  // Remove dangerous executable or embedding tags
+  const dangerousTags = [
+    'script',
+    'style',
+    'iframe',
+    'object',
+    'embed',
+    'form',
+    'input',
+    'button',
+    'meta',
+    'link',
+    'applet',
+  ];
+  for (const tag of dangerousTags) {
+    doc.querySelectorAll(tag).forEach((el) => el.remove());
+  }
+
+  // Sanitize all elements & attributes
+  const allElements = doc.querySelectorAll('*');
+  allElements.forEach((el) => {
+    // Strip on* event handlers (onclick, onload, onerror, etc.)
+    const attrNames = Array.from(el.attributes).map((a) => a.name);
+    for (const name of attrNames) {
+      if (name.toLowerCase().startsWith('on')) {
+        el.removeAttribute(name);
+      }
+    }
+
+    const tagName = el.tagName.toLowerCase();
+
+    // Secure anchor links
+    if (tagName === 'a') {
+      const href = el.getAttribute('href') || '';
+      const cleanHref = href.trim().toLowerCase();
+      if (
+        cleanHref.startsWith('javascript:') ||
+        cleanHref.startsWith('vbscript:') ||
+        cleanHref.startsWith('data:text/html')
+      ) {
+        el.removeAttribute('href');
+      } else {
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      }
+    }
+
+    // Secure image tags
+    if (tagName === 'img') {
+      const src = el.getAttribute('src') || '';
+      const cleanSrc = src.trim().toLowerCase();
+      if (
+        cleanSrc.startsWith('javascript:') ||
+        cleanSrc.startsWith('vbscript:') ||
+        cleanSrc.startsWith('data:text/html')
+      ) {
+        el.removeAttribute('src');
+      }
+      el.setAttribute('loading', 'lazy');
+    }
+  });
+
+  return doc.body.innerHTML;
 }
 
 export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content }) => {
@@ -13,152 +91,40 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content }) => {
     );
   }
 
-  // Pre-process markdown to clean raw HTML comments or dangerous script tags
-  const sanitized = content
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  const cleanHtml = useMemo(() => {
+    try {
+      // 1. Strip raw HTML comments
+      const preProcessed = content.replace(/<!--[\s\S]*?-->/g, '');
 
-  const lines = sanitized.split(/\r?\n/);
-  const elements: React.ReactNode[] = [];
-  let inCodeBlock = false;
-  let codeBuffer: string[] = [];
-  let inList = false;
-  let listItems: string[] = [];
+      // 2. Parse Markdown + inline HTML using marked (GFM enabled)
+      const parsed = marked.parse(preProcessed, {
+        async: false,
+        breaks: true,
+        gfm: true,
+      }) as string;
 
-  const flushList = (key: string) => {
-    if (inList && listItems.length > 0) {
-      elements.push(
-        <ul key={key} className="list-disc list-inside space-y-1 my-2 text-xs text-nordic-text leading-relaxed pl-2">
-          {listItems.map((item, idx) => (
-            <li key={idx} dangerouslySetInnerHTML={{ __html: formatInline(item) }} />
-          ))}
-        </ul>
-      );
-      listItems = [];
-      inList = false;
+      // 3. Sanitize and secure output
+      return sanitizeAndProcessHtml(parsed);
+    } catch (err) {
+      console.error('Failed to parse markdown:', err);
+      return `<p>${content}</p>`;
+    }
+  }, [content]);
+
+  // Intercept link clicks to open in default OS browser via Electron shell
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = (e.target as HTMLElement).closest('a');
+    if (target && target.href) {
+      e.preventDefault();
+      window.open(target.href, '_blank');
     }
   };
 
-  const formatInline = (text: string): string => {
-    // Escape basic html
-    let out = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-    // Inline code `code`
-    out = out.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-obsidian-card border border-obsidian-border text-[11px] font-mono text-emerald-active">$1</code>');
-
-    // Bold **text**
-    out = out.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-nordic-text">$1</strong>');
-
-    // Italic *text*
-    out = out.replace(/\*([^*]+)\*/g, '<em class="italic text-nordic-muted">$1</em>');
-
-    // Strikethrough ~~text~~
-    out = out.replace(/~~([^~]+)~~/g, '<del class="line-through text-nordic-muted">$1</del>');
-
-    // Links [text](url)
-    out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-emerald-primary hover:underline font-medium">$1</a>');
-
-    return out;
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const rawLine = lines[i];
-    const trimmed = rawLine.trim();
-
-    // Code blocks ```
-    if (trimmed.startsWith('```')) {
-      if (inCodeBlock) {
-        elements.push(
-          <div key={`code-${i}`} className="my-3 rounded border border-obsidian-border bg-obsidian-bg p-3 overflow-x-auto text-xs font-mono text-nordic-text">
-            <pre>{codeBuffer.join('\n')}</pre>
-          </div>
-        );
-        codeBuffer = [];
-        inCodeBlock = false;
-      } else {
-        flushList(`list-before-code-${i}`);
-        inCodeBlock = true;
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeBuffer.push(rawLine);
-      continue;
-    }
-
-    // Horizontal Rule
-    if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
-      flushList(`list-before-hr-${i}`);
-      elements.push(<hr key={`hr-${i}`} className="my-4 border-obsidian-border" />);
-      continue;
-    }
-
-    // Headings
-    if (trimmed.startsWith('# ')) {
-      flushList(`list-before-h1-${i}`);
-      elements.push(
-        <h1 key={`h1-${i}`} className="text-lg font-bold text-nordic-text mt-5 mb-2 pb-1 border-b border-obsidian-border">
-          {trimmed.slice(2)}
-        </h1>
-      );
-      continue;
-    }
-    if (trimmed.startsWith('## ')) {
-      flushList(`list-before-h2-${i}`);
-      elements.push(
-        <h2 key={`h2-${i}`} className="text-base font-bold text-emerald-primary mt-4 mb-2">
-          {trimmed.slice(3)}
-        </h2>
-      );
-      continue;
-    }
-    if (trimmed.startsWith('### ')) {
-      flushList(`list-before-h3-${i}`);
-      elements.push(
-        <h3 key={`h3-${i}`} className="text-sm font-semibold text-nordic-text mt-3 mb-1">
-          {trimmed.slice(4)}
-        </h3>
-      );
-      continue;
-    }
-
-    // Lists (- or *)
-    if (/^[-*]\s+/.test(trimmed)) {
-      inList = true;
-      listItems.push(trimmed.replace(/^[-*]\s+/, ''));
-      continue;
-    } else {
-      flushList(`list-${i}`);
-    }
-
-    // Images ![alt](url)
-    const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
-    if (imgMatch) {
-      elements.push(
-        <div key={`img-${i}`} className="my-3 rounded overflow-hidden border border-obsidian-border max-w-full">
-          <img src={imgMatch[2]} alt={imgMatch[1] || 'Preview'} className="max-h-96 object-contain mx-auto" />
-        </div>
-      );
-      continue;
-    }
-
-    // Paragraph
-    if (trimmed.length > 0) {
-      elements.push(
-        <p
-          key={`p-${i}`}
-          className="text-xs text-nordic-text my-2 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: formatInline(trimmed) }}
-        />
-      );
-    }
-  }
-
-  flushList('list-end');
-
-  return <div className="space-y-1">{elements}</div>;
+  return (
+    <div
+      onClick={handleClick}
+      className="markdown-body text-xs text-nordic-text leading-relaxed select-text"
+      dangerouslySetInnerHTML={{ __html: cleanHtml }}
+    />
+  );
 };
