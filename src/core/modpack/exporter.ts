@@ -1,12 +1,9 @@
 import path from 'node:path';
 import { createWriteStream } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { ZipArchive } from 'archiver';
 import { DependencyGraph } from '../dependency/graph.js';
 import { hashFile } from '../../utils/crypto.js';
-
-const require = createRequire(import.meta.url);
-const archiver = require('archiver');
 
 export interface ModpackExportOptions {
   format: 'mrpack' | 'zip';
@@ -54,7 +51,7 @@ export class ModpackExporter {
   async exportModpack(options: ModpackExportOptions): Promise<ModpackExportResult> {
     const isMrpack = options.format === 'mrpack';
     const outputStream = createWriteStream(options.outputPath);
-    const archive = new archiver.ZipArchive({ zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
 
     const archivePromise = new Promise<void>((resolve, reject) => {
       outputStream.on('close', resolve);
