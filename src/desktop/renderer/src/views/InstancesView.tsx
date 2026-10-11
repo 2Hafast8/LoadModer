@@ -10,6 +10,7 @@ import {
   AlertCircle,
   FolderSearch,
   FolderPlus,
+  FolderOpen,
   PackageCheck,
   Undo2,
 } from 'lucide-react';
@@ -118,6 +119,17 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
     }
   };
 
+  const handleOpenFolder = async (folderPath?: string) => {
+    try {
+      const res = await window.api.instances.openFolder(folderPath);
+      if (!res.success && res.error) {
+        setNotification({ text: `Gagal membuka folder: ${res.error}`, type: 'error' });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    }
+  };
+
   const handleBrowseFolder = async () => {
     try {
       const res = await window.api.instances.browseFolder();
@@ -180,6 +192,17 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
 
         {/* Action Buttons */}
         <div className="flex items-center space-x-2">
+          {activeInstance && (
+            <button
+              onClick={() => handleOpenFolder(activeInstance.rootDir)}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-emerald-dark/30 border border-emerald-primary/40 text-xs text-emerald-active hover:bg-emerald-dark/50 transition-colors cursor-pointer"
+              title="Buka direktori instance aktif di Windows File Explorer"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span>Buka Folder Aktif</span>
+            </button>
+          )}
+
           <button
             onClick={handleBrowseFolder}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
@@ -357,8 +380,17 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                     </div>
                   </div>
 
-                  {/* Select Button */}
-                  <div className="pt-3 border-t border-obsidian-border flex justify-end">
+                  {/* Select & Open Folder Buttons */}
+                  <div className="pt-3 border-t border-obsidian-border flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => handleOpenFolder(inst.rootDir)}
+                      className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+                      title="Buka direktori instance di Windows File Explorer"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>Buka Folder</span>
+                    </button>
+
                     <button
                       onClick={() => handleSelect(inst)}
                       disabled={isActive || isSwitching}

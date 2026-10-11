@@ -11,6 +11,7 @@ import {
   Sparkles,
   Palette,
   Boxes,
+  FolderOpen,
 } from 'lucide-react';
 
 interface ModItem {
@@ -46,7 +47,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
   const [loading, setLoading] = useState(true);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'updates'>('all');
   const [storageUsage, setStorageUsage] = useState('0 B');
   const [activeCount, setActiveCount] = useState(0);
   const [actionMessage, setActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -84,6 +85,29 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
   const showNotification = (text: string, type: 'success' | 'error' = 'success') => {
     setActionMessage({ text, type });
     setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleOpenFolder = async () => {
+    try {
+      const data = await window.api.instances.getAll();
+      const active = data?.active;
+      if (!active?.rootDir) {
+        showNotification('Tidak ada instance aktif', 'error');
+        return;
+      }
+      let folderToOpen = active.modsDir;
+      if (assetType === 'shaders') {
+        folderToOpen = `${active.rootDir}\\shaderpacks`;
+      } else if (assetType === 'resourcepacks') {
+        folderToOpen = `${active.rootDir}\\resourcepacks`;
+      }
+      const res = await window.api.instances.openFolder(folderToOpen);
+      if (!res.success && res.error) {
+        showNotification(res.error, 'error');
+      }
+    } catch (err: any) {
+      showNotification(err.message, 'error');
+    }
   };
 
   const handleToggle = async (mod: ModItem) => {
@@ -143,17 +167,20 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
   const handleCheckUpdates = async () => {
     setCheckingUpdates(true);
     try {
-      const found = await window.api.mods.checkUpdates();
+      const res = await window.api.mods.checkUpdates();
+      const list: UpdateItem[] = Array.isArray(res) ? res : (res?.updates ?? []);
       const map: Record<string, UpdateItem> = {};
-      for (const item of found) {
+      for (const item of list) {
         map[item.currentFile] = item;
       }
       setUpdates(map);
 
-      if (found.length === 0) {
-        showNotification('Seluruh mod sudah berada pada versi terbaru yang kompatibel! ✨');
+      if (list.length === 0) {
+        const info = (!Array.isArray(res) && res?.gameVersion) ? ` (${res.gameVersion} • ${res.loader})` : '';
+        showNotification(`Seluruh ${mods.length} mod sudah versi terbaru yang kompatibel${info}! ✨`);
       } else {
-        showNotification(`Ditemukan ${found.length} mod yang memiliki pembaruan!`);
+        showNotification(`Ditemukan ${list.length} mod yang memiliki pembaruan!`);
+        setStatusFilter('updates');
       }
     } catch (err: any) {
       showNotification(err.message, 'error');
@@ -190,9 +217,10 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
 
       if (statusFilter === 'active') return m.enabled;
       if (statusFilter === 'disabled') return !m.enabled;
+      if (statusFilter === 'updates') return !!updates[m.fileName];
       return true;
     });
-  }, [mods, searchQuery, statusFilter]);
+  }, [mods, searchQuery, statusFilter, updates]);
 
   const filteredPacks = useMemo(() => {
     return packs.filter((p) =>
@@ -290,6 +318,18 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                 >
                   Nonaktif ({mods.length - activeCount})
                 </button>
+                {Object.keys(updates).length > 0 && (
+                  <button
+                    onClick={() => setStatusFilter('updates')}
+                    className={`px-2.5 py-1 rounded cursor-pointer transition-colors font-semibold ${
+                      statusFilter === 'updates'
+                        ? 'bg-status-warning text-obsidian-bg'
+                        : 'text-status-warning hover:bg-status-warning/10'
+                    }`}
+                  >
+                    Update ({Object.keys(updates).length})
+                  </button>
+                )}
               </div>
 
               <button
@@ -303,6 +343,15 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
               </button>
             </>
           )}
+
+          <button
+            onClick={handleOpenFolder}
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+            title={`Buka folder ${assetType} di Windows File Explorer`}
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            <span>Buka Folder</span>
+          </button>
 
           <button
             onClick={fetchMods}

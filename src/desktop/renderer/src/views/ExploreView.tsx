@@ -11,7 +11,18 @@ import {
   AlertCircle,
   FileArchive,
   ArrowUpDown,
+  ArrowLeft,
+  ExternalLink,
+  Code2,
+  Bug,
+  BookOpen,
+  MessageSquare,
+  Users,
+  Calendar,
+  Shield,
+  FileCode,
 } from 'lucide-react';
+import { MarkdownViewer } from '../components/MarkdownViewer.js';
 
 interface ProjectHit {
   project_id: string;
@@ -27,15 +38,22 @@ interface ProjectHit {
 }
 
 export const ExploreView: React.FC = () => {
-  const [query, setQuery] = useState('sodium');
+  const [query, setQuery] = useState('');
   const [projectType, setProjectType] = useState<'mod' | 'modpack' | 'shader' | 'resourcepack'>('mod');
   const [loader, setLoader] = useState<'all' | 'fabric' | 'forge' | 'neoforge'>('all');
-  const [sortIndex, setSortIndex] = useState<'relevance' | 'downloads' | 'newest' | 'updated'>('relevance');
+  const [sortIndex, setSortIndex] = useState<'relevance' | 'downloads' | 'newest' | 'updated'>('downloads');
   const [hits, setHits] = useState<ProjectHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [installedMap, setInstalledMap] = useState<Record<string, boolean>>({});
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Detail Page State
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [projectDetail, setProjectDetail] = useState<any | null>(null);
+  const [projectVersions, setProjectVersions] = useState<any[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailTab, setDetailTab] = useState<'description' | 'versions'>('description');
 
   const searchModrinth = async (customQuery?: string) => {
     const q = customQuery !== undefined ? customQuery : query;
@@ -46,7 +64,7 @@ export const ExploreView: React.FC = () => {
         type: projectType,
         loader: loader !== 'all' ? loader : undefined,
         limit: 24,
-        index: sortIndex,
+        index: q.trim() ? (sortIndex === 'downloads' ? 'relevance' : sortIndex) : sortIndex,
       });
 
       if (res.error) {
@@ -57,7 +75,7 @@ export const ExploreView: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Search failed:', err);
-      setStatusMessage({ text: err.message || 'Gagal memuat hasil dari Modrinth API', type: 'error' });
+      setStatusMessage({ text: err.message || 'Gagal memuat katalog Modrinth API', type: 'error' });
       setHits([]);
     } finally {
       setLoading(false);
@@ -68,24 +86,50 @@ export const ExploreView: React.FC = () => {
     searchModrinth();
   }, [projectType, loader, sortIndex]);
 
-  const handleInstall = async (hit: ProjectHit) => {
-    setInstallingId(hit.project_id);
+  // Fetch full details when a project is selected
+  const handleOpenDetail = async (hit: ProjectHit) => {
+    setSelectedSlug(hit.slug);
+    setDetailLoading(true);
+    setDetailTab('description');
+    setProjectDetail(null);
+    setProjectVersions([]);
+
+    try {
+      const [project, versions] = await Promise.all([
+        window.api.modrinth.getProject(hit.slug),
+        window.api.modrinth.getVersions(hit.slug, {
+          loader: loader !== 'all' ? loader : undefined,
+        }),
+      ]);
+
+      setProjectDetail(project ?? hit);
+      setProjectVersions(versions ?? []);
+    } catch (err) {
+      console.error('Failed to load project details:', err);
+      setProjectDetail(hit);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleInstall = async (slug: string, id: string, type: string) => {
+    setInstallingId(id);
     setStatusMessage(null);
     try {
-      const res = await window.api.modrinth.install(hit.slug, {
-        type: hit.project_type,
+      const res = await window.api.modrinth.install(slug, {
+        type,
         loader: loader !== 'all' ? loader : undefined,
       });
 
       if (res.success) {
-        setInstalledMap((prev) => ({ ...prev, [hit.project_id]: true }));
+        setInstalledMap((prev) => ({ ...prev, [id]: true }));
         setStatusMessage({
-          text: res.message ?? `Berhasil memasang ${hit.title}`,
+          text: res.message ?? `Berhasil memasang ${slug}`,
           type: 'success',
         });
       } else {
         setStatusMessage({
-          text: res.error ?? `Gagal memasang ${hit.title}`,
+          text: res.error ?? `Gagal memasang ${slug}`,
           type: 'error',
         });
       }
@@ -116,6 +160,268 @@ export const ExploreView: React.FC = () => {
     }
   };
 
+  // --- Render Project Detail View ---
+  if (selectedSlug) {
+    const isInstalled = projectDetail ? installedMap[projectDetail.id || projectDetail.project_id] : false;
+    const isInstalling = projectDetail ? installingId === (projectDetail.id || projectDetail.project_id) : false;
+
+    return (
+      <div className="flex flex-col h-full bg-obsidian-bg overflow-hidden">
+        {/* Detail Top Bar */}
+        <div className="p-3.5 border-b border-obsidian-border bg-obsidian-surface flex items-center justify-between">
+          <button
+            onClick={() => setSelectedSlug(null)}
+            className="flex items-center space-x-2 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-emerald-primary" />
+            <span>Kembali ke Jelajahi</span>
+          </button>
+
+          {projectDetail && (
+            <div className="flex items-center space-x-2">
+              <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-obsidian-card border border-obsidian-border text-emerald-primary">
+                {projectDetail.project_type || projectType}
+              </span>
+              <button
+                onClick={() =>
+                  handleInstall(
+                    projectDetail.slug,
+                    projectDetail.id || projectDetail.project_id,
+                    projectDetail.project_type || projectType
+                  )
+                }
+                disabled={isInstalling || isInstalled}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                  isInstalled
+                    ? 'bg-obsidian-card border border-emerald-primary/40 text-emerald-primary'
+                    : 'bg-emerald-primary text-obsidian-bg hover:bg-emerald-active'
+                }`}
+              >
+                {isInstalling ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Memasang & Resolusi Dependensi...</span>
+                  </>
+                ) : isInstalled ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Sudah Terpasang</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Pasang Proyek Ini</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Status Toast */}
+        {statusMessage && (
+          <div
+            className={`px-4 py-2 text-xs flex items-center space-x-2 border-b ${
+              statusMessage.type === 'success'
+                ? 'bg-emerald-dark/30 border-emerald-primary text-emerald-active'
+                : 'bg-status-danger/10 border-status-danger text-status-danger'
+            }`}
+          >
+            {statusMessage.type === 'success' ? (
+              <Check className="w-3.5 h-3.5 shrink-0" />
+            ) : (
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            )}
+            <span>{statusMessage.text}</span>
+          </div>
+        )}
+
+        {/* Detail Content Body */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {detailLoading ? (
+            <div className="flex flex-col items-center justify-center h-64 space-y-3 text-nordic-muted text-xs">
+              <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />
+              <span>Memuat detail metadata dari Modrinth API...</span>
+            </div>
+          ) : projectDetail ? (
+            <div className="max-w-4xl mx-auto space-y-6">
+              {/* Project Hero Header */}
+              <div className="p-5 rounded border border-obsidian-border bg-obsidian-surface flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-5">
+                <div className="w-20 h-20 rounded bg-obsidian-card border border-obsidian-border overflow-hidden shrink-0 flex items-center justify-center">
+                  {projectDetail.icon_url ? (
+                    <img src={projectDetail.icon_url} alt={projectDetail.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <Package className="w-10 h-10 text-emerald-primary/60" />
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-lg font-bold text-nordic-text">{projectDetail.title}</h1>
+                    <span className="text-[11px] font-mono text-nordic-muted">({projectDetail.slug})</span>
+                  </div>
+
+                  <p className="text-xs text-nordic-muted leading-relaxed">{projectDetail.description}</p>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-nordic-muted">
+                    <span className="flex items-center space-x-1">
+                      <Download className="w-3.5 h-3.5 text-emerald-primary" />
+                      <span>{projectDetail.downloads ? projectDetail.downloads.toLocaleString() : 0} unduhan</span>
+                    </span>
+                    <span className="flex items-center space-x-1">
+                      <Users className="w-3.5 h-3.5 text-nordic-muted" />
+                      <span>{projectDetail.followers || projectDetail.follows ? (projectDetail.followers || projectDetail.follows).toLocaleString() : 0} pengikut</span>
+                    </span>
+                    {projectDetail.license?.name && (
+                      <span className="flex items-center space-x-1">
+                        <Shield className="w-3.5 h-3.5 text-nordic-muted" />
+                        <span>Lisensi: {projectDetail.license.name}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* External Links Bar */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {projectDetail.source_url && (
+                  <a
+                    href={projectDetail.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors"
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                    <span>Source Code</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
+                  </a>
+                )}
+                {projectDetail.issues_url && (
+                  <a
+                    href={projectDetail.issues_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors"
+                  >
+                    <Bug className="w-3.5 h-3.5" />
+                    <span>Issue Tracker</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
+                  </a>
+                )}
+                {projectDetail.wiki_url && (
+                  <a
+                    href={projectDetail.wiki_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Dokumentasi / Wiki</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
+                  </a>
+                )}
+                {projectDetail.discord_url && (
+                  <a
+                    href={projectDetail.discord_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Komunitas Discord</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
+                  </a>
+                )}
+              </div>
+
+              {/* Detail Tabs */}
+              <div className="border-b border-obsidian-border flex items-center space-x-4">
+                <button
+                  onClick={() => setDetailTab('description')}
+                  className={`pb-2.5 text-xs font-semibold cursor-pointer transition-colors border-b-2 ${
+                    detailTab === 'description'
+                      ? 'border-emerald-primary text-emerald-active'
+                      : 'border-transparent text-nordic-muted hover:text-nordic-text'
+                  }`}
+                >
+                  Deskripsi Lengkap
+                </button>
+                <button
+                  onClick={() => setDetailTab('versions')}
+                  className={`pb-2.5 text-xs font-semibold cursor-pointer transition-colors border-b-2 ${
+                    detailTab === 'versions'
+                      ? 'border-emerald-primary text-emerald-active'
+                      : 'border-transparent text-nordic-muted hover:text-nordic-text'
+                  }`}
+                >
+                  Daftar Versi ({projectVersions.length})
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              {detailTab === 'description' ? (
+                <div className="p-6 rounded border border-obsidian-border bg-obsidian-surface">
+                  <MarkdownViewer content={projectDetail.body || projectDetail.description} />
+                </div>
+              ) : (
+                <div className="rounded border border-obsidian-border bg-obsidian-surface overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-obsidian-card text-nordic-muted font-medium border-b border-obsidian-border">
+                      <tr>
+                        <th className="px-4 py-2.5">Rilis Versi</th>
+                        <th className="px-4 py-2.5">Minecraft</th>
+                        <th className="px-4 py-2.5">Loader</th>
+                        <th className="px-4 py-2.5">Tipe</th>
+                        <th className="px-4 py-2.5">Tanggal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-obsidian-border">
+                      {projectVersions.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-6 text-center text-nordic-muted">
+                            Tidak ada versi yang cocok dengan filter saat ini.
+                          </td>
+                        </tr>
+                      ) : (
+                        projectVersions.map((v) => (
+                          <tr key={v.id} className="hover:bg-obsidian-hover/40 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-nordic-text">
+                              {v.name || v.version_number}
+                            </td>
+                            <td className="px-4 py-2.5 font-mono text-[11px] text-nordic-muted">
+                              {v.game_versions ? v.game_versions.slice(0, 3).join(', ') : '-'}
+                              {v.game_versions && v.game_versions.length > 3 ? ` +${v.game_versions.length - 3}` : ''}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span className="capitalize text-[11px] px-1.5 py-0.5 rounded bg-obsidian-card border border-obsidian-border text-emerald-primary">
+                                {v.loaders ? v.loaders.join(', ') : '-'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 uppercase font-mono text-[10px] text-nordic-muted">
+                              {v.version_type}
+                            </td>
+                            <td className="px-4 py-2.5 text-nordic-muted text-[11px]">
+                              {v.date_published ? new Date(v.date_published).toLocaleDateString() : '-'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center text-nordic-muted py-12 text-xs">
+              Detail proyek tidak ditemukan.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // --- Render Main Explore Catalogue ---
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
       {/* Sub-header Filter & Search */}
@@ -148,7 +454,7 @@ export const ExploreView: React.FC = () => {
           <button
             onClick={handleInstallLocalMrpack}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap"
-            title="Pilih dan pasang file .mrpack dari komputer"
+            title="Pilih dan pasang berkas .mrpack dari komputer"
           >
             <FileArchive className="w-3.5 h-3.5" />
             <span>Pasang .mrpack</span>
@@ -205,11 +511,11 @@ export const ExploreView: React.FC = () => {
             </button>
           </div>
 
-          {/* Loader Filter */}
+          {/* Loader Selection */}
           <select
             value={loader}
             onChange={(e) => setLoader(e.target.value as any)}
-            className="bg-obsidian-card border border-obsidian-border rounded px-2 py-1 text-xs text-nordic-muted focus:outline-none focus:border-emerald-primary cursor-pointer"
+            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer"
           >
             <option value="all">Semua Loader</option>
             <option value="fabric">Fabric</option>
@@ -217,21 +523,30 @@ export const ExploreView: React.FC = () => {
             <option value="neoforge">NeoForge</option>
           </select>
 
-          {/* Sort Filter */}
+          {/* Sort Selection */}
           <select
             value={sortIndex}
             onChange={(e) => setSortIndex(e.target.value as any)}
-            className="bg-obsidian-card border border-obsidian-border rounded px-2 py-1 text-xs text-nordic-muted focus:outline-none focus:border-emerald-primary cursor-pointer"
+            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer"
           >
+            <option value="downloads">Terpopuler</option>
             <option value="relevance">Relevansi</option>
-            <option value="downloads">Unduhan Terbanyak</option>
-            <option value="newest">Terbaru</option>
-            <option value="updated">Terakhir Diperbarui</option>
+            <option value="updated">Terbaru Diperbarui</option>
+            <option value="newest">Rilis Baru</option>
           </select>
+
+          <button
+            onClick={() => searchModrinth()}
+            disabled={loading}
+            className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
+            title="Muat Ulang Katalog"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
-      {/* Status Alert */}
+      {/* Toast Notification */}
       {statusMessage && (
         <div
           className={`px-4 py-2 text-xs flex items-center space-x-2 border-b ${
@@ -249,17 +564,17 @@ export const ExploreView: React.FC = () => {
         </div>
       )}
 
-      {/* Main Grid Results */}
+      {/* Grid of Results */}
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-48 space-y-2 text-nordic-muted">
+          <div className="flex flex-col items-center justify-center h-64 space-y-3 text-nordic-muted text-xs">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />
-            <span className="text-xs">Menghubungi Modrinth API v2...</span>
+            <span>Menghubungi Modrinth API v2...</span>
           </div>
         ) : hits.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 space-y-2 text-center text-nordic-muted">
-            <Search className="w-8 h-8 opacity-40" />
-            <span className="text-xs">Tidak ada hasil yang cocok dengan kriteria pencarian.</span>
+          <div className="flex flex-col items-center justify-center h-64 space-y-2 text-nordic-muted text-xs">
+            <Search className="w-8 h-8 opacity-40 text-emerald-primary" />
+            <span>Tidak ada hasil yang cocok dengan kriteria pencarian.</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -270,84 +585,54 @@ export const ExploreView: React.FC = () => {
               return (
                 <div
                   key={hit.project_id}
-                  className="bg-obsidian-card border border-obsidian-border rounded p-3.5 flex flex-col justify-between hover:border-obsidian-hover transition-colors"
+                  onClick={() => handleOpenDetail(hit)}
+                  className="p-3.5 rounded border border-obsidian-border bg-obsidian-surface hover:border-emerald-primary/40 transition-all duration-150 flex flex-col justify-between space-y-3 group cursor-pointer"
                 >
-                  <div>
-                    {/* Header: Icon + Title + Author */}
-                    <div className="flex items-start space-x-3 mb-2">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-12 h-12 rounded bg-obsidian-card border border-obsidian-border overflow-hidden shrink-0 flex items-center justify-center">
                       {hit.icon_url ? (
-                        <img
-                          src={hit.icon_url}
-                          alt={hit.title}
-                          className="w-10 h-10 rounded object-cover bg-obsidian-surface shrink-0 border border-obsidian-border"
-                          loading="lazy"
-                        />
+                        <img src={hit.icon_url} alt={hit.title} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-10 h-10 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center shrink-0 text-emerald-primary">
-                          <Package className="w-5 h-5" />
-                        </div>
+                        <Package className="w-6 h-6 text-emerald-primary/60" />
                       )}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-xs font-semibold text-nordic-text truncate">
-                          {hit.title}
-                        </h4>
-                        <span className="text-[11px] text-nordic-muted truncate block">
-                          oleh {hit.author}
-                        </span>
-                      </div>
                     </div>
 
-                    {/* Description */}
-                    <p className="text-[11px] text-nordic-muted line-clamp-2 mb-3 leading-relaxed">
-                      {hit.description}
-                    </p>
-
-                    {/* Badges */}
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {hit.categories.slice(0, 3).map((cat) => (
-                        <span
-                          key={cat}
-                          className="px-1.5 py-0.5 rounded bg-obsidian-surface border border-obsidian-border text-[10px] font-mono text-nordic-muted"
-                        >
-                          {cat}
-                        </span>
-                      ))}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-xs text-nordic-text group-hover:text-emerald-active transition-colors truncate">
+                        {hit.title}
+                      </h3>
+                      <p className="text-[11px] text-nordic-muted line-clamp-2 mt-0.5 leading-relaxed">
+                        {hit.description}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Footer: Stats & Install Button */}
-                  <div className="pt-2.5 border-t border-obsidian-border flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-nordic-muted">
-                      {(hit.downloads / 1000).toFixed(0)}k unduhan
-                    </span>
+                  <div className="flex items-center justify-between pt-2 border-t border-obsidian-border text-[11px] text-nordic-muted">
+                    <div className="flex items-center space-x-3 truncate">
+                      <span>{hit.downloads ? hit.downloads.toLocaleString() : 0} unduhan</span>
+                      <span className="truncate">oleh {hit.author}</span>
+                    </div>
 
                     <button
-                      onClick={() => handleInstall(hit)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleInstall(hit.slug, hit.project_id, hit.project_type);
+                      }}
                       disabled={isInstalling || isInstalled}
-                      className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
+                      className={`flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
                         isInstalled
-                          ? 'bg-emerald-dark/30 text-emerald-active border border-emerald-primary/40 cursor-default'
-                          : isInstalling
-                          ? 'bg-obsidian-hover text-nordic-muted cursor-wait'
-                          : 'bg-emerald-primary text-obsidian-bg font-semibold hover:bg-emerald-active'
+                          ? 'bg-obsidian-card border border-emerald-primary/40 text-emerald-primary'
+                          : 'bg-emerald-primary text-obsidian-bg hover:bg-emerald-active'
                       }`}
                     >
-                      {isInstalled ? (
-                        <>
-                          <Check className="w-3 h-3" />
-                          <span>Terpasang</span>
-                        </>
-                      ) : isInstalling ? (
-                        <>
-                          <RefreshCw className="w-3 h-3 animate-spin" />
-                          <span>Memasang...</span>
-                        </>
+                      {isInstalling ? (
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      ) : isInstalled ? (
+                        <Check className="w-3 h-3" />
                       ) : (
-                        <>
-                          <Download className="w-3 h-3" />
-                          <span>Instal</span>
-                        </>
+                        <Download className="w-3 h-3" />
                       )}
+                      <span>{isInstalling ? 'Memasang...' : isInstalled ? 'Terpasang' : 'Pasang'}</span>
                     </button>
                   </div>
                 </div>

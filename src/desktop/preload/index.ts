@@ -15,6 +15,7 @@ export interface DesktopAPI {
     scanAll: () => Promise<any[]>;
     deepScanDrives: () => Promise<any[]>;
     browseFolder: () => Promise<{ success: boolean; instance?: any; error?: string }>;
+    openFolder: (targetPath?: string) => Promise<{ success: boolean; error?: string }>;
   };
   // Installed assets (mods, shaders, resource packs)
   mods: {
@@ -49,12 +50,17 @@ export interface DesktopAPI {
       customDir?: string,
       type?: 'mod' | 'shader' | 'resourcepack'
     ) => Promise<{ success: boolean; removed?: string[]; error?: string }>;
-    checkUpdates: () => Promise<Array<{
-      currentFile: string;
-      nextVersion: string;
-      nextFileName: string;
-      size: number;
-    }>>;
+    checkUpdates: () => Promise<{
+      updates: Array<{
+        currentFile: string;
+        nextVersion: string;
+        nextFileName: string;
+        size: number;
+      }>;
+      checkedCount?: number;
+      gameVersion?: string;
+      loader?: string;
+    }>;
     applyUpdate: (currentFile: string) => Promise<{ success: boolean; error?: string }>;
     onChanged: (callback: () => void) => () => void;
   };
@@ -70,10 +76,11 @@ export interface DesktopAPI {
         index?: 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';
       }
     ) => Promise<any>;
+    getProject: (slugOrId: string) => Promise<any>;
     getVersions: (slugOrId: string, filter?: { loader?: string; mcVersion?: string }) => Promise<any[]>;
     install: (
       slugOrId: string,
-      options?: { type?: string; mcVersion?: string; loader?: string }
+      options?: { type?: string; mcVersion?: string; loader?: string; versionId?: string }
     ) => Promise<{ success: boolean; message?: string; error?: string }>;
     installLocalMrpack: (filePath?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   };
@@ -112,6 +119,7 @@ const api: DesktopAPI = {
     scanAll: () => ipcRenderer.invoke('instances:scanAll'),
     deepScanDrives: () => ipcRenderer.invoke('instances:deepScanDrives'),
     browseFolder: () => ipcRenderer.invoke('instances:browseFolder'),
+    openFolder: (targetPath?: string) => ipcRenderer.invoke('instances:openFolder', targetPath),
   },
   mods: {
     list: (customDir?: string) => ipcRenderer.invoke('mods:list', customDir),
@@ -132,6 +140,7 @@ const api: DesktopAPI = {
   },
   modrinth: {
     search: (query: string, filter) => ipcRenderer.invoke('modrinth:search', query, filter),
+    getProject: (slugOrId: string) => ipcRenderer.invoke('modrinth:getProject', slugOrId),
     getVersions: (slugOrId: string, filter) => ipcRenderer.invoke('modrinth:getVersions', slugOrId, filter),
     install: (slugOrId: string, options) => ipcRenderer.invoke('modrinth:install', slugOrId, options),
     installLocalMrpack: (filePath?: string) => ipcRenderer.invoke('modrinth:installLocalMrpack', filePath),
