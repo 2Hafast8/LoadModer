@@ -200,9 +200,10 @@ export const renderCommandCenterHeader = (info: CommandCenterInfo) => {
 
   if (isAccessible) {
     const modeSegment = showMode ? ` | Mode: ${modeText}` : '';
+    const statusSegment = info.statusText ? ` | ${info.statusText}` : '';
     console.log(
       chalk.bold(`LOADMODER v${APP_VERSION}`) +
-        ` | Instance: ${info.instanceName ?? 'Default'}${modeSegment} | Loader: ${loaderVersionText} | Mods: ${info.activeCount ?? 0}/${info.modsCount ?? 0} (${info.storageUsage ?? '0 B'})\n`
+        ` | Instance: ${info.instanceName ?? 'Default'}${modeSegment} | Loader: ${loaderVersionText} | Mods: ${info.activeCount ?? 0}/${info.modsCount ?? 0} (${info.storageUsage ?? '0 B'})${statusSegment}\n`
     );
     return;
   }

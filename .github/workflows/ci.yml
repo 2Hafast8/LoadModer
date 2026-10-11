@@ -37,11 +37,11 @@ jobs:
       - name: Type checking (tsc --noEmit)
         run: npx tsc --noEmit
 
+      - name: Compile application bundles
+        run: npm run build:all
+
       - name: Run test suite (Vitest)
         run: npm test
-
-      - name: Verify build bundle (tsup)
-        run: npm run build
 
       - name: CLI smoke test
         run: node dist/index.js --help

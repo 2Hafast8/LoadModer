@@ -36,11 +36,11 @@ jobs:
       - name: Type checking (tsc --noEmit)
         run: npx tsc --noEmit
 
-      - name: Run test suite
-        run: npm test
-
       - name: Compile application bundles
         run: npm run build:all
+
+      - name: Run test suite
+        run: npm test
 
       - name: Build standalone executables (NSIS Setup & Portable)
         run: npx electron-builder --win

@@ -1,9 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { launchDesktop } from '../src/desktop/launcher.js';
 
 describe('Desktop Dual-Mode Architecture', () => {
+  beforeAll(() => {
+    const mainPath = path.resolve(process.cwd(), 'dist-desktop/main.js');
+    const htmlPath = path.resolve(process.cwd(), 'dist-desktop/renderer/index.html');
+    if (!existsSync(mainPath) || !existsSync(htmlPath)) {
+      execSync('npm run desktop:build', { stdio: 'ignore' });
+    }
+  }, 60000);
+
   it('harus menyediakan fungsi launchDesktop dari modul launcher', () => {
     expect(typeof launchDesktop).toBe('function');
   });
