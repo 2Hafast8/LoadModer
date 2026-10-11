@@ -313,7 +313,7 @@ program
 program
   .command("desktop")
   .alias("gui")
-  .description("Buka antarmuka desktop LoadModer (Windows GUI)")
+  .description("Buka antarmuka desktop LoadModer")
   .action(
     handleAction(async () => {
       const {launchDesktop} = await import("./desktop/launcher.js");

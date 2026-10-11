@@ -64,7 +64,6 @@ export const BisectView: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-obsidian-bg p-6 overflow-y-auto">
       <div className="max-w-2xl mx-auto w-full space-y-6">
-        {/* Title & Introduction */}
         <div className="border border-obsidian-border bg-obsidian-surface rounded p-5 space-y-2">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded bg-emerald-dark/30 text-emerald-primary border border-emerald-primary/30">
@@ -81,7 +80,6 @@ export const BisectView: React.FC = () => {
           </div>
         </div>
 
-        {/* Culprit Found Celebration */}
         {culprit ? (
           <div className="border border-status-danger/40 bg-status-danger/10 rounded p-6 space-y-4 text-center">
             <div className="inline-flex p-3 rounded-full bg-status-danger/20 text-status-danger">
@@ -108,7 +106,6 @@ export const BisectView: React.FC = () => {
             </div>
           </div>
         ) : active ? (
-          /* Active Bisect Session Stepper */
           <div className="border border-emerald-primary/40 bg-obsidian-card rounded p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-obsidian-border pb-4">
               <div className="flex items-center space-x-2">
@@ -133,7 +130,6 @@ export const BisectView: React.FC = () => {
               </p>
             </div>
 
-            {/* Answer Buttons */}
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={() => handleAction('good')}
@@ -154,7 +150,6 @@ export const BisectView: React.FC = () => {
               </button>
             </div>
 
-            {/* Cancel Button */}
             <div className="pt-2 text-center">
               <button
                 onClick={() => handleAction('reset')}
@@ -167,7 +162,6 @@ export const BisectView: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Ready to Start */
           <div className="border border-obsidian-border bg-obsidian-card rounded p-6 space-y-5 text-center">
             <div className="space-y-2 max-w-md mx-auto">
               <h3 className="text-xs font-bold text-nordic-text uppercase tracking-wide">
@@ -189,7 +183,6 @@ export const BisectView: React.FC = () => {
           </div>
         )}
 
-        {/* Message Log */}
         {message && (
           <div className="p-3 rounded bg-obsidian-surface border border-obsidian-border text-[11px] font-mono text-nordic-muted">
             {message}

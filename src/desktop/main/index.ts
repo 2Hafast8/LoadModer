@@ -6,7 +6,6 @@ import { registerIpcHandlers } from './ipcHandlers.js';
 
 app.name = 'LoadModer';
 
-// Ensure isolated user data folder to avoid multi-instance disk cache locking
 app.setPath('userData', path.join(app.getPath('appData'), 'loadmoder-desktop'));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,11 +13,10 @@ const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 
-// Single instance lock to prevent multiple conflicting electron processes
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!gotSingleInstanceLock) {
-  app.quit();
+  app.exit(0);
 } else {
   app.on('second-instance', () => {
     if (mainWindow) {
@@ -52,7 +50,6 @@ if (!gotSingleInstanceLock) {
       mainWindow?.show();
     });
 
-    // Security: delegate external links to user's default browser
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('https:') || url.startsWith('http:')) {
         shell.openExternal(url);

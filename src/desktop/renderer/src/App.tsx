@@ -10,7 +10,6 @@ export const App: React.FC = () => {
   const [activeInstanceName, setActiveInstanceName] = useState<string>('Memuat...');
 
   useEffect(() => {
-    // Initial fetch of active instance name
     const fetchActive = async () => {
       try {
         const data = await window.api.instances.getAll();
@@ -28,7 +27,6 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-obsidian-bg text-nordic-text">
-      {/* Top Navigation & Frameless Window Bar */}
       <TopBar
         currentTab={currentTab}
         onTabChange={(tab: NavTab) => setCurrentTab(tab)}
@@ -36,7 +34,6 @@ export const App: React.FC = () => {
         onOpenInstances={() => setCurrentTab('instances')}
       />
 
-      {/* Main View Container */}
       <main className="flex-1 overflow-hidden relative">
         {currentTab === 'mods' && (
           <ModsView onGoToExplore={() => setCurrentTab('explore')} />

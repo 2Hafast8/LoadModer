@@ -38,7 +38,6 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header className="h-11 bg-obsidian-surface border-b border-obsidian-border flex items-center justify-between px-3 select-none app-drag text-sm">
-      {/* Brand & Indicator */}
       <div className="flex items-center space-x-3 app-no-drag">
         <div className="flex items-center space-x-2">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-primary" />
@@ -51,7 +50,6 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Horizontal Navigation Tabs */}
       <nav className="flex items-center space-x-1 app-no-drag">
         {tabs.map((tab) => {
           const isActive = currentTab === tab.id;
@@ -72,9 +70,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         })}
       </nav>
 
-      {/* Right: Active Instance Selector & Windows 11 Controls */}
       <div className="flex items-center space-x-2 app-no-drag">
-        {/* Active Instance Button */}
         <button
           onClick={onOpenInstances}
           className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors duration-150 cursor-pointer max-w-[200px]"
@@ -86,7 +82,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           </span>
         </button>
 
-        {/* Windows 11 Controls */}
         <div className="flex items-center ml-1">
           <button
             onClick={handleMinimize}

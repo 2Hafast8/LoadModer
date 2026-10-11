@@ -21,11 +21,10 @@ export async function launchDesktop(): Promise<void> {
   }
 
   if (!electronExe || !existsSync(electronExe)) {
-    console.error('\x1b[31m❌ Binary Electron tidak ditemukan. Jalankan "npm install" terlebih dahulu.\x1b[0m');
+    console.error('\x1b[31m❌ Komponen antarmuka desktop tidak ditemukan.\x1b[0m');
     return;
   }
 
-  // Resolve path to dist-desktop/main.js
   const candidate1 = path.resolve(__dirname, '../../dist-desktop/main.js');
   const candidate2 = path.resolve(__dirname, '../dist-desktop/main.js');
   const candidate3 = path.resolve(process.cwd(), 'dist-desktop/main.js');
@@ -33,11 +32,11 @@ export async function launchDesktop(): Promise<void> {
   const mainScript = [candidate1, candidate2, candidate3].find((p) => existsSync(p));
 
   if (!mainScript) {
-    console.error('\x1b[33m▲ Bundle desktop belum dikompilasi. Jalankan "npm run desktop:build" terlebih dahulu.\x1b[0m');
+    console.error('\x1b[33m▲ Bundle antarmuka desktop belum dikompilasi. Jalankan kompilasi terlebih dahulu.\x1b[0m');
     return;
   }
 
-  console.log('\x1b[32m✔ Meluncurkan antarmuka desktop LoadModer (Windows GUI)...\x1b[0m');
+  console.log('\x1b[32m✔ Meluncurkan antarmuka desktop LoadModer...\x1b[0m');
 
   if (process.platform === 'win32') {
     const child = spawn('cmd.exe', ['/c', 'start', '""', electronExe, mainScript], {
@@ -52,4 +51,8 @@ export async function launchDesktop(): Promise<void> {
     });
     child.unref();
   }
+}
+
+if (process.argv[1] && process.argv[1].includes('launcher')) {
+  launchDesktop();
 }

@@ -93,17 +93,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content }) => {
 
   const cleanHtml = useMemo(() => {
     try {
-      // 1. Strip raw HTML comments
       const preProcessed = content.replace(/<!--[\s\S]*?-->/g, '');
-
-      // 2. Parse Markdown + inline HTML using marked (GFM enabled)
       const parsed = marked.parse(preProcessed, {
         async: false,
         breaks: true,
         gfm: true,
       }) as string;
-
-      // 3. Sanitize and secure output
       return sanitizeAndProcessHtml(parsed);
     } catch (err) {
       console.error('Failed to parse markdown:', err);
@@ -111,7 +106,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content }) => {
     }
   }, [content]);
 
-  // Intercept link clicks to open in default OS browser via Electron shell
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = (e.target as HTMLElement).closest('a');
     if (target && target.href) {

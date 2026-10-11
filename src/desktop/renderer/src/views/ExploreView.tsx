@@ -60,7 +60,6 @@ export const ExploreView: React.FC = () => {
     versionMap: Record<string, string>;
   }>({ projectIds: [], slugs: [], filenames: [], versionMap: {} });
 
-  // Detail Page State
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [projectDetail, setProjectDetail] = useState<any | null>(null);
   const [projectVersions, setProjectVersions] = useState<any[]>([]);
@@ -140,7 +139,7 @@ export const ExploreView: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Search failed:', err);
-      setStatusMessage({ text: err.message || 'Gagal memuat katalog Modrinth API', type: 'error' });
+      setStatusMessage({ text: err.message || 'Gagal memuat katalog aset', type: 'error' });
       setHits([]);
     } finally {
       setLoading(false);
@@ -149,7 +148,6 @@ export const ExploreView: React.FC = () => {
 
   const isFirstRender = useRef(true);
 
-  // Debounced instant live search as user types
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -164,14 +162,12 @@ export const ExploreView: React.FC = () => {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Immediate search when filter criteria change
   useEffect(() => {
     if (!isFirstRender.current) {
       searchModrinth(query);
     }
   }, [projectType, loader, sortIndex]);
 
-  // Fetch full details when a project is selected
   const handleOpenDetail = async (hit: ProjectHit) => {
     setSelectedSlug(hit.slug);
     setDetailLoading(true);
@@ -281,14 +277,12 @@ export const ExploreView: React.FC = () => {
     }
   };
 
-  // --- Render Project Detail View ---
   if (selectedSlug) {
     const isInstalled = projectDetail ? checkIsInstalled(projectDetail) : false;
     const isInstalling = projectDetail ? installingId === (projectDetail.id || projectDetail.project_id) : false;
 
     return (
       <div className="flex flex-col h-full bg-obsidian-bg overflow-hidden">
-        {/* Detail Top Bar */}
         <div className="p-3.5 border-b border-obsidian-border bg-obsidian-surface flex items-center justify-between">
           <button
             onClick={() => setSelectedSlug(null)}
@@ -339,7 +333,6 @@ export const ExploreView: React.FC = () => {
           )}
         </div>
 
-        {/* Status Toast */}
         {statusMessage && (
           <div
             className={`px-4 py-2 text-xs flex items-center space-x-2 border-b ${
@@ -357,16 +350,14 @@ export const ExploreView: React.FC = () => {
           </div>
         )}
 
-        {/* Detail Content Body */}
         <div className="flex-1 overflow-y-auto p-6">
           {detailLoading ? (
             <div className="flex flex-col items-center justify-center h-64 space-y-3 text-nordic-muted text-xs">
               <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />
-              <span>Memuat detail metadata dari Modrinth API...</span>
+              <span>Memuat rincian aset...</span>
             </div>
           ) : projectDetail ? (
             <div className="max-w-4xl mx-auto space-y-6">
-              {/* Project Hero Header */}
               <div className="p-5 rounded border border-obsidian-border bg-obsidian-surface flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-5">
                 <div className="w-20 h-20 rounded bg-obsidian-card border border-obsidian-border overflow-hidden shrink-0 flex items-center justify-center">
                   {projectDetail.icon_url ? (
@@ -403,7 +394,6 @@ export const ExploreView: React.FC = () => {
                 </div>
               </div>
 
-              {/* External Links Bar */}
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 {projectDetail.source_url && (
                   <a
@@ -455,7 +445,6 @@ export const ExploreView: React.FC = () => {
                 )}
               </div>
 
-              {/* Detail Tabs */}
               <div className="border-b border-obsidian-border flex items-center space-x-4">
                 <button
                   onClick={() => setDetailTab('description')}
@@ -479,7 +468,6 @@ export const ExploreView: React.FC = () => {
                 </button>
               </div>
 
-              {/* Tab Content */}
               {detailTab === 'description' ? (
                 <div className="p-6 rounded border border-obsidian-border bg-obsidian-surface">
                   <MarkdownViewer content={projectDetail.body || projectDetail.description} />
@@ -622,12 +610,9 @@ export const ExploreView: React.FC = () => {
     );
   }
 
-  // --- Render Main Explore Catalogue ---
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
-      {/* Sub-header Filter & Search */}
       <div className="p-3.5 border-b border-obsidian-border bg-obsidian-surface flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
-        {/* Search Bar & Local Pack Button */}
         <div className="flex items-center space-x-2 w-full xl:w-auto xl:flex-1 xl:max-w-md">
           <form
             onSubmit={(e) => {
@@ -672,9 +657,7 @@ export const ExploreView: React.FC = () => {
           </button>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 justify-start xl:justify-end">
-          {/* Project Type */}
           <div className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs shrink-0">
             <button
               onClick={() => setProjectType('mod')}
@@ -722,7 +705,6 @@ export const ExploreView: React.FC = () => {
             </button>
           </div>
 
-          {/* Loader Selection */}
           <select
             value={loader}
             onChange={(e) => setLoader(e.target.value as any)}
@@ -734,7 +716,6 @@ export const ExploreView: React.FC = () => {
             <option value="neoforge">NeoForge</option>
           </select>
 
-          {/* Sort Selection */}
           <select
             value={sortIndex}
             onChange={(e) => setSortIndex(e.target.value as any)}
@@ -757,7 +738,6 @@ export const ExploreView: React.FC = () => {
         </div>
       </div>
 
-      {/* Toast Notification */}
       {statusMessage && (
         <div
           className={`px-4 py-2 text-xs flex items-center space-x-2 border-b ${
@@ -775,12 +755,11 @@ export const ExploreView: React.FC = () => {
         </div>
       )}
 
-      {/* Grid of Results */}
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 space-y-3 text-nordic-muted text-xs">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />
-            <span>Menghubungi Modrinth API v2...</span>
+            <span>Memuat daftar aset...</span>
           </div>
         ) : hits.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 space-y-2 text-nordic-muted text-xs">

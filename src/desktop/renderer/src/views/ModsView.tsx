@@ -112,7 +112,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
 
   const handleToggle = async (mod: ModItem) => {
     const nextState = !mod.enabled;
-    // Optimistic UI update
     setMods((prev) =>
       prev.map((m) =>
         m.fileName === mod.fileName
@@ -230,9 +229,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
 
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
-      {/* Sub-header Controls */}
       <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-wrap items-center justify-between gap-3">
-        {/* Asset Category Tabs */}
         <div className="flex items-center space-x-2">
           <div className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs">
             <button
@@ -271,7 +268,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
           </div>
         </div>
 
-        {/* Search Input */}
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-nordic-muted" />
           <input
@@ -283,7 +279,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
           />
         </div>
 
-        {/* Filter Pills & Actions */}
         <div className="flex items-center space-x-2">
           {assetType === 'mods' && (
             <>
@@ -336,7 +331,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                 onClick={handleCheckUpdates}
                 disabled={checkingUpdates}
                 className="flex items-center space-x-1 px-2.5 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
-                title="Periksa versi terbaru di Modrinth"
+                title="Periksa pembaruan versi"
               >
                 <ArrowUpCircle className={`w-3.5 h-3.5 ${checkingUpdates ? 'animate-spin' : ''}`} />
                 <span>Cek Update</span>
@@ -364,7 +359,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
         </div>
       </div>
 
-      {/* Toast Notification */}
       {actionMessage && (
         <div
           className={`px-4 py-2 text-xs flex items-center space-x-2 border-b ${
@@ -382,7 +376,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
         </div>
       )}
 
-      {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 space-y-2 text-nordic-muted">
@@ -400,7 +393,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                 <p className="text-xs text-nordic-muted max-w-sm">
                   {searchQuery
                     ? 'Coba gunakan kata kunci pencarian yang berbeda.'
-                    : 'Instance aktif belum memiliki mod di foldernya. Anda dapat mengunduh mod dari katalog Modrinth.'}
+                    : 'Instance aktif belum memiliki mod di foldernya. Anda dapat mencari dan memasang mod melalui tab Explore.'}
                 </p>
               </div>
               {!searchQuery && onGoToExplore && (
@@ -408,7 +401,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                   onClick={onGoToExplore}
                   className="mt-2 px-3 py-1.5 rounded bg-emerald-primary text-obsidian-bg text-xs font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
                 >
-                  Jelajahi Modrinth
+                  Jelajahi Katalog
                 </button>
               )}
             </div>
@@ -433,7 +426,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                         key={mod.fileName}
                         className="hover:bg-obsidian-hover/50 transition-colors"
                       >
-                        {/* Toggle Switch */}
                         <td className="py-2 px-3 text-center">
                           <button
                             onClick={() => handleToggle(mod)}
@@ -450,7 +442,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                           </button>
                         </td>
 
-                        {/* Mod Name & Filename */}
                         <td className="py-2 px-3">
                           <div className="flex flex-col">
                             <span
@@ -466,7 +457,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                           </div>
                         </td>
 
-                        {/* Update Badge & Button */}
                         <td className="py-2 px-3 text-center">
                           {updateInfo ? (
                             <button
@@ -481,12 +471,10 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                           )}
                         </td>
 
-                        {/* Size */}
                         <td className="py-2 px-3 text-right font-mono text-nordic-muted">
                           {mod.formattedSize}
                         </td>
 
-                        {/* Actions */}
                         <td className="py-2 px-3 text-center">
                           <button
                             onClick={() => handleDelete(mod.fileName)}
@@ -553,7 +541,6 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
         )}
       </div>
 
-      {/* Footer Status Bar */}
       <div className="h-7 border-t border-obsidian-border bg-obsidian-surface px-4 flex items-center justify-between text-[11px] text-nordic-muted font-mono">
         <div className="flex items-center space-x-3">
           {assetType === 'mods' ? (

@@ -1,7 +1,7 @@
 {
   "name": "loadmoder",
   "version": "2.5.0",
-  "description": "High-performance Minecraft mod & modpack manager CLI powered by Modrinth API",
+  "description": "High-performance Minecraft mod & modpack manager CLI",
   "license": "MIT",
   "author": "Hafiz Noval rianto <https://github.com/2Hafast8>",
   "homepage": "https://github.com/2Hafast8/LoadModer#readme",
@@ -17,7 +17,6 @@
     "mod-manager",
     "modpack",
     "mrpack",
-    "modrinth",
     "cli",
     "tui",
     "fabric",
@@ -50,7 +49,7 @@
     "test": "vitest run",
     "desktop:build": "vite build --config vite.config.desktop.ts && tsup --config tsup.desktop.config.ts",
     "desktop:dev": "vite --config vite.config.desktop.ts",
-    "desktop": "electron dist-desktop/main.js",
+    "desktop": "tsx src/desktop/launcher.ts",
     "build:all": "npm run build && npm run desktop:build",
     "prepublishOnly": "npm test && npm run build"
   },

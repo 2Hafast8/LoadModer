@@ -33,7 +33,6 @@
   }
 }
 
-/* Electron titlebar drag regions */
 .app-drag {
   -webkit-app-region: drag;
 }
@@ -42,7 +41,6 @@
   -webkit-app-region: no-drag;
 }
 
-/* Scoped Markdown & Modrinth HTML Styling */
 .markdown-body {
   color: #D1D5DB;
   font-size: 0.75rem;

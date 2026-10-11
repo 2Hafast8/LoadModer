@@ -44,7 +44,6 @@ function setupWatcher(modsDir: string, instanceDir: string, getMainWindow?: () =
 }
 
 export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null): void {
-  // Initialize watcher on active instance if available
   instanceConfig.load().then(() => {
     const active = instanceConfig.getActiveInstance();
     if (active?.modsDir && active?.rootDir) {
@@ -52,7 +51,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   }).catch(() => {});
 
-  // --- Window Controls ---
   ipcMain.handle('window:minimize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     win?.minimize();
@@ -78,7 +76,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     return win?.isMaximized() ?? false;
   });
 
-  // --- Instances Management ---
   ipcMain.handle('instances:getAll', async () => {
     try {
       await instanceConfig.load();
@@ -242,7 +239,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   });
 
-  // --- Mods & Assets Management ---
   ipcMain.handle('mods:list', async (_event, customDir?: string) => {
     try {
       await instanceConfig.load();
@@ -479,12 +475,10 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         )
       );
 
-      // Fetch version metadata of currently installed hashes from Modrinth
       const currentVersionsMap = await modrinthClient
         .getVersionsByHashes(fileHashes.map((f) => f.sha1))
         .catch(() => ({} as Record<string, ModVersion>));
 
-      // Check if any installed mod is an alpha/beta channel
       let hasAlpha = false;
       let hasBeta = false;
       for (const ver of Object.values(currentVersionsMap)) {
@@ -498,7 +492,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         }
       }
 
-      // Also inspect filenames if hashes were unknown
       if (!hasAlpha) {
         hasAlpha = fileHashes.some((f) => /[-_.]alpha/i.test(f.filename));
       }
@@ -616,7 +609,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   });
 
-  // --- Modrinth Explore & Install ---
   ipcMain.handle(
     'modrinth:search',
     async (
@@ -689,7 +681,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         let gameVersion = options?.mcVersion ?? active.gameVersion;
         let loader = options?.loader ?? active.loader;
 
-        // Auto-detect version and loader if missing from active instance
         if (!gameVersion || !loader) {
           try {
             const inspected = await instanceDetector.inspectGameDir(active.rootDir, {
@@ -711,7 +702,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           } catch {}
         }
 
-        // Handle Modpack (.mrpack)
         if (pType === 'modpack' || slugOrId.endsWith('.mrpack')) {
           let targetVersion: any;
           if (options?.versionId) {
@@ -739,7 +729,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           return { success: true, message: `Modpack ${targetVersion.name || slugOrId} berhasil diekstrak dan dipasang.` };
         }
 
-        // Handle Shaders
         if (pType === 'shader') {
           let targetVersion: any;
           if (options?.versionId) {
@@ -837,7 +826,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           return { success: true, message: `Resource pack ${safeName} berhasil dipasang.${depMsg}` };
         }
 
-        // Handle Standard Mod (.jar)
         let targetVersion: any;
         if (options?.versionId) {
           targetVersion = await modrinthClient.getVersion(options.versionId);
@@ -847,8 +835,7 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
             gameVersion: gameVersion ?? undefined,
           });
 
-          // Intelligent fallback: if no version found for specific gameVersion (e.g. snapshot/26.3 tag),
-          // fallback to matching by loader so mods like FerriteCore can still be installed
+          // Fallback to loader matching if snapshot gameVersion returns no indexed builds
           if ((!versions || versions.length === 0) && gameVersion) {
             versions = await modrinthClient.getProjectVersions(slugOrId, {
               loader: loader ?? undefined,
@@ -863,7 +850,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           targetVersion = versions.find((v: any) => v.version_type === 'release') ?? versions[0];
         }
 
-        // Strict Loader Compatibility Validation (Ensures Fabric mod is NEVER installed on Forge!)
         if (loader && targetVersion.loaders && targetVersion.loaders.length > 0) {
           const currentLoader = loader.toLowerCase();
           const versionLoaders = targetVersion.loaders.map((l: string) => l.toLowerCase());
@@ -888,7 +874,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         const graph = new DependencyGraph(instanceDir, gameVersion ?? '', loader ?? '');
         await graph.load();
 
-        // 1. Validasi Bentrok (Incompatibilities)
         const incompatibilities = (targetVersion.dependencies ?? []).filter(
           (d: any) => d.dependency_type === 'incompatible'
         );
@@ -911,7 +896,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           );
         }
 
-        // 2. Validasi Duplikat (Duplicate Prevention)
         const existingMod = graph.findMod(slugOrId) || graph.findMod(targetVersion.project_id);
         if (existingMod) {
           if (existingMod.entry.versionId === targetVersion.id || existingMod.entry.filename === safeDest) {
@@ -920,14 +904,12 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
               error: `Mod "${existingMod.entry.filename}" dengan versi yang sama sudah terpasang di instance ini.`,
             };
           }
-          // Jika mengganti versi, hapus versi lama agar tidak terjadi duplikat berkas .jar
           const oldPath = path.join(active.modsDir, existingMod.entry.filename);
           await rm(oldPath, { force: true });
           await rm(`${oldPath}.disabled`, { force: true });
           graph.removeMod(existingMod.slug);
         }
 
-        // Bersihkan berkas lawas yang mungkin memiliki slug sama di disk
         const cleanSlug = slugOrId.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (cleanSlug.length >= 3) {
           const diskJars = await readdir(active.modsDir).catch(() => [] as string[]);
@@ -1013,7 +995,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   });
 
-  // --- Modpack Profile Containers ---
   ipcMain.handle('modpack:listProfiles', async () => {
     try {
       await instanceConfig.load();
@@ -1053,7 +1034,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   });
 
-  // --- Version Snapshot Profiles ---
   ipcMain.handle('snapshots:list', async () => {
     try {
       await instanceConfig.load();
@@ -1078,7 +1058,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   });
 
-  // --- Bisect Diagnostics ---
   ipcMain.handle('bisect:status', async (_event, customDir?: string) => {
     try {
       await instanceConfig.load();
