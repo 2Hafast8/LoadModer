@@ -10,6 +10,8 @@ describe("Launcher Capabilities & Indicator Verification", () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(os.tmpdir(), "lm-caps-test-"));
+    vi.stubEnv("APPDATA", tmpDir);
+    vi.stubEnv("HOME", tmpDir);
   });
 
   afterEach(async () => {

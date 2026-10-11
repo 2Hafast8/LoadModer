@@ -535,6 +535,7 @@ describe("TLauncher Instance Detector Integration", () => {
     );
 
     vi.stubEnv("APPDATA", tempDir);
+    vi.stubEnv("HOME", tempDir);
 
     const detector = new InstanceDetector();
     const instances = await (detector as any).scanTLauncherModpacks();

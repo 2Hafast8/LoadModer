@@ -20,6 +20,8 @@ describe("Legacy Launcher Dual-Path Strategy (versions engine & home containers)
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(os.tmpdir(), "lm-legacy-strategy-"));
+    vi.stubEnv("APPDATA", tmpDir);
+    vi.stubEnv("HOME", tmpDir);
     legacyRoot = path.join(tmpDir, ".tlauncher", "legacy", "Minecraft");
     gameDir = path.join(legacyRoot, "game");
     versionsDir = path.join(gameDir, "versions");

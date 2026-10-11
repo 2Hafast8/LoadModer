@@ -10,6 +10,8 @@ describe("Legacy Launcher & Adaptive Path Detection", () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(os.tmpdir(), "lm-legacy-test-"));
+    vi.stubEnv("APPDATA", tmpDir);
+    vi.stubEnv("HOME", tmpDir);
   });
 
   afterEach(async () => {

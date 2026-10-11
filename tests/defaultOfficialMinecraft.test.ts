@@ -11,6 +11,8 @@ describe("Official Minecraft (Default Launcher) & Pure Vanilla Navigation", () =
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(os.tmpdir(), "lm-official-mc-test-"));
+    vi.stubEnv("APPDATA", tmpDir);
+    vi.stubEnv("HOME", tmpDir);
   });
 
   afterEach(async () => {

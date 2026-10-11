@@ -50,7 +50,7 @@
     "desktop:build": "vite build --config vite.config.desktop.ts && tsup --config tsup.desktop.config.ts",
     "desktop:dev": "vite --config vite.config.desktop.ts",
     "desktop": "npm run desktop:build && tsx src/desktop/launcher.ts",
-    "desktop:dist": "npm run desktop:build && electron-builder --win",
+    "desktop:dist": "npm run desktop:build && electron-builder --win --publish never",
     "build:all": "npm run build && npm run desktop:build",
     "prepublishOnly": "npm test && npm run build"
   },

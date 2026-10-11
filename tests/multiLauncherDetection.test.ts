@@ -14,6 +14,8 @@ describe("Multi-Launcher Folder Detection & Decoupled TLauncher Module", () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(os.tmpdir(), "lm-launcher-test-"));
+    vi.stubEnv("APPDATA", tmpDir);
+    vi.stubEnv("HOME", tmpDir);
   });
 
   afterEach(async () => {
