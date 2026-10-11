@@ -43,7 +43,12 @@ export interface DesktopAPI {
       formattedSize: string;
     }>>;
     toggle: (fileName: string, enable: boolean, customDir?: string) => Promise<{ success: boolean; error?: string }>;
-    remove: (fileName: string, prune?: boolean, customDir?: string) => Promise<{ success: boolean; removed?: string[]; error?: string }>;
+    remove: (
+      fileName: string,
+      prune?: boolean,
+      customDir?: string,
+      type?: 'mod' | 'shader' | 'resourcepack'
+    ) => Promise<{ success: boolean; removed?: string[]; error?: string }>;
     checkUpdates: () => Promise<Array<{
       currentFile: string;
       nextVersion: string;
@@ -51,6 +56,7 @@ export interface DesktopAPI {
       size: number;
     }>>;
     applyUpdate: (currentFile: string) => Promise<{ success: boolean; error?: string }>;
+    onChanged: (callback: () => void) => () => void;
   };
   // Modrinth explore & install
   modrinth: {
@@ -76,6 +82,11 @@ export interface DesktopAPI {
     listProfiles: () => Promise<any[]>;
     switchProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
     disableActive: () => Promise<{ success: boolean; error?: string }>;
+  };
+  // Profile snapshots
+  snapshots: {
+    list: () => Promise<any[]>;
+    switchProfile: (loader: string, gameVersion: string) => Promise<{ success: boolean; savedCount?: number; restoredCount?: number; error?: string }>;
   };
   // Bisect diagnostics
   bisect: {
@@ -107,10 +118,17 @@ const api: DesktopAPI = {
     listPacks: (type: 'shaderpacks' | 'resourcepacks') => ipcRenderer.invoke('mods:listPacks', type),
     toggle: (fileName: string, enable: boolean, customDir?: string) =>
       ipcRenderer.invoke('mods:toggle', fileName, enable, customDir),
-    remove: (fileName: string, prune?: boolean, customDir?: string) =>
-      ipcRenderer.invoke('mods:remove', fileName, prune, customDir),
+    remove: (fileName: string, prune?: boolean, customDir?: string, type?: 'mod' | 'shader' | 'resourcepack') =>
+      ipcRenderer.invoke('mods:remove', fileName, prune, customDir, type),
     checkUpdates: () => ipcRenderer.invoke('mods:checkUpdates'),
     applyUpdate: (currentFile: string) => ipcRenderer.invoke('mods:applyUpdate', currentFile),
+    onChanged: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on('mods:changed', listener);
+      return () => {
+        ipcRenderer.removeListener('mods:changed', listener);
+      };
+    },
   },
   modrinth: {
     search: (query: string, filter) => ipcRenderer.invoke('modrinth:search', query, filter),
@@ -122,6 +140,11 @@ const api: DesktopAPI = {
     listProfiles: () => ipcRenderer.invoke('modpack:listProfiles'),
     switchProfile: (profileId: string) => ipcRenderer.invoke('modpack:switchProfile', profileId),
     disableActive: () => ipcRenderer.invoke('modpack:disableActive'),
+  },
+  snapshots: {
+    list: () => ipcRenderer.invoke('snapshots:list'),
+    switchProfile: (loader: string, gameVersion: string) =>
+      ipcRenderer.invoke('snapshots:switchProfile', loader, gameVersion),
   },
   bisect: {
     status: (customDir?: string) => ipcRenderer.invoke('bisect:status', customDir),

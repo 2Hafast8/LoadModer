@@ -1,22 +1,54 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron';
 import path from 'node:path';
-import { readdir, stat, rm, copyFile } from 'node:fs/promises';
+import { readdir, stat, rm } from 'node:fs/promises';
 import { instanceConfig } from '../../core/instance/config.js';
 import { instanceDetector, detectLauncherFromPath } from '../../core/instance/detector.js';
 import { toggleModFile } from '../../core/instance/modToggle.js';
 import { BisectRunner } from '../../core/troubleshoot/bisect.js';
 import { modrinthClient } from '../../api/client.js';
 import { DependencyGraph } from '../../core/dependency/graph.js';
+import { resolveAndInstallDependencies } from '../../core/dependency/resolver.js';
 import { formatBytes } from '../../utils/format.js';
 import { hashFile } from '../../utils/crypto.js';
 import { findMinecraftDirs, listLocalDrives, resolveManualMinecraftPath } from '../../core/instance/driveScanner.js';
 import { ModpackUnpacker } from '../../core/modpack/unpacker.js';
 import { ModpackProfileManager } from '../../core/modpack/profileManager.js';
+import { profileSnapshotManager } from '../../core/profile/snapshotManager.js';
+import { ModsWatcher } from '../../core/watcher/modsWatcher.js';
 import pLimit from 'p-limit';
 import type { LauncherType, LoaderType, MinecraftInstance } from '../../types/instance.js';
 import type { SearchIndex } from '../../api/client.js';
 
-export function registerIpcHandlers(): void {
+let activeWatcher: ModsWatcher | null = null;
+
+function setupWatcher(modsDir: string, instanceDir: string, getMainWindow?: () => BrowserWindow | null): void {
+  if (activeWatcher) {
+    activeWatcher.stop();
+    activeWatcher = null;
+  }
+  try {
+    activeWatcher = new ModsWatcher(modsDir, instanceDir);
+    const notifyRenderer = () => {
+      const win = getMainWindow?.();
+      win?.webContents.send('mods:changed');
+    };
+    activeWatcher.on('sync', notifyRenderer);
+    activeWatcher.on('file-event', notifyRenderer);
+    activeWatcher.start();
+  } catch {
+    // Graceful fallback if watching fails
+  }
+}
+
+export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null): void {
+  // Initialize watcher on active instance if available
+  instanceConfig.load().then(() => {
+    const active = instanceConfig.getActiveInstance();
+    if (active?.modsDir && active?.rootDir) {
+      setupWatcher(active.modsDir, active.rootDir, getMainWindow);
+    }
+  }).catch(() => {});
+
   // --- Window Controls ---
   ipcMain.handle('window:minimize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -50,7 +82,6 @@ export function registerIpcHandlers(): void {
       const active = instanceConfig.getActiveInstance() ?? null;
       const detected = await instanceDetector.scanAll();
 
-      // Ensure instances from config are included
       const savedInstances = instanceConfig.get().instances ?? {};
       const list = [...detected];
       for (const [id, cfg] of Object.entries(savedInstances)) {
@@ -92,8 +123,13 @@ export function registerIpcHandlers(): void {
           },
           true
         );
+        setupWatcher(match.modsDir, match.rootDir, getMainWindow);
       } else {
         instanceConfig.setActiveInstance(id);
+        const active = instanceConfig.getActiveInstance();
+        if (active?.modsDir && active?.rootDir) {
+          setupWatcher(active.modsDir, active.rootDir, getMainWindow);
+        }
       }
       await instanceConfig.save();
       return { success: true };
@@ -169,6 +205,7 @@ export function registerIpcHandlers(): void {
         true
       );
       await instanceConfig.save();
+      setupWatcher(modsDir, rootDir, getMainWindow);
 
       return {
         success: true,
@@ -288,34 +325,84 @@ export function registerIpcHandlers(): void {
       const modsDir = customDir ?? active?.modsDir;
       if (!modsDir) throw new Error('Folder mods belum ditentukan');
 
-      await toggleModFile(modsDir, fileName, enable);
+      const safeName = path.basename(fileName);
+      await toggleModFile(modsDir, safeName, enable);
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
   });
 
-  ipcMain.handle('mods:remove', async (_event, fileName: string, _prune = true, customDir?: string) => {
-    try {
-      await instanceConfig.load();
-      const active = instanceConfig.getActiveInstance();
-      const modsDir = customDir ?? active?.modsDir;
-      if (!modsDir) throw new Error('Folder mods belum ditentukan');
+  ipcMain.handle(
+    'mods:remove',
+    async (
+      _event,
+      fileName: string,
+      prune = true,
+      customDir?: string,
+      type: 'mod' | 'shader' | 'resourcepack' = 'mod'
+    ) => {
+      try {
+        await instanceConfig.load();
+        const active = instanceConfig.getActiveInstance();
+        if (!active?.rootDir) throw new Error('Instance belum ditentukan');
 
-      const targetPath = path.join(modsDir, fileName);
-      await rm(targetPath, { force: true });
+        const safeName = path.basename(fileName);
+        let targetDir = customDir ?? active.modsDir;
+        if (type === 'shader') {
+          targetDir = path.join(active.rootDir, 'shaderpacks');
+        } else if (type === 'resourcepack') {
+          targetDir = path.join(active.rootDir, 'resourcepacks');
+        }
 
-      const instanceDir = active?.rootDir ?? path.dirname(modsDir);
-      const graph = new DependencyGraph(instanceDir);
-      await graph.load();
-      await graph.reconcileWithDisk(modsDir, instanceDir);
-      await graph.save();
+        const targetPath = path.join(targetDir, safeName);
+        await rm(targetPath, { force: true });
 
-      return { success: true, removed: [fileName] };
-    } catch (err: any) {
-      return { success: false, error: err.message };
+        if (type === 'shader' || type === 'resourcepack') {
+          const graph = new DependencyGraph(active.rootDir);
+          await graph.load();
+          const matched = graph.findAsset(type, safeName);
+          if (matched) graph.removeAsset(type, matched.slug);
+          await graph.save();
+          return { success: true, removed: [safeName] };
+        }
+
+        const graph = new DependencyGraph(active.rootDir);
+        await graph.load();
+
+        const matchClean = safeName.replace(/\.disabled$/, '');
+        const lockEntry = Object.entries(graph.data.mods).find(
+          ([slug, m]) =>
+            m.filename === safeName ||
+            m.filename === matchClean ||
+            slug.toLowerCase() === safeName.toLowerCase()
+        );
+        const targetSlug = lockEntry ? lockEntry[0] : safeName;
+        const { orphanedSlugs } = graph.removeMod(targetSlug);
+
+        const removedFiles = [safeName];
+        if (prune && orphanedSlugs.length > 0) {
+          for (const orphanSlug of orphanedSlugs) {
+            const orphanMod = graph.data.mods[orphanSlug];
+            if (orphanMod?.filename) {
+              const orphanSafe = path.basename(orphanMod.filename);
+              await rm(path.join(targetDir, orphanSafe), { force: true });
+              await rm(path.join(targetDir, `${orphanSafe}.disabled`), { force: true });
+              removedFiles.push(orphanSafe);
+            }
+            graph.removeMod(orphanSlug);
+          }
+        }
+
+        await graph.reconcileWithDisk(targetDir, active.rootDir);
+        await graph.save();
+
+        return { success: true, removed: removedFiles };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
 
   ipcMain.handle('mods:checkUpdates', async () => {
     try {
@@ -383,7 +470,8 @@ export function registerIpcHandlers(): void {
         throw new Error('Instance belum lengkap');
       }
 
-      const currentPath = path.join(active.modsDir, currentFile);
+      const safeCurrent = path.basename(currentFile);
+      const currentPath = path.join(active.modsDir, safeCurrent);
       const sha1 = await hashFile(currentPath, 'sha1');
       const latestMap = await modrinthClient.getLatestByHashes(
         [sha1],
@@ -397,23 +485,22 @@ export function registerIpcHandlers(): void {
       const nextFile = nextVer.files.find((f: any) => f.primary) ?? nextVer.files[0];
       if (!nextFile) throw new Error('Berkas unduhan tidak ditemukan');
 
-      const destPath = path.join(active.modsDir, nextFile.filename);
+      const safeNext = path.basename(nextFile.filename);
+      const destPath = path.join(active.modsDir, safeNext);
       await modrinthClient.download(nextFile.url, destPath, { sha512: nextFile.hashes.sha512 });
 
-      // Remove old file
-      if (currentFile !== nextFile.filename) {
+      if (safeCurrent !== safeNext) {
         await rm(currentPath, { force: true });
       }
 
-      // Reconcile graph
       const graph = new DependencyGraph(active.rootDir);
       await graph.load();
-      graph.removeMod(currentFile);
+      graph.removeMod(safeCurrent);
       graph.registerMod(nextVer.project_id, {
         versionId: nextVer.id,
         projectId: nextVer.project_id,
         versionNumber: nextVer.version_number,
-        filename: nextFile.filename,
+        filename: safeNext,
         sha512: nextFile.hashes.sha512,
         isRoot: true,
         dependencies: (nextVer.dependencies ?? []).map((d: any) => d.project_id).filter(Boolean),
@@ -510,9 +597,10 @@ export function registerIpcHandlers(): void {
         if (!versions || versions.length === 0) throw new Error('Versi shader tidak ditemukan');
         const primaryFile = versions[0].files.find((f: any) => f.primary) ?? versions[0].files[0];
         const shaderDir = path.join(active.rootDir, 'shaderpacks');
-        const dest = path.join(shaderDir, primaryFile.filename);
+        const safeName = path.basename(primaryFile.filename);
+        const dest = path.join(shaderDir, safeName);
         await modrinthClient.download(primaryFile.url, dest, { sha512: primaryFile.hashes.sha512 });
-        return { success: true, message: `Shader pack ${primaryFile.filename} berhasil dipasang.` };
+        return { success: true, message: `Shader pack ${safeName} berhasil dipasang.` };
       }
 
       // Handle Resource Packs
@@ -521,9 +609,10 @@ export function registerIpcHandlers(): void {
         if (!versions || versions.length === 0) throw new Error('Versi resource pack tidak ditemukan');
         const primaryFile = versions[0].files.find((f: any) => f.primary) ?? versions[0].files[0];
         const rpDir = path.join(active.rootDir, 'resourcepacks');
-        const dest = path.join(rpDir, primaryFile.filename);
+        const safeName = path.basename(primaryFile.filename);
+        const dest = path.join(rpDir, safeName);
         await modrinthClient.download(primaryFile.url, dest, { sha512: primaryFile.hashes.sha512 });
-        return { success: true, message: `Resource pack ${primaryFile.filename} berhasil dipasang.` };
+        return { success: true, message: `Resource pack ${safeName} berhasil dipasang.` };
       }
 
       // Handle Standard Mod (.jar)
@@ -540,27 +629,45 @@ export function registerIpcHandlers(): void {
       const primaryFile = targetVersion.files.find((f: any) => f.primary) ?? targetVersion.files[0];
       if (!primaryFile) throw new Error('Tidak ada berkas unduhan pada versi ini.');
 
-      const destPath = path.join(active.modsDir, primaryFile.filename);
+      const safeDest = path.basename(primaryFile.filename);
+      const destPath = path.join(active.modsDir, safeDest);
       await modrinthClient.download(primaryFile.url, destPath, {
         sha512: primaryFile.hashes.sha512,
       });
 
-      // Register in DependencyGraph
       const instanceDir = active.rootDir;
-      const graph = new DependencyGraph(instanceDir);
+      const graph = new DependencyGraph(instanceDir, gameVersion ?? '', loader ?? '');
       await graph.load();
       graph.registerMod(slugOrId, {
         versionId: targetVersion.id,
         projectId: targetVersion.project_id,
         versionNumber: targetVersion.version_number,
-        filename: primaryFile.filename,
+        filename: safeDest,
         sha512: primaryFile.hashes.sha512,
         isRoot: true,
         dependencies: (targetVersion.dependencies ?? []).map((d: any) => d.project_id).filter(Boolean),
       });
+
+      // Automatically resolve and install required dependencies
+      let depCount = 0;
+      try {
+        const depResult = await resolveAndInstallDependencies({
+          mainModSlug: slugOrId,
+          mainVersion: targetVersion,
+          modsDir: active.modsDir,
+          gameVersion: gameVersion ?? active.gameVersion ?? '',
+          loader: loader ?? active.loader ?? '',
+          graph,
+        });
+        depCount = depResult.installed.length;
+      } catch (depErr) {
+        console.warn('Dependency resolution notice:', depErr);
+      }
+
       await graph.save();
 
-      return { success: true, message: `Berhasil menginstal ${primaryFile.filename}` };
+      const depMsg = depCount > 0 ? ` (+ ${depCount} dependensi otomatis dipasang)` : '';
+      return { success: true, message: `Berhasil menginstal ${safeDest}${depMsg}` };
     } catch (err: any) {
       console.error('Error installing project:', err);
       return { success: false, error: err.message };
@@ -632,6 +739,31 @@ export function registerIpcHandlers(): void {
 
       await ModpackProfileManager.disableProfile(active.rootDir);
       return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // --- Version Snapshot Profiles ---
+  ipcMain.handle('snapshots:list', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active) return [];
+      return await profileSnapshotManager.listSnapshots(active);
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle('snapshots:switchProfile', async (_event, loader: string, gameVersion: string) => {
+    try {
+      await instanceConfig.load();
+      const cfg = instanceConfig.get();
+      const activeKey = cfg.activeInstance;
+      if (!activeKey) throw new Error('Tidak ada instance aktif');
+      const res = await profileSnapshotManager.switchProfile(activeKey, loader, gameVersion);
+      return { success: true, savedCount: res.savedCount, restoredCount: res.restoredCount };
     } catch (err: any) {
       return { success: false, error: err.message };
     }

@@ -36,4 +36,9 @@ describe('Desktop Dual-Mode Architecture', () => {
     expect(content).toContain('#090D0B'); // Obsidian BG
     expect(content).toContain('#10B981'); // Emerald Primary
   });
+
+  it('harus memuat registrasi IPC handlers tanpa exception', async () => {
+    const { registerIpcHandlers } = await import('../src/desktop/main/ipcHandlers.js');
+    expect(typeof registerIpcHandlers).toBe('function');
+  });
 });

@@ -73,6 +73,12 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
 
   useEffect(() => {
     fetchMods();
+    const unsubscribe = window.api.mods.onChanged?.(() => {
+      fetchMods();
+    });
+    return () => {
+      unsubscribe?.();
+    };
   }, [assetType]);
 
   const showNotification = (text: string, type: 'success' | 'error' = 'success') => {
@@ -116,7 +122,8 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
     if (!window.confirm(`Hapus berkas ${fileName}?`)) return;
 
     try {
-      const res = await window.api.mods.remove(fileName);
+      const type = assetType === 'mods' ? 'mod' : assetType === 'shaders' ? 'shader' : 'resourcepack';
+      const res = await window.api.mods.remove(fileName, true, undefined, type);
       if (res.success) {
         showNotification(`${fileName} berhasil dihapus`);
         if (assetType === 'mods') {
