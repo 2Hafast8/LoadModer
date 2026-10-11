@@ -75,6 +75,17 @@ export interface DesktopAPI {
       filenames: string[];
       versionMap: Record<string, string>;
     }>;
+    installDroppedFiles: (filePaths: string[]) => Promise<{
+      success: boolean;
+      results: Array<{
+        file: string;
+        fileName: string;
+        type: 'mod' | 'mrpack' | 'shader' | 'resourcepack' | 'unknown';
+        success: boolean;
+        error?: string;
+      }>;
+      error?: string;
+    }>;
     onChanged: (callback: () => void) => () => void;
   };
   modrinth: {
@@ -162,6 +173,8 @@ const api: DesktopAPI = {
     checkUpdates: () => ipcRenderer.invoke('mods:checkUpdates'),
     applyUpdate: (currentFile: string) => ipcRenderer.invoke('mods:applyUpdate', currentFile),
     getInstalledIndex: () => ipcRenderer.invoke('mods:getInstalledIndex'),
+    installDroppedFiles: (filePaths: string[]) =>
+      ipcRenderer.invoke('mods:installDroppedFiles', filePaths),
     onChanged: (callback: () => void) => {
       const listener = () => callback();
       ipcRenderer.on('mods:changed', listener);

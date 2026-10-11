@@ -5,6 +5,26 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.6.0] - 2026-10-11
+
+### Added
+- **Standalone Windows Executables (`.exe`)**: Konfigurasi packaging `electron-builder` menghasilkan dual-format untuk Windows: NSIS Setup Wizard (`LoadModer-Setup-2.6.0.exe`) dan Portable Standalone Executable (`LoadModer-2.6.0-Portable.exe`).
+- **Automated GitHub Releases Workflow**: Workflow CI/CD (`.github/workflows/release.yml`) yang memicu kompilasi bundle otomatis, pembuatan checksum SHA-256, dan publikasi aset `.exe` ke GitHub Releases saat push tag `v*` atau pemicu manual.
+- **Drag-and-Drop Installer GUI**: Dukungan instalasi instan dengan menarik berkas `.jar`, `.mrpack`, atau `.zip` langsung ke dalam jendela aplikasi, dilengkapi indikator *frosted glass* Nordic Clean.
+- **Smart Archive Type Inspection**: Deteksi pintar isi arsip `.zip` secara in-memory (memeriksa `shaders/`, `pack.mcmeta`, atau manifest `modrinth.index.json`) untuk mendistribusikan berkas ke folder yang tepat (`shaderpacks/`, `resourcepacks/`, atau `mods/`).
+- **Modern Desktop GUI**: Aplikasi desktop Electron + React 19 dengan tema Nordic Clean, live directory watcher, dukungan penuh dwibahasa (English & Indonesia), Crash Log Analyzer, Restore Points Panel, dan Modpack Exporter.
+- **C4 Architecture Documentation**: Spesifikasi arsitektur komprehensif pada `docs/c4-architecture.md` mencakup System Context, Container, Component, dan Code Data Flow.
+
+### Changed
+- **Auto-Rebuild Sync on `npm run desktop`**: Script `desktop` pada `package.json` kini otomatis mengeksekusi `desktop:build` sebelum menjalankan Electron launcher, memastikan bundle tidak pernah usang.
+- **SemVer Bump**: Peningkatan versi resmi aplikasi ke `2.6.0`.
+
+### Fixed
+- Memperbaiki kompatibilitas ESM pada engine ekspor modpack dengan mengimpor `ZipArchive` langsung dari library `archiver`.
+- Mengisolasi logika instalasi lokal ke modul domain murni `src/core/instance/localInstaller.ts` agar decoupling domain logic terjaga 100%.
+
+---
+
 ## [2.5.0] - 2026-10-08
 
 ### Added

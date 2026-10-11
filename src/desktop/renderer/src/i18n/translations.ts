@@ -263,6 +263,16 @@ export const translations = {
       empty: 'No active downloads',
       clearFinished: 'Clear Completed',
     },
+    dropZone: {
+      title: 'Drop Files to Install',
+      subtitle: 'Release .jar mods, .mrpack modpacks, or .zip shaders/resource packs here',
+      targetInstance: 'Target Instance: {instance}',
+      installing: 'Installing dropped files...',
+      successTitle: 'Installation Complete',
+      successMessage: 'Successfully installed {count} file(s)',
+      errorTitle: 'Installation Failed',
+      noInstance: 'Please select an active Minecraft instance first',
+    },
   },
   id: {
     common: {
@@ -525,6 +535,16 @@ export const translations = {
       downloading: 'Mengunduh',
       empty: 'Tidak ada unduhan aktif',
       clearFinished: 'Bersihkan Riwayat',
+    },
+    dropZone: {
+      title: 'Lepaskan Berkas untuk Memasang',
+      subtitle: 'Lepaskan mod .jar, modpack .mrpack, atau shader/resource pack .zip di sini',
+      targetInstance: 'Instance Tujuan: {instance}',
+      installing: 'Memasang berkas yang dijatuhkan...',
+      successTitle: 'Pemasangan Selesai',
+      successMessage: 'Berhasil memasang {count} berkas',
+      errorTitle: 'Pemasangan Gagal',
+      noInstance: 'Silakan pilih instance Minecraft aktif terlebih dahulu',
     },
   },
 } as const;

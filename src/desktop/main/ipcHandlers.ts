@@ -18,6 +18,7 @@ import { ModpackProfileManager } from '../../core/modpack/profileManager.js';
 import { profileSnapshotManager } from '../../core/profile/snapshotManager.js';
 import { ModsWatcher } from '../../core/watcher/modsWatcher.js';
 import { InstalledAssetsIndex } from '../../core/instance/installedIndex.js';
+import { installLocalFiles } from '../../core/instance/localInstaller.js';
 import { isTrueUpdate } from '../../utils/versionCompare.js';
 import pLimit from 'p-limit';
 import type { LauncherType, LoaderType, MinecraftInstance } from '../../types/instance.js';
@@ -480,6 +481,34 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       }
     }
   );
+
+  ipcMain.handle('mods:installDroppedFiles', async (_event, filePaths: string[]) => {
+    try {
+      if (!Array.isArray(filePaths) || filePaths.length === 0) {
+        return { success: false, error: 'Tidak ada berkas yang diterima' };
+      }
+
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir || !active?.modsDir) {
+        return { success: false, error: 'Tidak ada instance Minecraft aktif yang dipilih' };
+      }
+
+      const results = await installLocalFiles(filePaths, active.rootDir, active.modsDir);
+      const anySuccess = results.some((r) => r.success);
+      if (anySuccess) {
+        const win = getMainWindow?.();
+        win?.webContents.send('mods:changed');
+      }
+
+      return {
+        success: anySuccess,
+        results,
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message, results: [] };
+    }
+  });
 
   ipcMain.handle('mods:checkUpdates', async () => {
     try {
