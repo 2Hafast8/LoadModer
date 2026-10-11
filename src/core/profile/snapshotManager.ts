@@ -334,11 +334,166 @@ export class ProfileSnapshotManager {
 
     try {
       await unlink(jsonPath);
-      await rm(archiveJarDir, {recursive: true, force: true});
+      await rm(archiveJarDir, { recursive: true, force: true });
       return true;
     } catch {
       return false;
     }
+  }
+
+  async createBackupPoint(
+    instanceKey: string,
+    instance: SavedInstanceConfig,
+    note?: string
+  ): Promise<ProfileSnapshot> {
+    await instanceConfig.load();
+    const cfg = instanceConfig.get();
+    const freshInstance = cfg.instances[instanceKey] ?? instance;
+    const baseDir = this.getSnapshotBaseDir(freshInstance);
+    await mkdir(baseDir, { recursive: true });
+
+    const currentLoader = freshInstance.loader || 'universal';
+    const currentVersion = freshInstance.gameVersion || 'universal';
+    const timestamp = Date.now();
+    const snapshotId = `backup-${timestamp}`;
+    const archiveJarDir = path.join(baseDir, snapshotId, 'jars');
+    await mkdir(archiveJarDir, { recursive: true });
+
+    const instanceDir = freshInstance.rootDir ?? path.dirname(freshInstance.modsDir);
+    const graph = new DependencyGraph(instanceDir, currentVersion, currentLoader);
+    await graph.load();
+
+    let files: string[] = [];
+    try {
+      files = await readdir(freshInstance.modsDir);
+    } catch {
+      await mkdir(freshInstance.modsDir, { recursive: true });
+    }
+
+    const modFiles = files.filter((f) => f.endsWith('.jar') || f.endsWith('.jar.disabled'));
+    const items: SnapshotModItem[] = [];
+
+    for (const filename of modFiles) {
+      const fullSrcPath = path.join(freshInstance.modsDir, filename);
+      const fullDestPath = path.join(archiveJarDir, filename);
+
+      let fileSizeBytes = 0;
+      try {
+        const fileStat = await stat(fullSrcPath);
+        fileSizeBytes = fileStat.size;
+      } catch {}
+
+      const isDisabled = filename.endsWith('.disabled');
+      const cleanFilename = isDisabled ? filename.replace('.disabled', '') : filename;
+
+      const lockEntry = Object.entries(graph.data.mods).find(
+        ([slug, entry]) =>
+          entry.filename === filename ||
+          entry.filename === cleanFilename ||
+          slug.toLowerCase() === cleanFilename.replace('.jar', '').toLowerCase()
+      );
+
+      const modItem: SnapshotModItem = {
+        filename,
+        disabled: isDisabled,
+        fileSizeBytes,
+      };
+
+      if (lockEntry) {
+        const [slug, entry] = lockEntry;
+        modItem.slug = slug;
+        modItem.projectId = entry.projectId;
+        modItem.versionId = entry.versionId;
+        modItem.versionNumber = entry.versionNumber;
+        modItem.sha512 = entry.sha512;
+        modItem.isRoot = entry.isRoot;
+        modItem.dependencies = entry.dependencies;
+        modItem.installedAt = entry.installedAt;
+      }
+
+      items.push(modItem);
+      await copyFile(fullSrcPath, fullDestPath);
+    }
+
+    const snapshot: ProfileSnapshot = {
+      snapshotId,
+      instanceKey,
+      instanceName: freshInstance.name,
+      gameVersion: currentVersion,
+      loader: currentLoader,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      note: note?.trim() || undefined,
+      modsCount: items.length,
+      activeCount: items.filter((m) => !m.disabled).length,
+      lockfileData: { ...graph.data },
+      mods: items,
+    };
+
+    const jsonPath = path.join(baseDir, `${snapshotId}.json`);
+    await writeFileAtomic(jsonPath, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
+
+    return snapshot;
+  }
+
+  async restoreBackupPoint(
+    instanceKey: string,
+    instance: SavedInstanceConfig,
+    snapshotId: string
+  ): Promise<{ restored: boolean; restoredCount: number }> {
+    await instanceConfig.load();
+    const cfg = instanceConfig.get();
+    const freshInstance = cfg.instances[instanceKey] ?? instance;
+    const baseDir = this.getSnapshotBaseDir(freshInstance);
+    const jsonPath = path.join(baseDir, `${snapshotId}.json`);
+    const archiveJarDir = path.join(baseDir, snapshotId, 'jars');
+
+    let snapshotData: ProfileSnapshot | null = null;
+    try {
+      const content = await readFile(jsonPath, 'utf8');
+      snapshotData = JSON.parse(content);
+    } catch {
+      return { restored: false, restoredCount: 0 };
+    }
+
+    if (!snapshotData) return { restored: false, restoredCount: 0 };
+
+    await mkdir(freshInstance.modsDir, { recursive: true });
+
+    let currentFiles: string[] = [];
+    try {
+      currentFiles = await readdir(freshInstance.modsDir);
+    } catch {}
+
+    for (const f of currentFiles) {
+      if (f.endsWith('.jar') || f.endsWith('.jar.disabled')) {
+        await unlink(path.join(freshInstance.modsDir, f)).catch(() => {});
+      }
+    }
+
+    let restoredCount = 0;
+    try {
+      const archivedFiles = await readdir(archiveJarDir);
+      for (const f of archivedFiles) {
+        if (f.endsWith('.jar') || f.endsWith('.jar.disabled')) {
+          await copyFile(path.join(archiveJarDir, f), path.join(freshInstance.modsDir, f));
+          restoredCount++;
+        }
+      }
+    } catch {}
+
+    const instanceDir = freshInstance.rootDir ?? path.dirname(freshInstance.modsDir);
+    const graph = new DependencyGraph(
+      instanceDir,
+      snapshotData.gameVersion || 'universal',
+      snapshotData.loader || 'universal'
+    );
+    if (snapshotData.lockfileData) {
+      graph.data = { ...snapshotData.lockfileData };
+      await graph.save();
+    }
+
+    return { restored: true, restoredCount };
   }
 }
 

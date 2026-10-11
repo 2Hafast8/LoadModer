@@ -136,4 +136,26 @@ describe("ProfileSnapshotManager", () => {
     const remainingSnapshots = await manager.listSnapshots(testInstance);
     expect(remainingSnapshots.length).toBe(0);
   });
+
+  it("dapat membuat cadangan backup point tanpa menghapus mod aktif dan memulihkannya", async () => {
+    await writeFile(path.join(modsDir, "active-mod.jar"), "active content");
+
+    const backup = await manager.createBackupPoint("test-inst", testInstance, "Sebelum update besar");
+    expect(backup.snapshotId).toContain("backup-");
+    expect(backup.note).toBe("Sebelum update besar");
+    expect(backup.modsCount).toBe(1);
+
+    const activeModsBefore = await readdir(modsDir);
+    expect(activeModsBefore).toContain("active-mod.jar");
+
+    await writeFile(path.join(modsDir, "new-mod.jar"), "new mod content");
+
+    const restoreRes = await manager.restoreBackupPoint("test-inst", testInstance, backup.snapshotId);
+    expect(restoreRes.restored).toBe(true);
+    expect(restoreRes.restoredCount).toBe(1);
+
+    const activeModsAfter = await readdir(modsDir);
+    expect(activeModsAfter).toContain("active-mod.jar");
+    expect(activeModsAfter).not.toContain("new-mod.jar");
+  });
 });

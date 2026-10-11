@@ -22,6 +22,7 @@ export interface ProfileSnapshot {
   loader: string;
   createdAt: string;
   updatedAt: string;
+  note?: string;
   modsCount: number;
   activeCount: number;
   lockfileData?: LockfileData;
