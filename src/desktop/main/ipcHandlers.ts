@@ -1,10 +1,12 @@
 import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
 import path from 'node:path';
-import { readdir, stat, rm, mkdir } from 'node:fs/promises';
+import { readdir, stat, rm, mkdir, readFile } from 'node:fs/promises';
 import { instanceConfig } from '../../core/instance/config.js';
 import { instanceDetector, detectLauncherFromPath } from '../../core/instance/detector.js';
 import { toggleModFile } from '../../core/instance/modToggle.js';
 import { BisectRunner } from '../../core/troubleshoot/bisect.js';
+import { logAnalyzer } from '../../core/troubleshoot/logAnalyzer.js';
+import { modpackExporter } from '../../core/modpack/exporter.js';
 import { modrinthClient } from '../../api/client.js';
 import { DependencyGraph } from '../../core/dependency/graph.js';
 import { resolveAndInstallDependencies } from '../../core/dependency/resolver.js';
@@ -40,6 +42,66 @@ function setupWatcher(modsDir: string, instanceDir: string, getMainWindow?: () =
     activeWatcher.start();
   } catch {
   }
+}
+
+function createDownloadNotifier(
+  id: string,
+  name: string,
+  getMainWindow?: () => BrowserWindow | null
+) {
+  let lastUpdate = 0;
+  let lastBytes = 0;
+  return {
+    onProgress: (received: number, total: number) => {
+      const now = Date.now();
+      if (now - lastUpdate < 120 && received < total) return;
+      const elapsedSec = Math.max(0.001, (now - lastUpdate) / 1000);
+      const speedBps = received >= lastBytes ? (received - lastBytes) / elapsedSec : 0;
+      lastUpdate = now;
+      lastBytes = received;
+
+      const percent = total > 0 ? Math.min(100, Math.round((received / total) * 100)) : 0;
+      const speed =
+        speedBps > 1048576
+          ? `${(speedBps / 1048576).toFixed(1)} MB/s`
+          : `${(speedBps / 1024).toFixed(0)} KB/s`;
+
+      const win = getMainWindow?.();
+      win?.webContents.send('download:progress', {
+        id,
+        name,
+        percent,
+        speed,
+        downloadedBytes: received,
+        totalBytes: total,
+        status: received >= total && total > 0 ? 'completed' : 'downloading',
+      });
+    },
+    done: () => {
+      const win = getMainWindow?.();
+      win?.webContents.send('download:progress', {
+        id,
+        name,
+        percent: 100,
+        speed: '0 KB/s',
+        downloadedBytes: 0,
+        totalBytes: 0,
+        status: 'completed',
+      });
+    },
+    failed: () => {
+      const win = getMainWindow?.();
+      win?.webContents.send('download:progress', {
+        id,
+        name,
+        percent: 0,
+        speed: '0 KB/s',
+        downloadedBytes: 0,
+        totalBytes: 0,
+        status: 'failed',
+      });
+    },
+  };
 }
 
 export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null): void {
@@ -581,7 +643,19 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
 
       const safeNext = path.basename(nextFile.filename);
       const destPath = path.join(active.modsDir, safeNext);
-      await modrinthClient.download(nextFile.url, destPath, { sha512: nextFile.hashes.sha512 });
+
+      const notifier = createDownloadNotifier(`update-${safeNext}`, safeNext, getMainWindow);
+      try {
+        await modrinthClient.download(nextFile.url, destPath, {
+          sha512: nextFile.hashes.sha512,
+          size: nextFile.size,
+          onProgress: notifier.onProgress,
+        });
+        notifier.done();
+      } catch (dlErr) {
+        notifier.failed();
+        throw dlErr;
+      }
 
       if (safeCurrent !== safeNext) {
         await rm(currentPath, { force: true });
@@ -718,8 +792,19 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
 
           const primaryFile = targetVersion.files.find((f: any) => f.primary) ?? targetVersion.files[0];
           const tempMrpack = path.join(active.rootDir, `.temp_${Date.now()}.mrpack`);
-
-          await modrinthClient.download(primaryFile.url, tempMrpack, { sha512: primaryFile.hashes.sha512 });
+          const packLabel = targetVersion.name || slugOrId;
+          const notifier = createDownloadNotifier(`mrpack-${Date.now()}`, packLabel, getMainWindow);
+          try {
+            await modrinthClient.download(primaryFile.url, tempMrpack, {
+              sha512: primaryFile.hashes.sha512,
+              size: primaryFile.size,
+              onProgress: notifier.onProgress,
+            });
+            notifier.done();
+          } catch (dlErr) {
+            notifier.failed();
+            throw dlErr;
+          }
           const unpacker = new ModpackUnpacker(modrinthClient);
           await unpacker.install(tempMrpack, { instanceDir: active.rootDir });
           await rm(tempMrpack, { force: true });
@@ -742,7 +827,18 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           await mkdir(shaderDir, { recursive: true });
           const safeName = path.basename(primaryFile.filename);
           const dest = path.join(shaderDir, safeName);
-          await modrinthClient.download(primaryFile.url, dest, { sha512: primaryFile.hashes.sha512 });
+          const notifier = createDownloadNotifier(`shader-${safeName}`, safeName, getMainWindow);
+          try {
+            await modrinthClient.download(primaryFile.url, dest, {
+              sha512: primaryFile.hashes.sha512,
+              size: primaryFile.size,
+              onProgress: notifier.onProgress,
+            });
+            notifier.done();
+          } catch (dlErr) {
+            notifier.failed();
+            throw dlErr;
+          }
 
           const graph = new DependencyGraph(active.rootDir, gameVersion ?? '', loader ?? '');
           await graph.load();
@@ -789,7 +885,18 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           await mkdir(rpDir, { recursive: true });
           const safeName = path.basename(primaryFile.filename);
           const dest = path.join(rpDir, safeName);
-          await modrinthClient.download(primaryFile.url, dest, { sha512: primaryFile.hashes.sha512 });
+          const notifier = createDownloadNotifier(`rp-${safeName}`, safeName, getMainWindow);
+          try {
+            await modrinthClient.download(primaryFile.url, dest, {
+              sha512: primaryFile.hashes.sha512,
+              size: primaryFile.size,
+              onProgress: notifier.onProgress,
+            });
+            notifier.done();
+          } catch (dlErr) {
+            notifier.failed();
+            throw dlErr;
+          }
 
           const graph = new DependencyGraph(active.rootDir, gameVersion ?? '', loader ?? '');
           await graph.load();
@@ -916,9 +1023,18 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           }
         }
 
-        await modrinthClient.download(primaryFile.url, destPath, {
-          sha512: primaryFile.hashes.sha512,
-        });
+        const notifier = createDownloadNotifier(`mod-${safeDest}`, safeDest, getMainWindow);
+        try {
+          await modrinthClient.download(primaryFile.url, destPath, {
+            sha512: primaryFile.hashes.sha512,
+            size: primaryFile.size,
+            onProgress: notifier.onProgress,
+          });
+          notifier.done();
+        } catch (dlErr) {
+          notifier.failed();
+          throw dlErr;
+        }
 
         graph.registerMod(slugOrId, {
           versionId: targetVersion.id,
@@ -933,6 +1049,7 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         let depCount = 0;
         try {
           const project = await modrinthClient.getProject(slugOrId).catch(() => undefined);
+          let depNotifier: any = null;
           const depResult = await resolveAndInstallDependencies({
             mainModSlug: slugOrId,
             mainVersion: targetVersion,
@@ -941,6 +1058,18 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
             gameVersion: gameVersion ?? active.gameVersion ?? '',
             loader: loader ?? active.loader ?? '',
             graph,
+            onDownloadProgress: (info) => {
+              if (!depNotifier || depNotifier.name !== info.name) {
+                depNotifier = {
+                  name: info.name,
+                  notifier: createDownloadNotifier(`dep-${info.name}`, info.name, getMainWindow),
+                };
+              }
+              depNotifier.notifier.onProgress(info.received, info.total);
+              if (info.received >= info.total && info.total > 0) {
+                depNotifier.notifier.done();
+              }
+            },
           });
           depCount = depResult.installed.length;
         } catch (depErr) {
@@ -1027,6 +1156,66 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   });
 
+  ipcMain.handle(
+    'modpack:export',
+    async (
+      event,
+      options: {
+        format: 'mrpack' | 'zip';
+        name: string;
+        version: string;
+        summary?: string;
+        includeConfigs?: boolean;
+      }
+    ) => {
+      try {
+        await instanceConfig.load();
+        const active = instanceConfig.getActiveInstance();
+        if (!active?.rootDir) throw new Error('Silakan pilih instance aktif terlebih dahulu.');
+
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const ext = options.format === 'mrpack' ? 'mrpack' : 'zip';
+        const safeBaseName = (options.name || 'modpack').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        const defaultFilename = `${safeBaseName}-${options.version || '1.0.0'}.${ext}`;
+
+        const res = await dialog.showSaveDialog(win!, {
+          title: 'Simpan Ekspor Modpack',
+          defaultPath: defaultFilename,
+          filters: [
+            options.format === 'mrpack'
+              ? { name: 'Modrinth Modpack (*.mrpack)', extensions: ['mrpack'] }
+              : { name: 'ZIP Archive (*.zip)', extensions: ['zip'] },
+          ],
+        });
+
+        if (res.canceled || !res.filePath) {
+          return { success: false, error: 'Dibatalkan oleh pengguna' };
+        }
+
+        const result = await modpackExporter.exportModpack({
+          format: options.format,
+          instanceDir: active.rootDir,
+          outputPath: res.filePath,
+          name: options.name,
+          version: options.version,
+          summary: options.summary,
+          gameVersion: active.gameVersion || '1.20.1',
+          loader: active.loader || 'fabric',
+          includeConfigs: options.includeConfigs ?? true,
+        });
+
+        return {
+          success: true,
+          outputPath: result.outputPath,
+          filesCount: result.filesCount,
+          sizeBytes: result.sizeBytes,
+        };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    }
+  );
+
   ipcMain.handle('snapshots:list', async () => {
     try {
       await instanceConfig.load();
@@ -1035,6 +1224,44 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       return await profileSnapshotManager.listSnapshots(active);
     } catch {
       return [];
+    }
+  });
+
+  ipcMain.handle('snapshots:create', async (_event, note?: string) => {
+    try {
+      await instanceConfig.load();
+      const activeKey = instanceConfig.get().activeInstance;
+      const active = instanceConfig.getActiveInstance();
+      if (!active || !activeKey) throw new Error('Tidak ada instance aktif');
+      const snapshot = await profileSnapshotManager.createBackupPoint(activeKey, active, note);
+      return { success: true, snapshot };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('snapshots:restore', async (_event, snapshotId: string) => {
+    try {
+      await instanceConfig.load();
+      const activeKey = instanceConfig.get().activeInstance;
+      const active = instanceConfig.getActiveInstance();
+      if (!active || !activeKey) throw new Error('Tidak ada instance aktif');
+      const res = await profileSnapshotManager.restoreBackupPoint(activeKey, active, snapshotId);
+      return { success: true, restoredCount: res.restoredCount };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('snapshots:delete', async (_event, snapshotId: string) => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active) throw new Error('Tidak ada instance aktif');
+      const ok = await profileSnapshotManager.deleteSnapshot(active, snapshotId);
+      return { success: ok };
+    } catch (err: any) {
+      return { success: false, error: err.message };
     }
   });
 
@@ -1048,6 +1275,32 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       return { success: true, savedCount: res.savedCount, restoredCount: res.restoredCount };
     } catch (err: any) {
       return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('logs:analyze', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) throw new Error('Instance belum aktif');
+      return await logAnalyzer.analyze(active.rootDir);
+    } catch (err: any) {
+      return {
+        hasLogs: false,
+        findings: [],
+        error: err.message,
+      };
+    }
+  });
+
+  ipcMain.handle('logs:getLatestLog', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) return '';
+      return await logAnalyzer.getLatestLog(active.rootDir);
+    } catch {
+      return '';
     }
   });
 

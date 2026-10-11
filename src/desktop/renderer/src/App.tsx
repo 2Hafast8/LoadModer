@@ -4,6 +4,7 @@ import { ModsView } from './views/ModsView.js';
 import { ExploreView } from './views/ExploreView.js';
 import { InstancesView } from './views/InstancesView.js';
 import { BisectView } from './views/BisectView.js';
+import { DownloadCenter } from './components/DownloadCenter.js';
 
 import { useLanguage } from './i18n/LanguageContext.js';
 
@@ -49,6 +50,8 @@ export const App: React.FC = () => {
         )}
         {currentTab === 'bisect' && <BisectView />}
       </main>
+
+      <DownloadCenter />
     </div>
   );
 };

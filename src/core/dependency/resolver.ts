@@ -43,6 +43,7 @@ export interface DependencyResolutionOptions {
   graph: DependencyGraph;
   dryRun?: boolean;
   onLog?: (level: "info" | "step" | "warn" | "dim" | "success", message: string) => void;
+  onDownloadProgress?: (info: { name: string; received: number; total: number }) => void;
 }
 
 export interface DependencyInstallResult {
@@ -351,6 +352,9 @@ export async function resolveAndInstallDependencies(
           await modrinthClient.download(depFile.url, destPath, {
             sha512: depFile.hashes.sha512,
             size: depFile.size,
+            onProgress: (received, total) => {
+              opts.onDownloadProgress?.({ name: depProj.title, received, total });
+            },
           });
 
           existingFiles.add(safeFilename);

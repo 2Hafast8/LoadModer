@@ -12,8 +12,11 @@ import {
   FolderOpen,
   PackageCheck,
   Undo2,
+  Package,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
+import { RestorePointsPanel } from '../components/RestorePointsPanel.js';
+import { ExportModpackModal } from '../components/ExportModpackModal.js';
 
 interface InstanceItem {
   id: string;
@@ -38,6 +41,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
   const [deepScanning, setDeepScanning] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const loadInstances = async () => {
     setLoading(true);
@@ -201,6 +205,16 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
             </button>
           )}
 
+          {activeInstance && (
+            <button
+              onClick={() => setExportModalOpen(true)}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>{t.export.triggerBtn}</span>
+            </button>
+          )}
+
           <button
             onClick={handleBrowseFolder}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
@@ -249,6 +263,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
       )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <RestorePointsPanel activeInstance={activeInstance} />
         {modpackProfiles.length > 0 && (
           <div className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -405,6 +420,12 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           </div>
         )}
       </div>
+
+      <ExportModpackModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        instanceName={activeInstance?.name}
+      />
     </div>
   );
 };

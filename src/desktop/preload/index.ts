@@ -1,5 +1,15 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+export interface DownloadProgressPayload {
+  id: string;
+  name: string;
+  percent: number;
+  speed: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  status: 'downloading' | 'completed' | 'failed';
+}
+
 export interface DesktopAPI {
   window: {
     minimize: () => Promise<void>;
@@ -90,14 +100,37 @@ export interface DesktopAPI {
     listProfiles: () => Promise<any[]>;
     switchProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
     disableActive: () => Promise<{ success: boolean; error?: string }>;
+    export: (options: {
+      format: 'mrpack' | 'zip';
+      name: string;
+      version: string;
+      summary?: string;
+      includeConfigs?: boolean;
+    }) => Promise<{
+      success: boolean;
+      outputPath?: string;
+      filesCount?: number;
+      sizeBytes?: number;
+      error?: string;
+    }>;
   };
   snapshots: {
     list: () => Promise<any[]>;
+    create: (note?: string) => Promise<{ success: boolean; snapshot?: any; error?: string }>;
+    restore: (snapshotId: string) => Promise<{ success: boolean; restoredCount?: number; error?: string }>;
+    delete: (snapshotId: string) => Promise<{ success: boolean; error?: string }>;
     switchProfile: (loader: string, gameVersion: string) => Promise<{ success: boolean; savedCount?: number; restoredCount?: number; error?: string }>;
+  };
+  logs: {
+    analyze: () => Promise<any>;
+    getLatestLog: () => Promise<string>;
   };
   bisect: {
     status: (customDir?: string) => Promise<{ active: boolean; step?: number; totalSteps?: number; remainingMods?: number; state?: any }>;
     step: (action: 'start' | 'good' | 'bad' | 'reset', customDir?: string) => Promise<{ success: boolean; message: string; state?: any; error?: string }>;
+  };
+  downloads: {
+    onProgress: (callback: (payload: DownloadProgressPayload) => void) => () => void;
   };
   dialog: {
     selectMrpack: () => Promise<string | null>;
@@ -148,16 +181,33 @@ const api: DesktopAPI = {
     listProfiles: () => ipcRenderer.invoke('modpack:listProfiles'),
     switchProfile: (profileId: string) => ipcRenderer.invoke('modpack:switchProfile', profileId),
     disableActive: () => ipcRenderer.invoke('modpack:disableActive'),
+    export: (options) => ipcRenderer.invoke('modpack:export', options),
   },
   snapshots: {
     list: () => ipcRenderer.invoke('snapshots:list'),
+    create: (note?: string) => ipcRenderer.invoke('snapshots:create', note),
+    restore: (snapshotId: string) => ipcRenderer.invoke('snapshots:restore', snapshotId),
+    delete: (snapshotId: string) => ipcRenderer.invoke('snapshots:delete', snapshotId),
     switchProfile: (loader: string, gameVersion: string) =>
       ipcRenderer.invoke('snapshots:switchProfile', loader, gameVersion),
+  },
+  logs: {
+    analyze: () => ipcRenderer.invoke('logs:analyze'),
+    getLatestLog: () => ipcRenderer.invoke('logs:getLatestLog'),
   },
   bisect: {
     status: (customDir?: string) => ipcRenderer.invoke('bisect:status', customDir),
     step: (action: 'start' | 'good' | 'bad' | 'reset', customDir?: string) =>
       ipcRenderer.invoke('bisect:step', action, customDir),
+  },
+  downloads: {
+    onProgress: (callback: (payload: DownloadProgressPayload) => void) => {
+      const listener = (_event: any, data: DownloadProgressPayload) => callback(data);
+      ipcRenderer.on('download:progress', listener);
+      return () => {
+        ipcRenderer.removeListener('download:progress', listener);
+      };
+    },
   },
   dialog: {
     selectMrpack: () => ipcRenderer.invoke('dialog:selectMrpack'),
