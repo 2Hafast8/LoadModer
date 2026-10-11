@@ -47,6 +47,12 @@ export const ExploreView: React.FC = () => {
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [installedMap, setInstalledMap] = useState<Record<string, boolean>>({});
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [installedIndex, setInstalledIndex] = useState<{
+    projectIds: string[];
+    slugs: string[];
+    filenames: string[];
+    versionMap: Record<string, string>;
+  }>({ projectIds: [], slugs: [], filenames: [], versionMap: {} });
 
   // Detail Page State
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -54,6 +60,39 @@ export const ExploreView: React.FC = () => {
   const [projectVersions, setProjectVersions] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState<'description' | 'versions'>('description');
+
+  const fetchInstalledIndex = async () => {
+    try {
+      const idx = await window.api.mods.getInstalledIndex();
+      if (idx) {
+        setInstalledIndex(idx);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchInstalledIndex();
+    const unsub = window.api.mods.onChanged?.(() => {
+      fetchInstalledIndex();
+    });
+    return () => unsub?.();
+  }, []);
+
+  const checkIsInstalled = (item: { project_id?: string; id?: string; slug?: string }) => {
+    const pid = (item.project_id || item.id || '').toLowerCase().trim();
+    const slug = (item.slug || '').toLowerCase().trim();
+
+    if (pid && (installedIndex.projectIds.includes(pid) || installedMap[pid])) return true;
+    if (slug && (installedIndex.slugs.includes(slug) || installedMap[slug])) return true;
+
+    if (slug) {
+      return installedIndex.filenames.some((f) => {
+        const cleanF = f.toLowerCase();
+        return cleanF.startsWith(slug + '-') || cleanF.startsWith(slug + '.') || cleanF.includes(slug);
+      });
+    }
+    return false;
+  };
 
   const searchModrinth = async (customQuery?: string) => {
     const q = customQuery !== undefined ? customQuery : query;
@@ -122,7 +161,8 @@ export const ExploreView: React.FC = () => {
       });
 
       if (res.success) {
-        setInstalledMap((prev) => ({ ...prev, [id]: true }));
+        setInstalledMap((prev) => ({ ...prev, [id]: true, [slug]: true }));
+        await fetchInstalledIndex();
         setStatusMessage({
           text: res.message ?? `Berhasil memasang ${slug}`,
           type: 'success',
@@ -130,6 +170,41 @@ export const ExploreView: React.FC = () => {
       } else {
         setStatusMessage({
           text: res.error ?? `Gagal memasang ${slug}`,
+          type: 'error',
+        });
+      }
+    } catch (err: any) {
+      setStatusMessage({ text: err.message, type: 'error' });
+    } finally {
+      setInstallingId(null);
+    }
+  };
+
+  const handleInstallVersion = async (v: any) => {
+    if (!projectDetail) return;
+    setInstallingId(v.id);
+    setStatusMessage(null);
+    try {
+      const res = await window.api.modrinth.install(projectDetail.slug, {
+        type: projectDetail.project_type || projectType,
+        loader: loader !== 'all' ? loader : undefined,
+        versionId: v.id,
+      });
+
+      if (res.success) {
+        setInstalledMap((prev) => ({
+          ...prev,
+          [projectDetail.id || projectDetail.project_id]: true,
+          [projectDetail.slug]: true,
+        }));
+        await fetchInstalledIndex();
+        setStatusMessage({
+          text: res.message ?? `Berhasil memasang versi ${v.version_number}`,
+          type: 'success',
+        });
+      } else {
+        setStatusMessage({
+          text: res.error ?? `Gagal memasang versi ${v.version_number}`,
           type: 'error',
         });
       }
@@ -162,7 +237,7 @@ export const ExploreView: React.FC = () => {
 
   // --- Render Project Detail View ---
   if (selectedSlug) {
-    const isInstalled = projectDetail ? installedMap[projectDetail.id || projectDetail.project_id] : false;
+    const isInstalled = projectDetail ? checkIsInstalled(projectDetail) : false;
     const isInstalling = projectDetail ? installingId === (projectDetail.id || projectDetail.project_id) : false;
 
     return (
@@ -373,38 +448,77 @@ export const ExploreView: React.FC = () => {
                         <th className="px-4 py-2.5">Loader</th>
                         <th className="px-4 py-2.5">Tipe</th>
                         <th className="px-4 py-2.5">Tanggal</th>
+                        <th className="px-4 py-2.5 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-obsidian-border">
                       {projectVersions.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-6 text-center text-nordic-muted">
+                          <td colSpan={6} className="px-4 py-6 text-center text-nordic-muted">
                             Tidak ada versi yang cocok dengan filter saat ini.
                           </td>
                         </tr>
                       ) : (
-                        projectVersions.map((v) => (
-                          <tr key={v.id} className="hover:bg-obsidian-hover/40 transition-colors">
-                            <td className="px-4 py-2.5 font-medium text-nordic-text">
-                              {v.name || v.version_number}
-                            </td>
-                            <td className="px-4 py-2.5 font-mono text-[11px] text-nordic-muted">
-                              {v.game_versions ? v.game_versions.slice(0, 3).join(', ') : '-'}
-                              {v.game_versions && v.game_versions.length > 3 ? ` +${v.game_versions.length - 3}` : ''}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <span className="capitalize text-[11px] px-1.5 py-0.5 rounded bg-obsidian-card border border-obsidian-border text-emerald-primary">
-                                {v.loaders ? v.loaders.join(', ') : '-'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 uppercase font-mono text-[10px] text-nordic-muted">
-                              {v.version_type}
-                            </td>
-                            <td className="px-4 py-2.5 text-nordic-muted text-[11px]">
-                              {v.date_published ? new Date(v.date_published).toLocaleDateString() : '-'}
-                            </td>
-                          </tr>
-                        ))
+                        projectVersions.map((v) => {
+                          const vName = v.version_number || v.name;
+                          const pId = (projectDetail?.id || projectDetail?.project_id || '').toLowerCase();
+                          const pSlug = (projectDetail?.slug || '').toLowerCase();
+                          const isThisVerInstalled =
+                            (installedIndex.versionMap[pId] && installedIndex.versionMap[pId] === vName) ||
+                            (installedIndex.versionMap[pSlug] && installedIndex.versionMap[pSlug] === vName) ||
+                            (v.files?.[0]?.filename && installedIndex.filenames.includes(v.files[0].filename));
+                          const isAnyVerInstalled = checkIsInstalled(projectDetail);
+
+                          return (
+                            <tr key={v.id} className="hover:bg-obsidian-hover/40 transition-colors">
+                              <td className="px-4 py-2.5 font-medium text-nordic-text">
+                                {v.name || v.version_number}
+                              </td>
+                              <td className="px-4 py-2.5 font-mono text-[11px] text-nordic-muted">
+                                {v.game_versions ? v.game_versions.slice(0, 3).join(', ') : '-'}
+                                {v.game_versions && v.game_versions.length > 3 ? ` +${v.game_versions.length - 3}` : ''}
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <span className="capitalize text-[11px] px-1.5 py-0.5 rounded bg-obsidian-card border border-obsidian-border text-emerald-primary">
+                                  {v.loaders ? v.loaders.join(', ') : '-'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 uppercase font-mono text-[10px] text-nordic-muted">
+                                {v.version_type}
+                              </td>
+                              <td className="px-4 py-2.5 text-nordic-muted text-[11px]">
+                                {v.date_published ? new Date(v.date_published).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-4 py-2.5 text-right">
+                                {isThisVerInstalled ? (
+                                  <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-emerald-dark/30 border border-emerald-primary/40 text-[11px] font-semibold text-emerald-active">
+                                    <Check className="w-3 h-3" />
+                                    <span>Terpasang</span>
+                                  </span>
+                                ) : isAnyVerInstalled ? (
+                                  <button
+                                    onClick={() => handleInstallVersion(v)}
+                                    disabled={installingId === v.id}
+                                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 text-[11px] font-semibold transition-colors cursor-pointer"
+                                    title="Ganti ke versi ini (versi lama akan digantikan otomatis)"
+                                  >
+                                    <RefreshCw className={`w-3 h-3 ${installingId === v.id ? 'animate-spin' : ''}`} />
+                                    <span>Ganti Versi</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleInstallVersion(v)}
+                                    disabled={installingId === v.id}
+                                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-emerald-primary text-obsidian-bg text-[11px] font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
+                                  >
+                                    <Download className={`w-3 h-3 ${installingId === v.id ? 'animate-spin' : ''}`} />
+                                    <span>Pasang</span>
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -579,7 +693,7 @@ export const ExploreView: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {hits.map((hit) => {
-              const isInstalled = installedMap[hit.project_id];
+              const isInstalled = checkIsInstalled(hit);
               const isInstalling = installingId === hit.project_id;
 
               return (
@@ -598,9 +712,17 @@ export const ExploreView: React.FC = () => {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-xs text-nordic-text group-hover:text-emerald-active transition-colors truncate">
-                        {hit.title}
-                      </h3>
+                      <div className="flex items-center justify-between gap-1">
+                        <h3 className="font-semibold text-xs text-nordic-text group-hover:text-emerald-active transition-colors truncate">
+                          {hit.title}
+                        </h3>
+                        {isInstalled && (
+                          <span className="shrink-0 px-1.5 py-0.5 rounded bg-emerald-dark/30 border border-emerald-primary/40 text-[10px] font-semibold text-emerald-active flex items-center space-x-0.5">
+                            <Check className="w-2.5 h-2.5" />
+                            <span>Terpasang</span>
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-nordic-muted line-clamp-2 mt-0.5 leading-relaxed">
                         {hit.description}
                       </p>
@@ -616,14 +738,17 @@ export const ExploreView: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleInstall(hit.slug, hit.project_id, hit.project_type);
+                        if (!isInstalled) {
+                          handleInstall(hit.slug, hit.project_id, hit.project_type);
+                        }
                       }}
                       disabled={isInstalling || isInstalled}
-                      className={`flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                      className={`flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
                         isInstalled
-                          ? 'bg-obsidian-card border border-emerald-primary/40 text-emerald-primary'
-                          : 'bg-emerald-primary text-obsidian-bg hover:bg-emerald-active'
+                          ? 'bg-obsidian-card border border-emerald-primary/40 text-emerald-primary cursor-default'
+                          : 'bg-emerald-primary text-obsidian-bg hover:bg-emerald-active cursor-pointer'
                       }`}
+                      title={isInstalled ? 'Aset ini sudah terpasang di instance aktif' : 'Pasang aset ini'}
                     >
                       {isInstalling ? (
                         <RefreshCw className="w-3 h-3 animate-spin" />

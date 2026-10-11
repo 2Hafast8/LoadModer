@@ -70,6 +70,36 @@ export class InstalledAssetsIndex {
       }
     } catch {}
 
+    // Scan shaderpacks on disk
+    try {
+      const shaderFiles = await readdir(path.join(instanceDir, "shaderpacks"));
+      for (const sf of shaderFiles) {
+        if (sf.toLowerCase().endsWith(".zip") || sf.toLowerCase().endsWith(".zip.disabled")) {
+          const clean = sf.toLowerCase().replace(/\.disabled$/, "").replace(/\.zip$/, "").trim();
+          index.slugMap.set(clean, {
+            isInstalled: true,
+            filename: sf,
+            assetType: "shader",
+          });
+        }
+      }
+    } catch {}
+
+    // Scan resourcepacks on disk
+    try {
+      const rpFiles = await readdir(path.join(instanceDir, "resourcepacks"));
+      for (const rf of rpFiles) {
+        if (rf.toLowerCase().endsWith(".zip") || rf.toLowerCase().endsWith(".zip.disabled")) {
+          const clean = rf.toLowerCase().replace(/\.disabled$/, "").replace(/\.zip$/, "").trim();
+          index.slugMap.set(clean, {
+            isInstalled: true,
+            filename: rf,
+            assetType: "resourcepack",
+          });
+        }
+      }
+    } catch {}
+
     for (const file of diskFiles) {
       if (file.endsWith(".jar") || file.endsWith(".jar.disabled")) {
         const isDisabled = file.endsWith(".disabled");
@@ -116,5 +146,33 @@ export class InstalledAssetsIndex {
     if (!slugOrId) return undefined;
     const clean = slugOrId.toLowerCase().trim();
     return this.slugMap.get(clean) ?? this.idMap.get(clean);
+  }
+
+  getSummary(): {
+    projectIds: string[];
+    slugs: string[];
+    filenames: string[];
+    versionMap: Record<string, string>;
+  } {
+    const projectIds = Array.from(this.idMap.keys());
+    const slugs = Array.from(this.slugMap.keys());
+    const filenames: string[] = [];
+    const versionMap: Record<string, string> = {};
+
+    for (const [key, val] of this.slugMap.entries()) {
+      if (val.filename && !filenames.includes(val.filename)) {
+        filenames.push(val.filename);
+      }
+      if (val.version) {
+        versionMap[key] = val.version;
+      }
+    }
+    for (const [key, val] of this.idMap.entries()) {
+      if (val.version) {
+        versionMap[key] = val.version;
+      }
+    }
+
+    return { projectIds, slugs, filenames, versionMap };
   }
 }

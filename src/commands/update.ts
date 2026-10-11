@@ -7,6 +7,7 @@ import { resolveAndInstallDependencies } from '../core/dependency/resolver.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
 import { hashFile } from '../utils/crypto.js';
 import { formatBytes } from '../utils/format.js';
+import { isTrueUpdate } from '../utils/versionCompare.js';
 import pLimit from 'p-limit';
 import type { VersionType, ModVersion, ModVersionFile, ModVersionDependency } from '../types/modrinth.js';
 
@@ -77,20 +78,23 @@ export async function updateCommand(opts: UpdateOptions) {
     versionTypes
   );
 
+  const currentVersionsMap = await modrinthClient
+    .getVersionsByHashes(fileHashes.map((f) => f.sha1))
+    .catch(() => ({} as Record<string, ModVersion>));
+
   const updates: { current: string; currentPath: string; nextVersion: ModVersion; nextFile: ModVersionFile }[] = [];
 
   for (const item of fileHashes) {
     const nextVer = latestMap[item.sha1];
-    if (nextVer) {
+    const currentVer = currentVersionsMap[item.sha1];
+    if (nextVer && isTrueUpdate(item, currentVer, nextVer)) {
       const nextFile = nextVer.files.find((f) => f.primary) ?? nextVer.files[0];
-      if (nextFile && nextFile.hashes.sha1 !== item.sha1) {
-        updates.push({
-          current: item.filename,
-          currentPath: item.filePath,
-          nextVersion: nextVer,
-          nextFile,
-        });
-      }
+      updates.push({
+        current: item.filename,
+        currentPath: item.filePath,
+        nextVersion: nextVer,
+        nextFile,
+      });
     }
   }
 

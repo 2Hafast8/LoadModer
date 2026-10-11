@@ -62,6 +62,12 @@ export interface DesktopAPI {
       loader?: string;
     }>;
     applyUpdate: (currentFile: string) => Promise<{ success: boolean; error?: string }>;
+    getInstalledIndex: () => Promise<{
+      projectIds: string[];
+      slugs: string[];
+      filenames: string[];
+      versionMap: Record<string, string>;
+    }>;
     onChanged: (callback: () => void) => () => void;
   };
   // Modrinth explore & install
@@ -130,6 +136,7 @@ const api: DesktopAPI = {
       ipcRenderer.invoke('mods:remove', fileName, prune, customDir, type),
     checkUpdates: () => ipcRenderer.invoke('mods:checkUpdates'),
     applyUpdate: (currentFile: string) => ipcRenderer.invoke('mods:applyUpdate', currentFile),
+    getInstalledIndex: () => ipcRenderer.invoke('mods:getInstalledIndex'),
     onChanged: (callback: () => void) => {
       const listener = () => callback();
       ipcRenderer.on('mods:changed', listener);

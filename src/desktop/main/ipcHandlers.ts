@@ -15,9 +15,12 @@ import { ModpackUnpacker } from '../../core/modpack/unpacker.js';
 import { ModpackProfileManager } from '../../core/modpack/profileManager.js';
 import { profileSnapshotManager } from '../../core/profile/snapshotManager.js';
 import { ModsWatcher } from '../../core/watcher/modsWatcher.js';
+import { InstalledAssetsIndex } from '../../core/instance/installedIndex.js';
+import { isTrueUpdate } from '../../utils/versionCompare.js';
 import pLimit from 'p-limit';
 import type { LauncherType, LoaderType, MinecraftInstance } from '../../types/instance.js';
 import type { SearchIndex } from '../../api/client.js';
+import type { ModVersion, VersionType } from '../../types/modrinth.js';
 
 let activeWatcher: ModsWatcher | null = null;
 
@@ -476,21 +479,38 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         )
       );
 
-      // If still missing, try inferring from installed mod hashes
-      if (!gameVersion || !loader) {
-        try {
-          const hashVersions = await modrinthClient.getVersionsByHashes(fileHashes.map((f) => f.sha1));
-          for (const ver of Object.values(hashVersions)) {
-            if (!loader && ver.loaders && ver.loaders.length > 0) {
-              loader = ver.loaders[0] as LoaderType;
-            }
-            if (!gameVersion && ver.game_versions && ver.game_versions.length > 0) {
-              gameVersion = ver.game_versions[0];
-            }
-            if (loader && gameVersion) break;
-          }
-        } catch {}
+      // Fetch version metadata of currently installed hashes from Modrinth
+      const currentVersionsMap = await modrinthClient
+        .getVersionsByHashes(fileHashes.map((f) => f.sha1))
+        .catch(() => ({} as Record<string, ModVersion>));
+
+      // Check if any installed mod is an alpha/beta channel
+      let hasAlpha = false;
+      let hasBeta = false;
+      for (const ver of Object.values(currentVersionsMap)) {
+        if (ver.version_type === 'alpha') hasAlpha = true;
+        if (ver.version_type === 'beta') hasBeta = true;
+        if (!loader && ver.loaders && ver.loaders.length > 0) {
+          loader = ver.loaders[0] as LoaderType;
+        }
+        if (!gameVersion && ver.game_versions && ver.game_versions.length > 0) {
+          gameVersion = ver.game_versions[0];
+        }
       }
+
+      // Also inspect filenames if hashes were unknown
+      if (!hasAlpha) {
+        hasAlpha = fileHashes.some((f) => /[-_.]alpha/i.test(f.filename));
+      }
+      if (!hasBeta) {
+        hasBeta = fileHashes.some((f) => /[-_.]beta/i.test(f.filename));
+      }
+
+      const versionTypes: VersionType[] = hasAlpha
+        ? ['release', 'beta', 'alpha']
+        : hasBeta
+        ? ['release', 'beta']
+        : ['release', 'beta'];
 
       const targetGameVersion = gameVersion || '1.20.1';
       const targetLoader = loader || 'fabric';
@@ -498,7 +518,7 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       const latestMap = await modrinthClient.getLatestByHashes(
         fileHashes.map((f) => f.sha1),
         { gameVersion: targetGameVersion, loader: targetLoader },
-        ['release', 'beta']
+        versionTypes
       );
 
       const updates: Array<{
@@ -510,16 +530,15 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
 
       for (const item of fileHashes) {
         const nextVer = latestMap[item.sha1];
-        if (nextVer) {
+        const currentVer = currentVersionsMap[item.sha1];
+        if (nextVer && isTrueUpdate(item, currentVer, nextVer)) {
           const nextFile = nextVer.files.find((f: any) => f.primary) ?? nextVer.files[0];
-          if (nextFile && nextFile.hashes.sha1 !== item.sha1) {
-            updates.push({
-              currentFile: item.filename,
-              nextVersion: nextVer.version_number,
-              nextFileName: nextFile.filename,
-              size: nextFile.size,
-            });
-          }
+          updates.push({
+            currentFile: item.filename,
+            nextVersion: nextVer.version_number,
+            nextFileName: nextFile.filename,
+            size: nextFile.size,
+          });
         }
       }
 
@@ -532,6 +551,17 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     } catch (err: any) {
       console.error('Check updates error:', err);
       return { updates: [], checkedCount: 0, error: err.message };
+    }
+  });
+
+  ipcMain.handle('mods:getInstalledIndex', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      const index = await InstalledAssetsIndex.load(active);
+      return index.getSummary();
+    } catch (err: any) {
+      return { projectIds: [], slugs: [], filenames: [], versionMap: {} };
     }
   });
 
@@ -805,13 +835,67 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
 
         const safeDest = path.basename(primaryFile.filename);
         const destPath = path.join(active.modsDir, safeDest);
-        await modrinthClient.download(primaryFile.url, destPath, {
-          sha512: primaryFile.hashes.sha512,
-        });
 
         const instanceDir = active.rootDir;
         const graph = new DependencyGraph(instanceDir, gameVersion ?? '', loader ?? '');
         await graph.load();
+
+        // 1. Validasi Bentrok (Incompatibilities)
+        const incompatibilities = (targetVersion.dependencies ?? []).filter(
+          (d: any) => d.dependency_type === 'incompatible'
+        );
+        for (const inc of incompatibilities) {
+          const incId = inc.project_id || inc.version_id;
+          if (incId) {
+            const conflict = graph.findMod(incId);
+            if (conflict) {
+              throw new Error(
+                `Bentrok: Mod "${targetVersion.name || slugOrId}" tidak kompatibel dengan "${conflict.entry.filename}" yang sudah terpasang.`
+              );
+            }
+          }
+        }
+
+        const reverseConflicts = graph.checkIncompatibilities([targetVersion.project_id, slugOrId]);
+        if (reverseConflicts.length > 0) {
+          throw new Error(
+            `Bentrok: Mod "${reverseConflicts.join(', ')}" yang sudah terpasang menyatakan tidak kompatibel dengan mod ini.`
+          );
+        }
+
+        // 2. Validasi Duplikat (Duplicate Prevention)
+        const existingMod = graph.findMod(slugOrId) || graph.findMod(targetVersion.project_id);
+        if (existingMod) {
+          if (existingMod.entry.versionId === targetVersion.id || existingMod.entry.filename === safeDest) {
+            return {
+              success: false,
+              error: `Mod "${existingMod.entry.filename}" dengan versi yang sama sudah terpasang di instance ini.`,
+            };
+          }
+          // Jika mengganti versi, hapus versi lama agar tidak terjadi duplikat berkas .jar
+          const oldPath = path.join(active.modsDir, existingMod.entry.filename);
+          await rm(oldPath, { force: true });
+          await rm(`${oldPath}.disabled`, { force: true });
+          graph.removeMod(existingMod.slug);
+        }
+
+        // Bersihkan berkas lawas yang mungkin memiliki slug sama di disk
+        const cleanSlug = slugOrId.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanSlug.length >= 3) {
+          const diskJars = await readdir(active.modsDir).catch(() => [] as string[]);
+          for (const jar of diskJars) {
+            const cleanJar = jar.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (cleanJar.startsWith(cleanSlug) && jar.endsWith('.jar') && jar !== safeDest) {
+              await rm(path.join(active.modsDir, jar), { force: true });
+              await rm(path.join(active.modsDir, `${jar}.disabled`), { force: true });
+            }
+          }
+        }
+
+        await modrinthClient.download(primaryFile.url, destPath, {
+          sha512: primaryFile.hashes.sha512,
+        });
+
         graph.registerMod(slugOrId, {
           versionId: targetVersion.id,
           projectId: targetVersion.project_id,
