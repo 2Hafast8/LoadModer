@@ -5,8 +5,11 @@ node_modules/
 
 # Build Output
 dist/
+dist-desktop/
 build/
 coverage/
+__pycache__/
+*.pyc
 
 # LoadModer Local Data
 .loadmoder/
