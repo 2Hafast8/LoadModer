@@ -48,6 +48,12 @@ export const ExploreView: React.FC = () => {
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [installedMap, setInstalledMap] = useState<Record<string, boolean>>({});
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [activeInstance, setActiveInstance] = useState<{
+    name: string;
+    gameVersion?: string;
+    loader?: string;
+  } | null>(null);
+  const [filterActiveInstance, setFilterActiveInstance] = useState(true);
   const [installedIndex, setInstalledIndex] = useState<{
     projectIds: string[];
     slugs: string[];
@@ -71,10 +77,30 @@ export const ExploreView: React.FC = () => {
     } catch {}
   };
 
+  const fetchActiveInstance = async () => {
+    try {
+      const data = await window.api.instances.getAll();
+      if (data.active) {
+        setActiveInstance({
+          name: data.active.name,
+          gameVersion: data.active.gameVersion,
+          loader: data.active.loader,
+        });
+        if (data.active.loader && ['fabric', 'forge', 'neoforge'].includes(data.active.loader.toLowerCase())) {
+          setLoader(data.active.loader.toLowerCase() as any);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get active instance in Explore:', err);
+    }
+  };
+
   useEffect(() => {
     fetchInstalledIndex();
+    fetchActiveInstance();
     const unsub = window.api.mods.onChanged?.(() => {
       fetchInstalledIndex();
+      fetchActiveInstance();
     });
     return () => unsub?.();
   }, []);
@@ -100,9 +126,13 @@ export const ExploreView: React.FC = () => {
     setLoading(true);
     setStatusMessage(null);
     try {
+      const effectiveLoader = loader !== 'all' ? loader : (filterActiveInstance ? activeInstance?.loader : undefined);
+      const effectiveMc = filterActiveInstance ? activeInstance?.gameVersion : undefined;
+
       const res = await window.api.modrinth.search(q, {
         type: projectType,
-        loader: loader !== 'all' ? loader : undefined,
+        loader: effectiveLoader,
+        mcVersion: effectiveMc,
         limit: 24,
         index: q.trim() ? (sortIndex === 'downloads' ? 'relevance' : sortIndex) : sortIndex,
       });
@@ -144,7 +174,7 @@ export const ExploreView: React.FC = () => {
     if (!isFirstRender.current) {
       searchModrinth(query);
     }
-  }, [projectType, loader, sortIndex]);
+  }, [projectType, loader, sortIndex, filterActiveInstance]);
 
   // Fetch full details when a project is selected
   const handleOpenDetail = async (hit: ProjectHit) => {
@@ -155,10 +185,14 @@ export const ExploreView: React.FC = () => {
     setProjectVersions([]);
 
     try {
+      const effectiveLoader = loader !== 'all' ? loader : (filterActiveInstance ? activeInstance?.loader : undefined);
+      const effectiveMc = filterActiveInstance ? activeInstance?.gameVersion : undefined;
+
       const [project, versions] = await Promise.all([
         window.api.modrinth.getProject(hit.slug),
         window.api.modrinth.getVersions(hit.slug, {
-          loader: loader !== 'all' ? loader : undefined,
+          loader: effectiveLoader,
+          mcVersion: effectiveMc,
         }),
       ]);
 
@@ -178,7 +212,8 @@ export const ExploreView: React.FC = () => {
     try {
       const res = await window.api.modrinth.install(slug, {
         type,
-        loader: loader !== 'all' ? loader : undefined,
+        loader: loader !== 'all' ? loader : activeInstance?.loader,
+        mcVersion: activeInstance?.gameVersion,
       });
 
       if (res.success) {
@@ -208,7 +243,8 @@ export const ExploreView: React.FC = () => {
     try {
       const res = await window.api.modrinth.install(projectDetail.slug, {
         type: projectDetail.project_type || projectType,
-        loader: loader !== 'all' ? loader : undefined,
+        loader: loader !== 'all' ? loader : activeInstance?.loader,
+        mcVersion: activeInstance?.gameVersion,
         versionId: v.id,
       });
 
@@ -490,17 +526,49 @@ export const ExploreView: React.FC = () => {
                             (v.files?.[0]?.filename && installedIndex.filenames.includes(v.files[0].filename));
                           const isAnyVerInstalled = checkIsInstalled(projectDetail);
 
+                          const isLoaderMatch =
+                            !activeInstance?.loader ||
+                            (v.loaders &&
+                              (v.loaders.map((l: string) => l.toLowerCase()).includes(activeInstance.loader.toLowerCase()) ||
+                                (activeInstance.loader.toLowerCase() === 'quilt' &&
+                                  v.loaders.map((l: string) => l.toLowerCase()).includes('fabric'))));
+
+                          const isGameVerMatch =
+                            !activeInstance?.gameVersion ||
+                            (v.game_versions && v.game_versions.includes(activeInstance.gameVersion));
+
+                          const isCompatible = isLoaderMatch && isGameVerMatch;
+
                           return (
                             <tr key={v.id} className="hover:bg-obsidian-hover/40 transition-colors">
                               <td className="px-4 py-2.5 font-medium text-nordic-text">
-                                {v.name || v.version_number}
+                                <div className="flex items-center space-x-2">
+                                  <span>{v.name || v.version_number}</span>
+                                  {!isCompatible && (
+                                    <span
+                                      className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-600/40 text-[10px] font-semibold text-amber-400"
+                                      title={`Versi ini berbeda dengan instance aktif (${activeInstance?.loader?.toUpperCase()} ${activeInstance?.gameVersion})`}
+                                    >
+                                      <AlertCircle className="w-3 h-3 text-amber-400" />
+                                      <span>Beda {!isLoaderMatch ? 'Loader' : 'MC'}</span>
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-4 py-2.5 font-mono text-[11px] text-nordic-muted">
-                                {v.game_versions ? v.game_versions.slice(0, 3).join(', ') : '-'}
-                                {v.game_versions && v.game_versions.length > 3 ? ` +${v.game_versions.length - 3}` : ''}
+                                <span className={!isGameVerMatch ? 'text-amber-400/80 font-semibold' : ''}>
+                                  {v.game_versions ? v.game_versions.slice(0, 3).join(', ') : '-'}
+                                  {v.game_versions && v.game_versions.length > 3 ? ` +${v.game_versions.length - 3}` : ''}
+                                </span>
                               </td>
                               <td className="px-4 py-2.5">
-                                <span className="capitalize text-[11px] px-1.5 py-0.5 rounded bg-obsidian-card border border-obsidian-border text-emerald-primary">
+                                <span
+                                  className={`capitalize text-[11px] px-1.5 py-0.5 rounded border ${
+                                    isLoaderMatch
+                                      ? 'bg-obsidian-card border-obsidian-border text-emerald-primary'
+                                      : 'bg-amber-950/30 border-amber-500/30 text-amber-400'
+                                  }`}
+                                >
                                   {v.loaders ? v.loaders.join(', ') : '-'}
                                 </span>
                               </td>
@@ -516,6 +584,15 @@ export const ExploreView: React.FC = () => {
                                     <Check className="w-3 h-3" />
                                     <span>Terpasang</span>
                                   </span>
+                                ) : !isCompatible ? (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card/40 border border-obsidian-border text-nordic-muted/40 text-[11px] font-semibold cursor-not-allowed"
+                                    title={`Tidak dapat dipasang: versi ini tidak kompatibel dengan instance aktif (${activeInstance?.loader?.toUpperCase()} ${activeInstance?.gameVersion})`}
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    <span>Tidak Cocok</span>
+                                  </button>
                                 ) : isAnyVerInstalled ? (
                                   <button
                                     onClick={() => handleInstallVersion(v)}
@@ -655,6 +732,33 @@ export const ExploreView: React.FC = () => {
               <span>Resource Pack</span>
             </button>
           </div>
+
+          {/* Active Instance Sync Badge */}
+          {activeInstance && (
+            <button
+              type="button"
+              onClick={() => setFilterActiveInstance(!filterActiveInstance)}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs border transition-colors cursor-pointer ${
+                filterActiveInstance
+                  ? 'bg-emerald-dark/30 border-emerald-primary/40 text-emerald-active'
+                  : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:text-nordic-text'
+              }`}
+              title={
+                filterActiveInstance
+                  ? `Filter aktif: Hanya menampilkan aset untuk ${activeInstance.loader?.toUpperCase() ?? 'Loader'} ${activeInstance.gameVersion ?? 'MC'} (Klik untuk matikan)`
+                  : 'Klik untuk mengunci filter sesuai instance aktif'
+              }
+            >
+              <Shield className={`w-3.5 h-3.5 ${filterActiveInstance ? 'text-emerald-primary' : 'text-nordic-muted'}`} />
+              <span className="hidden sm:inline">
+                {filterActiveInstance ? 'Terkunci:' : 'Instance:'}{' '}
+              </span>
+              <strong className="text-nordic-text font-semibold">{activeInstance.name}</strong>
+              <span className="font-mono text-[11px] opacity-80">
+                ({activeInstance.loader?.toUpperCase() ?? 'Auto'}{activeInstance.gameVersion ? ` ${activeInstance.gameVersion}` : ''})
+              </span>
+            </button>
+          )}
 
           {/* Loader Selection */}
           <select

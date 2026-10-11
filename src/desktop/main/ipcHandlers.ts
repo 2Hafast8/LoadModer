@@ -684,9 +684,32 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           throw new Error('Silakan pilih instance aktif terlebih dahulu di tab Instances.');
         }
 
+        const activeKey = instanceConfig.get().activeInstance;
         const pType = options?.type ?? 'mod';
-        const gameVersion = options?.mcVersion ?? active.gameVersion;
-        const loader = options?.loader ?? active.loader;
+        let gameVersion = options?.mcVersion ?? active.gameVersion;
+        let loader = options?.loader ?? active.loader;
+
+        // Auto-detect version and loader if missing from active instance
+        if (!gameVersion || !loader) {
+          try {
+            const inspected = await instanceDetector.inspectGameDir(active.rootDir, {
+              id: activeKey ?? 'custom',
+              name: active.name,
+              launcher: active.launcher as LauncherType,
+            });
+            if (inspected.gameVersion) gameVersion = inspected.gameVersion;
+            if (inspected.loader) loader = inspected.loader;
+
+            if (activeKey && (gameVersion || loader)) {
+              instanceConfig.saveInstance(activeKey, {
+                ...active,
+                gameVersion: gameVersion ?? active.gameVersion,
+                loader: loader ?? active.loader,
+              });
+              await instanceConfig.save();
+            }
+          } catch {}
+        }
 
         // Handle Modpack (.mrpack)
         if (pType === 'modpack' || slugOrId.endsWith('.mrpack')) {
@@ -825,9 +848,35 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           });
 
           if (!versions || versions.length === 0) {
-            throw new Error(`Tidak ditemukan versi yang kompatibel untuk ${slugOrId} (${loader ?? 'any'}, ${gameVersion ?? 'any'})`);
+            throw new Error(
+              `Tidak ditemukan versi yang cocok untuk "${slugOrId}" di Minecraft ${gameVersion ?? 'apapun'} dengan loader ${loader ? loader.toUpperCase() : 'apapun'}.`
+            );
           }
-          targetVersion = versions[0];
+          targetVersion = versions.find((v: any) => v.version_type === 'release') ?? versions[0];
+        }
+
+        // Strict Loader & Game Version Compatibility Validation
+        if (loader && targetVersion.loaders && targetVersion.loaders.length > 0) {
+          const currentLoader = loader.toLowerCase();
+          const versionLoaders = targetVersion.loaders.map((l: string) => l.toLowerCase());
+          const isLoaderMatch =
+            versionLoaders.includes(currentLoader) ||
+            (currentLoader === 'quilt' && versionLoaders.includes('fabric'));
+
+          if (!isLoaderMatch) {
+            throw new Error(
+              `Tidak Kompatibel: Mod "${targetVersion.name || slugOrId}" (${versionLoaders.join(', ')}) tidak cocok untuk loader instance aktif (${loader.toUpperCase()}).`
+            );
+          }
+        }
+
+        if (gameVersion && targetVersion.game_versions && targetVersion.game_versions.length > 0) {
+          const isMcMatch = targetVersion.game_versions.includes(gameVersion);
+          if (!isMcMatch) {
+            throw new Error(
+              `Tidak Kompatibel: Mod "${targetVersion.name || slugOrId}" mendukung Minecraft [${targetVersion.game_versions.slice(0, 3).join(', ')}], sedangkan instance aktif menggunakan Minecraft ${gameVersion}.`
+            );
+          }
         }
 
         const primaryFile = targetVersion.files.find((f: any) => f.primary) ?? targetVersion.files[0];
