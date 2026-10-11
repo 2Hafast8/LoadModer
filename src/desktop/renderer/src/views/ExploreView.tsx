@@ -53,7 +53,6 @@ export const ExploreView: React.FC = () => {
     gameVersion?: string;
     loader?: string;
   } | null>(null);
-  const [filterActiveInstance, setFilterActiveInstance] = useState(true);
   const [installedIndex, setInstalledIndex] = useState<{
     projectIds: string[];
     slugs: string[];
@@ -126,13 +125,9 @@ export const ExploreView: React.FC = () => {
     setLoading(true);
     setStatusMessage(null);
     try {
-      const effectiveLoader = loader !== 'all' ? loader : (filterActiveInstance ? activeInstance?.loader : undefined);
-      const effectiveMc = filterActiveInstance ? activeInstance?.gameVersion : undefined;
-
       const res = await window.api.modrinth.search(q, {
         type: projectType,
-        loader: effectiveLoader,
-        mcVersion: effectiveMc,
+        loader: loader !== 'all' ? loader : undefined,
         limit: 24,
         index: q.trim() ? (sortIndex === 'downloads' ? 'relevance' : sortIndex) : sortIndex,
       });
@@ -174,7 +169,7 @@ export const ExploreView: React.FC = () => {
     if (!isFirstRender.current) {
       searchModrinth(query);
     }
-  }, [projectType, loader, sortIndex, filterActiveInstance]);
+  }, [projectType, loader, sortIndex]);
 
   // Fetch full details when a project is selected
   const handleOpenDetail = async (hit: ProjectHit) => {
@@ -185,14 +180,10 @@ export const ExploreView: React.FC = () => {
     setProjectVersions([]);
 
     try {
-      const effectiveLoader = loader !== 'all' ? loader : (filterActiveInstance ? activeInstance?.loader : undefined);
-      const effectiveMc = filterActiveInstance ? activeInstance?.gameVersion : undefined;
-
       const [project, versions] = await Promise.all([
         window.api.modrinth.getProject(hit.slug),
         window.api.modrinth.getVersions(hit.slug, {
-          loader: effectiveLoader,
-          mcVersion: effectiveMc,
+          loader: loader !== 'all' ? loader : undefined,
         }),
       ]);
 
@@ -212,8 +203,7 @@ export const ExploreView: React.FC = () => {
     try {
       const res = await window.api.modrinth.install(slug, {
         type,
-        loader: loader !== 'all' ? loader : activeInstance?.loader,
-        mcVersion: activeInstance?.gameVersion,
+        loader: loader !== 'all' ? loader : undefined,
       });
 
       if (res.success) {
@@ -243,8 +233,7 @@ export const ExploreView: React.FC = () => {
     try {
       const res = await window.api.modrinth.install(projectDetail.slug, {
         type: projectDetail.project_type || projectType,
-        loader: loader !== 'all' ? loader : activeInstance?.loader,
-        mcVersion: activeInstance?.gameVersion,
+        loader: loader !== 'all' ? loader : undefined,
         versionId: v.id,
       });
 
@@ -637,9 +626,9 @@ export const ExploreView: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
       {/* Sub-header Filter & Search */}
-      <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="p-3.5 border-b border-obsidian-border bg-obsidian-surface flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
         {/* Search Bar & Local Pack Button */}
-        <div className="flex items-center space-x-2 flex-1 max-w-lg">
+        <div className="flex items-center space-x-2 w-full xl:w-auto xl:flex-1 xl:max-w-md">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -675,7 +664,7 @@ export const ExploreView: React.FC = () => {
 
           <button
             onClick={handleInstallLocalMrpack}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             title="Pilih dan pasang berkas .mrpack dari komputer"
           >
             <FileArchive className="w-3.5 h-3.5" />
@@ -684,12 +673,12 @@ export const ExploreView: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 justify-start xl:justify-end">
           {/* Project Type */}
-          <div className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs">
+          <div className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs shrink-0">
             <button
               onClick={() => setProjectType('mod')}
-              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors ${
+              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
                 projectType === 'mod'
                   ? 'bg-emerald-primary text-obsidian-bg font-semibold'
                   : 'text-nordic-muted hover:text-nordic-text'
@@ -700,7 +689,7 @@ export const ExploreView: React.FC = () => {
             </button>
             <button
               onClick={() => setProjectType('modpack')}
-              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors ${
+              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
                 projectType === 'modpack'
                   ? 'bg-emerald-primary text-obsidian-bg font-semibold'
                   : 'text-nordic-muted hover:text-nordic-text'
@@ -711,7 +700,7 @@ export const ExploreView: React.FC = () => {
             </button>
             <button
               onClick={() => setProjectType('shader')}
-              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors ${
+              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
                 projectType === 'shader'
                   ? 'bg-emerald-primary text-obsidian-bg font-semibold'
                   : 'text-nordic-muted hover:text-nordic-text'
@@ -722,7 +711,7 @@ export const ExploreView: React.FC = () => {
             </button>
             <button
               onClick={() => setProjectType('resourcepack')}
-              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors ${
+              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
                 projectType === 'resourcepack'
                   ? 'bg-emerald-primary text-obsidian-bg font-semibold'
                   : 'text-nordic-muted hover:text-nordic-text'
@@ -733,38 +722,11 @@ export const ExploreView: React.FC = () => {
             </button>
           </div>
 
-          {/* Active Instance Sync Badge */}
-          {activeInstance && (
-            <button
-              type="button"
-              onClick={() => setFilterActiveInstance(!filterActiveInstance)}
-              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs border transition-colors cursor-pointer ${
-                filterActiveInstance
-                  ? 'bg-emerald-dark/30 border-emerald-primary/40 text-emerald-active'
-                  : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:text-nordic-text'
-              }`}
-              title={
-                filterActiveInstance
-                  ? `Filter aktif: Hanya menampilkan aset untuk ${activeInstance.loader?.toUpperCase() ?? 'Loader'} ${activeInstance.gameVersion ?? 'MC'} (Klik untuk matikan)`
-                  : 'Klik untuk mengunci filter sesuai instance aktif'
-              }
-            >
-              <Shield className={`w-3.5 h-3.5 ${filterActiveInstance ? 'text-emerald-primary' : 'text-nordic-muted'}`} />
-              <span className="hidden sm:inline">
-                {filterActiveInstance ? 'Terkunci:' : 'Instance:'}{' '}
-              </span>
-              <strong className="text-nordic-text font-semibold">{activeInstance.name}</strong>
-              <span className="font-mono text-[11px] opacity-80">
-                ({activeInstance.loader?.toUpperCase() ?? 'Auto'}{activeInstance.gameVersion ? ` ${activeInstance.gameVersion}` : ''})
-              </span>
-            </button>
-          )}
-
           {/* Loader Selection */}
           <select
             value={loader}
             onChange={(e) => setLoader(e.target.value as any)}
-            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer"
+            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
           >
             <option value="all">Semua Loader</option>
             <option value="fabric">Fabric</option>
@@ -776,7 +738,7 @@ export const ExploreView: React.FC = () => {
           <select
             value={sortIndex}
             onChange={(e) => setSortIndex(e.target.value as any)}
-            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer"
+            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
           >
             <option value="downloads">Terpopuler</option>
             <option value="relevance">Relevansi</option>
@@ -787,7 +749,7 @@ export const ExploreView: React.FC = () => {
           <button
             onClick={() => searchModrinth()}
             disabled={loading}
-            className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
+            className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer shrink-0"
             title="Muat Ulang Katalog"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />

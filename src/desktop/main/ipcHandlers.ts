@@ -842,20 +842,28 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         if (options?.versionId) {
           targetVersion = await modrinthClient.getVersion(options.versionId);
         } else {
-          const versions = await modrinthClient.getProjectVersions(slugOrId, {
+          let versions = await modrinthClient.getProjectVersions(slugOrId, {
             loader: loader ?? undefined,
             gameVersion: gameVersion ?? undefined,
           });
 
+          // Intelligent fallback: if no version found for specific gameVersion (e.g. snapshot/26.3 tag),
+          // fallback to matching by loader so mods like FerriteCore can still be installed
+          if ((!versions || versions.length === 0) && gameVersion) {
+            versions = await modrinthClient.getProjectVersions(slugOrId, {
+              loader: loader ?? undefined,
+            });
+          }
+
           if (!versions || versions.length === 0) {
             throw new Error(
-              `Tidak ditemukan versi yang cocok untuk "${slugOrId}" di Minecraft ${gameVersion ?? 'apapun'} dengan loader ${loader ? loader.toUpperCase() : 'apapun'}.`
+              `Tidak ditemukan versi yang cocok untuk "${slugOrId}" dengan loader ${loader ? loader.toUpperCase() : 'apapun'}.`
             );
           }
           targetVersion = versions.find((v: any) => v.version_type === 'release') ?? versions[0];
         }
 
-        // Strict Loader & Game Version Compatibility Validation
+        // Strict Loader Compatibility Validation (Ensures Fabric mod is NEVER installed on Forge!)
         if (loader && targetVersion.loaders && targetVersion.loaders.length > 0) {
           const currentLoader = loader.toLowerCase();
           const versionLoaders = targetVersion.loaders.map((l: string) => l.toLowerCase());
@@ -866,15 +874,6 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           if (!isLoaderMatch) {
             throw new Error(
               `Tidak Kompatibel: Mod "${targetVersion.name || slugOrId}" (${versionLoaders.join(', ')}) tidak cocok untuk loader instance aktif (${loader.toUpperCase()}).`
-            );
-          }
-        }
-
-        if (gameVersion && targetVersion.game_versions && targetVersion.game_versions.length > 0) {
-          const isMcMatch = targetVersion.game_versions.includes(gameVersion);
-          if (!isMcMatch) {
-            throw new Error(
-              `Tidak Kompatibel: Mod "${targetVersion.name || slugOrId}" mendukung Minecraft [${targetVersion.game_versions.slice(0, 3).join(', ')}], sedangkan instance aktif menggunakan Minecraft ${gameVersion}.`
             );
           }
         }
