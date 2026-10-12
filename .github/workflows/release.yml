@@ -54,24 +54,9 @@ jobs:
           Get-Content release/SHA256SUMS.txt
 
       - name: Extract Release Notes from CHANGELOG.md
-        shell: bash
+        run: node scripts/extract-release-notes.js
         env:
           REF_NAME: ${{ github.ref_name }}
-        run: |
-          node -e "
-            const fs = require('fs');
-            const tag = process.env.REF_NAME || '';
-            const version = tag.replace(/^v/, '');
-            const content = fs.readFileSync('CHANGELOG.md', 'utf8');
-            const escapedVer = version.replace(/\./g, '\\.');
-            const regex = new RegExp('## \\[' + escapedVer + '\\] - \\d{4}-\\d{2}-\\d{2}\\r?\\n([\\s\\S]*?)(?=\\r?\\n---|\\r?\\n## \\[|$)');
-            const match = content.match(regex);
-            const notes = match ? match[1].trim() : 'Release ' + tag;
-            const table = '\n\n---\n\n### 📥 Download Binaries (Windows)\n\n| File | Type | Description |\n| :--- | :---: | :--- |\n| **\`LoadModer-Setup-' + version + '.exe\`** | NSIS Installer | Standard Windows setup wizard with desktop shortcut & uninstaller |\n| **\`LoadModer-' + version + '-Portable.exe\`** | Portable App | Standalone executable without installation (run directly) |\n| **\`SHA256SUMS.txt\`** | Checksum | SHA-256 integrity verification file |\n';
-            const body = '# 📦 LoadModer ' + tag + '\n\n' + notes + table;
-            fs.mkdirSync('release', { recursive: true });
-            fs.writeFileSync('release/RELEASE_NOTES.md', body, 'utf8');
-          "
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
