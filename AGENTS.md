@@ -111,3 +111,21 @@ npm pack --dry-run
 
 ### 4. Walkthrough & Konfirmasi Pengguna
 - Selalu buat berkas walkthrough sebelum tindakan signifikan dan tunggu perintah pengguna sebelum mengeksekusi push akhir.
+
+### 5. Eksekusi Push & Publikasi Rilis Otomatis (GitHub Release Trigger)
+Setelah pengguna memberikan konfirmasi untuk melakukan push, lakukan eksekusi rilis secara berurutan:
+1. **Sinkronisasi Branch**:
+   - Pastikan commit rilis berada di branch `dev` dan di-*fast-forward merge* ke branch `main`.
+2. **Push Branch ke Remote**:
+   ```bash
+   git push origin dev
+   git push origin main
+   ```
+3. **Pembuatan dan Pengiriman Git Tag Rilis**:
+   - Buat tag versi dengan format `v<MAJOR.MINOR.PATCH>` mengacu pada versi yang baru dinaikkan:
+   ```bash
+   git tag v<version>
+   git push origin v<version>
+   ```
+   - **Tujuan Wajib**: Push tag `v*` ini secara otomatis memicu GitHub Actions CI/CD (`.github/workflows/release.yml`) untuk mengompilasi installer Windows (`LoadModer-Setup-<version>.exe` dan `LoadModer-<version>-Portable.exe`), menghasilkan checksum SHA-256, dan menerbitkan rilis baru di GitHub Releases sehingga seluruh pengguna dapat langsung mengunduh/memperbarui aplikasi.
+
