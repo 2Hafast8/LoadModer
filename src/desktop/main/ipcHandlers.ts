@@ -1,8 +1,9 @@
 import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
 import path from 'node:path';
-import { readdir, stat, rm, mkdir, readFile } from 'node:fs/promises';
+import { readdir, stat, rm, mkdir, readFile, copyFile } from 'node:fs/promises';
 import { instanceConfig } from '../../core/instance/config.js';
 import { instanceDetector, detectLauncherFromPath } from '../../core/instance/detector.js';
+import { getLauncherCapabilities } from '../../core/instance/capabilities.js';
 import { toggleModFile } from '../../core/instance/modToggle.js';
 import { BisectRunner } from '../../core/troubleshoot/bisect.js';
 import { logAnalyzer } from '../../core/troubleshoot/logAnalyzer.js';
@@ -15,7 +16,9 @@ import { hashFile } from '../../utils/crypto.js';
 import { findMinecraftDirs, listLocalDrives, resolveManualMinecraftPath } from '../../core/instance/driveScanner.js';
 import { ModpackUnpacker } from '../../core/modpack/unpacker.js';
 import { ModpackProfileManager } from '../../core/modpack/profileManager.js';
+import { BaselineManager } from '../../core/modpack/baselineManager.js';
 import { profileSnapshotManager } from '../../core/profile/snapshotManager.js';
+import { getMinecraftReleaseVersions, FALLBACK_MINECRAFT_VERSIONS } from '../../core/minecraft/versions.js';
 import { ModsWatcher } from '../../core/watcher/modsWatcher.js';
 import { InstalledAssetsIndex } from '../../core/instance/installedIndex.js';
 import { installLocalFiles } from '../../core/instance/localInstaller.js';
@@ -138,6 +141,74 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     return win?.isMaximized() ?? false;
   });
 
+async function computeInstanceStatus(active: any) {
+  if (!active) {
+    return null;
+  }
+
+  const containerDir = active.rootDir ?? (active.modsDir ? path.dirname(active.modsDir) : '');
+  let activeModpack: any = null;
+  if (containerDir) {
+    try {
+      activeModpack = await ModpackProfileManager.getActiveProfile(containerDir);
+      if (!activeModpack) {
+        const containers = await ModpackProfileManager.discoverClientContainers(containerDir, active.launcher);
+        const anyActive = containers.find((c) => c.activeProfileName);
+        if (anyActive) {
+          activeModpack = {
+            activeProfile: anyActive.activeProfileName,
+            name: anyActive.activeProfileName ?? undefined,
+            loader: anyActive.loader,
+            gameVersion: anyActive.gameVersion,
+          };
+        }
+      }
+    } catch {}
+  }
+
+  let modsCount = 0;
+  let activeCount = 0;
+  let storageUsage = '0 B';
+
+  if (active.modsDir) {
+    try {
+      const files = await readdir(active.modsDir);
+      const modFiles = files.filter((f) => f.endsWith('.jar') || f.endsWith('.jar.disabled'));
+      activeCount = modFiles.filter((f) => !f.endsWith('.disabled')).length;
+      modsCount = modFiles.length;
+
+      let totalBytes = 0;
+      for (const f of modFiles) {
+        try {
+          const s = await stat(path.join(active.modsDir, f));
+          totalBytes += s.size;
+        } catch {}
+      }
+      storageUsage = formatBytes(totalBytes);
+    } catch {}
+  }
+
+  const caps = getLauncherCapabilities(active.launcher);
+  const statusText = caps.supportsContainers
+    ? activeModpack?.activeProfile
+      ? `● Modpack: ${activeModpack.name ?? activeModpack.activeProfile}`
+      : '● Siap (Clean State)'
+    : '● Siap';
+
+  return {
+    instanceName: active.name ?? 'Default',
+    gameVersion: active.gameVersion ?? '-',
+    loader: active.loader ?? '-',
+    mode: (active.mode ?? 'default') as 'default' | 'modpack',
+    activeContainer: active.activeContainer,
+    supportsModeSwitch: caps.supportsModeSwitch,
+    modsCount,
+    activeCount,
+    storageUsage,
+    statusText,
+  };
+}
+
   ipcMain.handle('instances:getAll', async () => {
     try {
       await instanceConfig.load();
@@ -145,25 +216,86 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       const detected = await instanceDetector.scanAll();
 
       const savedInstances = instanceConfig.get().instances ?? {};
-      const list = [...detected];
-      for (const [id, cfg] of Object.entries(savedInstances)) {
-        if (!list.some((i) => i.id === id || i.rootDir === cfg.rootDir)) {
+      const list: any[] = [];
+      const handledSavedKeys = new Set<string>();
+
+      for (const d of detected) {
+        const normRoot = path.resolve(d.rootDir).toLowerCase();
+        const savedEntry = Object.entries(savedInstances).find(
+          ([sId, sCfg]) => sId === d.id || (sCfg.rootDir && path.resolve(sCfg.rootDir).toLowerCase() === normRoot)
+        );
+
+        if (savedEntry) {
+          const [savedId, savedCfg] = savedEntry;
+          handledSavedKeys.add(savedId);
           list.push({
-            id,
-            name: cfg.name ?? id,
-            launcher: (cfg.launcher ?? 'Custom') as LauncherType,
-            rootDir: cfg.rootDir,
-            modsDir: cfg.modsDir,
-            gameVersion: cfg.gameVersion,
-            loader: cfg.loader as LoaderType | undefined,
+            id: savedId,
+            name: savedCfg.name ?? d.name,
+            launcher: (savedCfg.launcher ?? d.launcher) as LauncherType,
+            rootDir: savedCfg.rootDir ?? d.rootDir,
+            modsDir: savedCfg.modsDir ?? d.modsDir,
+            gameVersion: savedCfg.gameVersion ?? d.gameVersion,
+            loader: (savedCfg.loader ?? d.loader) as LoaderType | undefined,
+            mode: savedCfg.mode ?? d.mode ?? 'default',
+            activeContainer: savedCfg.activeContainer ?? d.activeContainer,
+          });
+        } else {
+          list.push({
+            ...d,
+            mode: d.mode ?? 'default',
           });
         }
       }
 
-      return { active, list };
+      for (const [id, cfg] of Object.entries(savedInstances)) {
+        if (!handledSavedKeys.has(id)) {
+          const normRoot = cfg.rootDir ? path.resolve(cfg.rootDir).toLowerCase() : '';
+          const alreadyInList = list.some(
+            (i) => i.id === id || (i.rootDir && path.resolve(i.rootDir).toLowerCase() === normRoot)
+          );
+          if (!alreadyInList) {
+            list.push({
+              id,
+              name: cfg.name ?? id,
+              launcher: (cfg.launcher ?? 'Custom') as LauncherType,
+              rootDir: cfg.rootDir,
+              modsDir: cfg.modsDir,
+              gameVersion: cfg.gameVersion,
+              loader: cfg.loader as LoaderType | undefined,
+              mode: cfg.mode ?? 'default',
+              activeContainer: cfg.activeContainer,
+            });
+          }
+        }
+      }
+
+      const formatInstance = (inst: any) => ({
+        ...inst,
+        capabilities: getLauncherCapabilities(inst.launcher),
+        mode: inst.mode ?? 'default',
+        activeContainer: inst.activeContainer,
+      });
+
+      const status = await computeInstanceStatus(active);
+
+      return {
+        active: active ? formatInstance(active) : null,
+        list: list.map(formatInstance),
+        status,
+      };
     } catch (err: any) {
       console.error('Error fetching instances:', err);
-      return { active: null, list: [], error: err.message };
+      return { active: null, list: [], status: null, error: err.message };
+    }
+  });
+
+  ipcMain.handle('instances:getStatus', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      return await computeInstanceStatus(active);
+    } catch {
+      return null;
     }
   });
 
@@ -171,21 +303,29 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     try {
       await instanceConfig.load();
       const detected = await instanceDetector.scanAll();
+      const saved = instanceConfig.get().instances ?? {};
       const match = detected.find((i) => i.id === id);
+      const existing = saved[id];
+
       if (match) {
         instanceConfig.saveInstance(
           id,
           {
-            name: match.name,
+            name: existing?.name ?? match.name,
             launcher: match.launcher,
             rootDir: match.rootDir,
-            modsDir: match.modsDir,
-            gameVersion: match.gameVersion,
-            loader: match.loader,
+            modsDir: existing?.modsDir ?? match.modsDir,
+            gameVersion: existing?.gameVersion ?? match.gameVersion,
+            loader: existing?.loader ?? match.loader,
+            mode: existing?.mode ?? match.mode ?? 'default',
+            activeContainer: existing?.activeContainer ?? match.activeContainer,
           },
           true
         );
-        setupWatcher(match.modsDir, match.rootDir, getMainWindow);
+        const updated = instanceConfig.getActiveInstance();
+        if (updated?.modsDir && updated?.rootDir) {
+          setupWatcher(updated.modsDir, updated.rootDir, getMainWindow);
+        }
       } else {
         instanceConfig.setActiveInstance(id);
         const active = instanceConfig.getActiveInstance();
@@ -195,6 +335,142 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       }
       await instanceConfig.save();
       return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('instances:switchMode', async (_event, mode: 'default' | 'modpack', containerName?: string) => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) throw new Error('Tidak ada instance launcher yang aktif');
+
+      const baseDir = active.rootDir;
+      if (mode === 'default') {
+        await ModpackProfileManager.disableAllModpackContainers(baseDir, active.launcher);
+        active.mode = 'default';
+        active.activeContainer = undefined;
+        active.modsDir = path.join(active.rootDir, 'mods');
+      } else {
+        const containers = await ModpackProfileManager.discoverClientContainers(baseDir, active.launcher);
+        const targetContainer = containers.find((c) => c.containerName === containerName) ?? containers[0];
+        if (!targetContainer) {
+          throw new Error(`Wadah modpack "${containerName}" tidak ditemukan.`);
+        }
+        for (const c of containers) {
+          if (c.containerName !== targetContainer.containerName && c.activeProfileName) {
+            await ModpackProfileManager.disableProfile(c.containerDir);
+          }
+        }
+        active.mode = 'modpack';
+        active.activeContainer = targetContainer.containerName;
+        active.modsDir = path.join(targetContainer.containerDir, 'mods');
+        active.gameVersion = targetContainer.gameVersion;
+        active.loader = targetContainer.loader;
+      }
+
+      await instanceConfig.save();
+      setupWatcher(active.modsDir, active.rootDir, getMainWindow);
+      return { success: true, active };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('instances:getContainers', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) return [];
+      return await ModpackProfileManager.discoverClientContainers(active.rootDir, active.launcher);
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle('instances:updateConfig', async (_event, instanceId: string, updates: { name?: string; loader?: string; gameVersion?: string }) => {
+    try {
+      await instanceConfig.load();
+      const cfg = instanceConfig.get();
+      const target = cfg.instances[instanceId];
+      if (!target) throw new Error(`Instance "${instanceId}" tidak ditemukan`);
+
+      if (updates.name) target.name = updates.name.trim();
+      if (updates.loader) target.loader = updates.loader as LoaderType;
+      if (updates.gameVersion) target.gameVersion = updates.gameVersion.trim();
+
+      await instanceConfig.save();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('instances:switchVersionAndLoader', async (_event, loader: string, gameVersion: string) => {
+    try {
+      await instanceConfig.load();
+      const activeKey = instanceConfig.get().activeInstance;
+      if (!activeKey) throw new Error('Tidak ada instance launcher aktif');
+
+      const result = await profileSnapshotManager.switchProfile(activeKey, loader, gameVersion);
+      const active = instanceConfig.getActiveInstance();
+      if (active?.modsDir && active?.rootDir) {
+        setupWatcher(active.modsDir, active.rootDir, getMainWindow);
+      }
+      return {
+        success: true,
+        savedCount: result.savedCount,
+        restoredCount: result.restoredCount,
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('minecraft:getVersions', async () => {
+    try {
+      return await getMinecraftReleaseVersions();
+    } catch {
+      return FALLBACK_MINECRAFT_VERSIONS;
+    }
+  });
+
+  ipcMain.handle('baseline:getStatus', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) return { exists: false };
+
+      const targetDir = active.mode === 'modpack' && active.modsDir ? path.dirname(active.modsDir) : active.rootDir;
+      const exists = await BaselineManager.hasBaseline(targetDir);
+      if (!exists) return { exists: false };
+
+      try {
+        const manifestPath = BaselineManager.getManifestPath(targetDir);
+        const data = JSON.parse(await readFile(manifestPath, 'utf8'));
+        return {
+          exists: true,
+          createdAt: data.createdAt,
+          filesCount: data.filesCount,
+        };
+      } catch {
+        return { exists: true };
+      }
+    } catch {
+      return { exists: false };
+    }
+  });
+
+  ipcMain.handle('baseline:restore', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) throw new Error('Tidak ada instance aktif');
+
+      const targetDir = active.mode === 'modpack' && active.modsDir ? path.dirname(active.modsDir) : active.rootDir;
+      const restoredCount = await BaselineManager.restoreBaseline(targetDir);
+      return { success: true, restoredCount };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
@@ -405,6 +681,7 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
 
       const safeName = path.basename(fileName);
       await toggleModFile(modsDir, safeName, enable);
+      await profileSnapshotManager.syncActiveProfile();
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -474,6 +751,7 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
 
         await graph.reconcileWithDisk(targetDir, active.rootDir);
         await graph.save();
+        await profileSnapshotManager.syncActiveProfile();
 
         return { success: true, removed: removedFiles };
       } catch (err: any) {
@@ -494,11 +772,15 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         return { success: false, error: 'Tidak ada instance Minecraft aktif yang dipilih' };
       }
 
-      const results = await installLocalFiles(filePaths, active.rootDir, active.modsDir);
+      const results = await installLocalFiles(filePaths, active.rootDir, active.modsDir, undefined, {
+        launcher: active.launcher,
+      });
       const anySuccess = results.some((r) => r.success);
       if (anySuccess) {
+        await profileSnapshotManager.syncActiveProfile();
         const win = getMainWindow?.();
         win?.webContents.send('mods:changed');
+        win?.webContents.send('instances:changed');
       }
 
       return {
@@ -651,7 +933,7 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     try {
       await instanceConfig.load();
       const active = instanceConfig.getActiveInstance();
-      if (!active?.modsDir || !active?.gameVersion || !active?.loader) {
+      if (!active?.rootDir || !active?.modsDir || !active?.gameVersion || !active?.loader) {
         throw new Error('Instance belum lengkap');
       }
 
@@ -661,7 +943,7 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       const latestMap = await modrinthClient.getLatestByHashes(
         [sha1],
         { gameVersion: active.gameVersion, loader: active.loader },
-        ['release']
+        ['release', 'beta']
       );
 
       const nextVer = latestMap[sha1];
@@ -670,8 +952,16 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       const nextFile = nextVer.files.find((f: any) => f.primary) ?? nextVer.files[0];
       if (!nextFile) throw new Error('Berkas unduhan tidak ditemukan');
 
+      if (!nextFile.hashes?.sha512) {
+        throw new Error(`Berkas ${nextFile.filename} tidak memiliki hash SHA-512.`);
+      }
+
       const safeNext = path.basename(nextFile.filename);
-      const destPath = path.join(active.modsDir, safeNext);
+      const rootModsDir = path.resolve(active.modsDir);
+      const destPath = path.resolve(active.modsDir, safeNext);
+      if (!destPath.startsWith(rootModsDir + path.sep) && destPath !== rootModsDir) {
+        throw new Error(`Nama berkas tidak aman (path traversal): ${nextFile.filename}`);
+      }
 
       const notifier = createDownloadNotifier(`update-${safeNext}`, safeNext, getMainWindow);
       try {
@@ -687,26 +977,294 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       }
 
       if (safeCurrent !== safeNext) {
-        await rm(currentPath, { force: true });
+        await rm(currentPath, { force: true }).catch(() => {});
       }
 
-      const graph = new DependencyGraph(active.rootDir);
+      const graph = new DependencyGraph(active.rootDir, active.gameVersion, active.loader);
       await graph.load();
+      await graph.reconcileWithDisk(active.modsDir);
+
+      const existingLockEntry = Object.entries(graph.data.mods).find(
+        ([, m]) => m.filename === safeCurrent || m.projectId === nextVer.project_id
+      );
+      const slug = existingLockEntry ? existingLockEntry[0] : nextVer.project_id;
+      const isRoot = existingLockEntry ? existingLockEntry[1].isRoot : true;
+      const reqDeps = (nextVer.dependencies || [])
+        .filter((d: any) => d.dependency_type === 'required' && Boolean(d.project_id))
+        .map((d: any) => d.project_id);
+
       graph.removeMod(safeCurrent);
-      graph.registerMod(nextVer.project_id, {
+      graph.registerMod(slug, {
         versionId: nextVer.id,
         projectId: nextVer.project_id,
         versionNumber: nextVer.version_number,
         filename: safeNext,
         sha512: nextFile.hashes.sha512,
-        isRoot: true,
-        dependencies: (nextVer.dependencies ?? []).map((d: any) => d.project_id).filter(Boolean),
+        isRoot,
+        dependencies: reqDeps,
       });
+
+      const missingDeps = reqDeps.filter((depId: string) => !graph.findMod(depId));
+      if (missingDeps.length > 0) {
+        let depNotifier: any = null;
+        try {
+          await resolveAndInstallDependencies({
+            mainModSlug: slug,
+            mainVersion: nextVer,
+            modsDir: active.modsDir,
+            gameVersion: active.gameVersion,
+            loader: active.loader,
+            graph,
+            onDownloadProgress: (info) => {
+              if (!depNotifier || depNotifier.name !== info.name) {
+                depNotifier = {
+                  name: info.name,
+                  notifier: createDownloadNotifier(`dep-${info.name}`, info.name, getMainWindow),
+                };
+              }
+              depNotifier.notifier.onProgress(info.received, info.total);
+              if (info.received >= info.total && info.total > 0) {
+                depNotifier.notifier.done();
+              }
+            },
+          });
+        } catch (depErr) {
+          console.warn('Dependency resolution notice during update:', depErr);
+        }
+      }
+
       await graph.save();
+      await profileSnapshotManager.syncActiveProfile();
+
+      const win = getMainWindow?.();
+      win?.webContents.send('mods:changed');
+      win?.webContents.send('instances:changed');
 
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('mods:applyAllUpdates', async () => {
+    try {
+      await instanceConfig.load();
+      const activeKey = instanceConfig.get().activeInstance;
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir || !active?.modsDir || !activeKey) {
+        throw new Error('Tidak ada instance Minecraft aktif yang dipilih');
+      }
+
+      let gameVersion = active.gameVersion;
+      let loader = active.loader;
+
+      if (!gameVersion || !loader) {
+        try {
+          const inspected = await instanceDetector.inspectGameDir(active.rootDir, {
+            id: activeKey,
+            name: active.name,
+            launcher: active.launcher as LauncherType,
+          });
+          if (inspected.gameVersion) gameVersion = inspected.gameVersion;
+          if (inspected.loader) loader = inspected.loader;
+
+          if (gameVersion || loader) {
+            instanceConfig.saveInstance(
+              activeKey,
+              {
+                ...active,
+                gameVersion: gameVersion ?? active.gameVersion,
+                loader: loader ?? active.loader,
+              },
+              true
+            );
+            await instanceConfig.save();
+          }
+        } catch {}
+      }
+
+      const targetGameVersion = gameVersion || '1.20.1';
+      const targetLoader = loader || 'fabric';
+
+      const entries = await readdir(active.modsDir).catch(() => [] as string[]);
+      const activeJars = entries.filter((f) => f.endsWith('.jar'));
+      if (activeJars.length === 0) {
+        return { success: true, updatedCount: 0 };
+      }
+
+      const limit = pLimit(8);
+      const fileHashes = await Promise.all(
+        activeJars.map((jar) =>
+          limit(async () => {
+            const filePath = path.join(active.modsDir, jar);
+            const sha1 = await hashFile(filePath, 'sha1');
+            return { filename: jar, sha1, filePath };
+          })
+        )
+      );
+
+      const currentVersionsMap = await modrinthClient
+        .getVersionsByHashes(fileHashes.map((f) => f.sha1))
+        .catch(() => ({} as Record<string, ModVersion>));
+
+      let hasAlpha = false;
+      let hasBeta = false;
+      for (const cur of Object.values(currentVersionsMap)) {
+        if (cur.version_type === 'alpha') hasAlpha = true;
+        if (cur.version_type === 'beta') hasBeta = true;
+      }
+
+      const versionTypes: VersionType[] = hasAlpha
+        ? ['release', 'beta', 'alpha']
+        : hasBeta
+        ? ['release', 'beta']
+        : ['release', 'beta'];
+
+      const latestMap = await modrinthClient.getLatestByHashes(
+        fileHashes.map((f) => f.sha1),
+        { gameVersion: targetGameVersion, loader: targetLoader },
+        versionTypes
+      );
+
+      const updates: Array<{
+        current: string;
+        currentPath: string;
+        nextVersion: ModVersion;
+        nextFile: any;
+      }> = [];
+
+      for (const item of fileHashes) {
+        const nextVer = latestMap[item.sha1];
+        const currentVer = currentVersionsMap[item.sha1];
+        if (nextVer && isTrueUpdate(item, currentVer, nextVer)) {
+          const nextFile = nextVer.files.find((f: any) => f.primary) ?? nextVer.files[0];
+          if (nextFile) {
+            updates.push({
+              current: item.filename,
+              currentPath: item.filePath,
+              nextVersion: nextVer,
+              nextFile,
+            });
+          }
+        }
+      }
+
+      if (updates.length === 0) {
+        return { success: true, updatedCount: 0 };
+      }
+
+      const graph = new DependencyGraph(active.rootDir, targetGameVersion, targetLoader);
+      await graph.load();
+      await graph.reconcileWithDisk(active.modsDir);
+
+      let updatedCount = 0;
+      const errors: Array<{ filename: string; error: string }> = [];
+      const rootModsDir = path.resolve(active.modsDir);
+
+      for (const up of updates) {
+        try {
+          if (!up.nextFile.hashes?.sha512) {
+            throw new Error(`Berkas ${up.nextFile.filename} tidak memiliki hash SHA-512.`);
+          }
+
+          const safeNext = path.basename(up.nextFile.filename);
+          const safeCurrent = path.basename(up.current);
+          const newDest = path.resolve(active.modsDir, safeNext);
+
+          if (!newDest.startsWith(rootModsDir + path.sep) && newDest !== rootModsDir) {
+            throw new Error(`Nama berkas tidak aman (path traversal): ${up.nextFile.filename}`);
+          }
+
+          const notifier = createDownloadNotifier(`update-${safeNext}`, safeNext, getMainWindow);
+          try {
+            await modrinthClient.download(up.nextFile.url, newDest, {
+              sha512: up.nextFile.hashes.sha512,
+              size: up.nextFile.size,
+              onProgress: notifier.onProgress,
+            });
+            notifier.done();
+          } catch (dlErr) {
+            notifier.failed();
+            throw dlErr;
+          }
+
+          if (up.currentPath !== newDest) {
+            await rm(up.currentPath, { force: true }).catch(() => {});
+          }
+
+          const existingLockEntry = Object.entries(graph.data.mods).find(
+            ([, m]) => m.filename === safeCurrent || m.projectId === up.nextVersion.project_id
+          );
+          const slug = existingLockEntry ? existingLockEntry[0] : up.nextVersion.project_id;
+          const isRoot = existingLockEntry ? existingLockEntry[1].isRoot : true;
+          const reqDeps = (up.nextVersion.dependencies || [])
+            .filter((d: any) => d.dependency_type === 'required' && Boolean(d.project_id))
+            .map((d: any) => d.project_id);
+
+          graph.removeMod(safeCurrent);
+          graph.registerMod(slug, {
+            projectId: up.nextVersion.project_id,
+            versionId: up.nextVersion.id,
+            versionNumber: up.nextVersion.version_number,
+            filename: safeNext,
+            sha512: up.nextFile.hashes.sha512,
+            isRoot,
+            dependencies: reqDeps,
+          });
+
+          const missingDeps = reqDeps.filter((depId: string) => !graph.findMod(depId));
+          if (missingDeps.length > 0) {
+            let depNotifier: any = null;
+            try {
+              await resolveAndInstallDependencies({
+                mainModSlug: slug,
+                mainVersion: up.nextVersion,
+                modsDir: active.modsDir,
+                gameVersion: targetGameVersion,
+                loader: targetLoader,
+                graph,
+                onDownloadProgress: (info) => {
+                  if (!depNotifier || depNotifier.name !== info.name) {
+                    depNotifier = {
+                      name: info.name,
+                      notifier: createDownloadNotifier(`dep-${info.name}`, info.name, getMainWindow),
+                    };
+                  }
+                  depNotifier.notifier.onProgress(info.received, info.total);
+                  if (info.received >= info.total && info.total > 0) {
+                    depNotifier.notifier.done();
+                  }
+                },
+              });
+            } catch (depErr) {
+              console.warn(`Dependency resolution warning during bulk update of ${safeNext}:`, depErr);
+            }
+          }
+
+          updatedCount++;
+        } catch (itemErr: any) {
+          errors.push({
+            filename: up.current,
+            error: itemErr.message || 'Gagal memperbarui berkas',
+          });
+        }
+      }
+
+      if (updatedCount > 0) {
+        await graph.save();
+        await profileSnapshotManager.syncActiveProfile();
+        const win = getMainWindow?.();
+        win?.webContents.send('mods:changed');
+        win?.webContents.send('instances:changed');
+      }
+
+      return {
+        success: updatedCount > 0 || errors.length === 0,
+        updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+      };
+    } catch (err: any) {
+      return { success: false, updatedCount: 0, error: err.message };
     }
   });
 
@@ -719,7 +1277,10 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         type?: string;
         mcVersion?: string;
         loader?: string;
+        category?: string;
+        environment?: 'client' | 'server' | 'all';
         limit?: number;
+        offset?: number;
         index?: 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';
       }
     ) => {
@@ -728,16 +1289,24 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           query,
           {
             projectType: (filter?.type as any) ?? 'mod',
-            loader: filter?.loader,
-            gameVersion: filter?.mcVersion,
+            loader: filter?.loader && filter.loader !== 'all' ? filter.loader : undefined,
+            gameVersion: filter?.mcVersion && filter.mcVersion !== 'all' ? filter.mcVersion : undefined,
+            category: filter?.category && filter.category !== 'all' ? filter.category : undefined,
+            environment: filter?.environment && filter.environment !== 'all' ? (filter.environment as 'client' | 'server') : undefined,
           },
           filter?.limit ?? 24,
-          (filter?.index as SearchIndex) ?? 'relevance'
+          (filter?.index as SearchIndex) ?? 'relevance',
+          filter?.offset ?? 0
         );
-        return results;
+        return {
+          hits: results.hits ?? [],
+          total_hits: results.total_hits ?? 0,
+          offset: results.offset ?? 0,
+          limit: results.limit ?? (filter?.limit ?? 24),
+        };
       } catch (err: any) {
         console.error('Error searching Modrinth:', err);
-        return { hits: [], total_hits: 0, error: err.message };
+        return { hits: [], total_hits: 0, offset: 0, limit: filter?.limit ?? 24, error: err.message };
       }
     }
   );
@@ -768,7 +1337,14 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     async (
       _event,
       slugOrId: string,
-      options?: { type?: string; mcVersion?: string; loader?: string; versionId?: string }
+      options?: {
+        type?: string;
+        mcVersion?: string;
+        loader?: string;
+        versionId?: string;
+        modsOnly?: boolean;
+        cleanInstall?: boolean;
+      }
     ) => {
       try {
         await instanceConfig.load();
@@ -804,11 +1380,19 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         }
 
         if (pType === 'modpack' || slugOrId.endsWith('.mrpack')) {
+          const caps = getLauncherCapabilities(active.launcher);
+          if (!caps.supportsModpack) {
+            throw new Error(
+              caps.incompatibilityReason ??
+              `Launcher "${active.launcher}" tidak mendukung format .mrpack secara langsung. Gunakan launcher pihak ketiga seperti TLauncher atau Legacy Launcher untuk modpack.`
+            );
+          }
+
           let targetVersion: any;
           if (options?.versionId) {
             targetVersion = await modrinthClient.getVersion(options.versionId);
           } else {
-            const versions = await modrinthClient.getProjectVersions(slugOrId, {
+            let versions = await modrinthClient.getProjectVersions(slugOrId, {
               loader: loader ?? undefined,
               gameVersion: gameVersion ?? undefined,
             });
@@ -820,11 +1404,17 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           }
 
           const primaryFile = targetVersion.files.find((f: any) => f.primary) ?? targetVersion.files[0];
-          const tempMrpack = path.join(active.rootDir, `.temp_${Date.now()}.mrpack`);
+          if (!primaryFile) throw new Error('Tidak ada berkas unduhan modpack (.mrpack) yang valid');
+          const safeFilename = path.basename(primaryFile.filename);
+
+          const tempDir = path.join(active.rootDir, '.loadmoder', 'temp');
+          await mkdir(tempDir, { recursive: true });
+          const tempMrpackPath = path.join(tempDir, safeFilename);
+
           const packLabel = targetVersion.name || slugOrId;
           const notifier = createDownloadNotifier(`mrpack-${Date.now()}`, packLabel, getMainWindow);
           try {
-            await modrinthClient.download(primaryFile.url, tempMrpack, {
+            await modrinthClient.download(primaryFile.url, tempMrpackPath, {
               sha512: primaryFile.hashes.sha512,
               size: primaryFile.size,
               onProgress: notifier.onProgress,
@@ -834,11 +1424,129 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
             notifier.failed();
             throw dlErr;
           }
-          const unpacker = new ModpackUnpacker(modrinthClient);
-          await unpacker.install(tempMrpack, { instanceDir: active.rootDir });
-          await rm(tempMrpack, { force: true });
 
-          return { success: true, message: `Modpack ${targetVersion.name || slugOrId} berhasil diekstrak dan dipasang.` };
+          const unpacker = new ModpackUnpacker(modrinthClient);
+          let packLoader = loader ?? active.loader ?? 'fabric';
+          let packGameVersion = gameVersion ?? active.gameVersion ?? '1.20.1';
+
+          try {
+            const inspectedIndex = await unpacker.inspect(tempMrpackPath);
+            if (inspectedIndex.dependencies) {
+              for (const [dep, ver] of Object.entries(inspectedIndex.dependencies)) {
+                const lower = dep.toLowerCase();
+                if (lower.includes('fabric')) packLoader = 'fabric';
+                else if (lower.includes('neoforge')) packLoader = 'neoforge';
+                else if (lower.includes('forge')) packLoader = 'forge';
+                else if (lower.includes('quilt')) packLoader = 'quilt';
+                if (lower === 'minecraft' && typeof ver === 'string') packGameVersion = ver;
+              }
+            }
+          } catch {}
+
+          const container = await ModpackProfileManager.resolveContainerForLoader(
+            active.rootDir,
+            packLoader,
+            packGameVersion,
+            active.launcher
+          );
+
+          await BaselineManager.createBaselineOnce(container.containerDir);
+
+          const activeProfile = await ModpackProfileManager.getActiveProfile(container.containerDir);
+          if (activeProfile?.activeProfile || options?.cleanInstall) {
+            await ModpackProfileManager.saveActiveToProfile(container.containerDir);
+            await ModpackProfileManager.clearContainerLiveFiles(container.containerDir);
+          }
+
+          const downloadsDir = ModpackProfileManager.getDownloadsDir(container.containerDir);
+          await mkdir(downloadsDir, { recursive: true });
+          const targetVaultPath = path.join(downloadsDir, safeFilename);
+
+          if (path.resolve(tempMrpackPath) !== path.resolve(targetVaultPath)) {
+            await copyFile(tempMrpackPath, targetVaultPath);
+            await rm(tempMrpackPath, { force: true }).catch(() => {});
+          }
+
+          const modsOnly = options?.modsOnly ?? false;
+          const unpackResult = await unpacker.install(targetVaultPath, {
+            instanceDir: container.containerDir,
+            targetEnv: 'client',
+            modsOnly,
+          });
+
+          const profileId = path
+            .basename(safeFilename, '.mrpack')
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, '_');
+
+          await ModpackProfileManager.createProfileAfterInstall(container.containerDir, {
+            id: profileId,
+            name: packLabel,
+            versionId: unpackResult.index.versionId || targetVersion.id,
+            loader: container.matchedLoader,
+            gameVersion: packGameVersion,
+          });
+
+          await ModpackProfileManager.syncProfilesFromDownloads(container.containerDir);
+
+          const packGraph = new DependencyGraph(
+            container.containerDir,
+            packGameVersion ?? '',
+            container.matchedLoader
+          );
+          await packGraph.load();
+          for (const file of unpackResult.index.files) {
+            if (modsOnly && !file.path.startsWith('mods/') && !file.path.endsWith('.jar')) continue;
+            const basename = path.basename(file.path);
+            const baseSlug = basename.replace(/\.(jar|zip|mrpack)$/i, '').toLowerCase();
+            if (file.path.startsWith('shaderpacks/') || file.path.includes('/shaderpacks/')) {
+              packGraph.registerAsset('shader', baseSlug, { filename: basename, sha512: file.hashes.sha512 });
+            } else if (file.path.startsWith('resourcepacks/') || file.path.includes('/resourcepacks/')) {
+              packGraph.registerAsset('resourcepack', baseSlug, { filename: basename, sha512: file.hashes.sha512 });
+            } else if (file.path.endsWith('.jar') || file.path.startsWith('mods/')) {
+              packGraph.registerMod(baseSlug, {
+                projectId: baseSlug,
+                versionId: unpackResult.index.versionId,
+                versionNumber: unpackResult.index.versionId,
+                filename: basename,
+                sha512: file.hashes.sha512,
+                isRoot: true,
+                dependencies: [],
+              });
+            }
+          }
+          await packGraph.save();
+
+          await ModpackProfileManager.saveActiveToProfile(container.containerDir);
+
+          await ModpackProfileManager.setActiveProfileInfo(container.containerDir, {
+            activeProfile: profileId,
+            name: packLabel,
+            versionId: unpackResult.index.versionId || targetVersion.id,
+            loader: container.matchedLoader,
+            gameVersion: packGameVersion,
+            updatedAt: new Date().toISOString(),
+          });
+
+          const activeKey = instanceConfig.get().activeInstance;
+          if (activeKey && instanceConfig.get().instances[activeKey]) {
+            const inst = instanceConfig.get().instances[activeKey];
+            inst.mode = 'modpack';
+            inst.activeContainer = container.containerName;
+            inst.modsDir = path.join(container.containerDir, 'mods');
+            if (packGameVersion) inst.gameVersion = packGameVersion;
+            if (container.matchedLoader) inst.loader = container.matchedLoader as any;
+            await instanceConfig.save();
+          }
+
+          const win = getMainWindow?.();
+          win?.webContents.send('mods:changed');
+          win?.webContents.send('instances:changed');
+
+          return {
+            success: true,
+            message: `Modpack "${packLabel}" berhasil dipasang & diaktifkan di wadah ${container.containerName} (${unpackResult.installedFiles.length} berkas diproses).`,
+          };
         }
 
         if (pType === 'shader') {
@@ -957,39 +1665,58 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           return { success: true, message: `Resource pack ${safeName} berhasil dipasang.${depMsg}` };
         }
 
+        const instanceLoader = (active.loader ?? '').toLowerCase();
+        const requestedLoader = (options?.loader ?? instanceLoader).toLowerCase();
+        if (instanceLoader && requestedLoader && instanceLoader !== requestedLoader) {
+          const isCompatible =
+            (instanceLoader === 'quilt' && requestedLoader === 'fabric') ||
+            (instanceLoader === 'fabric' && requestedLoader === 'quilt');
+          if (!isCompatible) {
+            throw new Error(
+              `Tidak Kompatibel: Anda mencoba memasang mod untuk loader ${requestedLoader.toUpperCase()}, tetapi instance aktif menggunakan ${instanceLoader.toUpperCase()}.`
+            );
+          }
+        }
+        const effectiveLoader = instanceLoader || requestedLoader || undefined;
+        const effectiveGameVersion = (active.gameVersion ?? options?.mcVersion ?? '').trim() || undefined;
+
         let targetVersion: any;
         if (options?.versionId) {
           targetVersion = await modrinthClient.getVersion(options.versionId);
         } else {
-          let versions = await modrinthClient.getProjectVersions(slugOrId, {
-            loader: loader ?? undefined,
-            gameVersion: gameVersion ?? undefined,
+          const versions = await modrinthClient.getProjectVersions(slugOrId, {
+            loader: effectiveLoader,
+            gameVersion: effectiveGameVersion,
           });
 
-          if ((!versions || versions.length === 0) && gameVersion) {
-            versions = await modrinthClient.getProjectVersions(slugOrId, {
-              loader: loader ?? undefined,
-            });
-          }
-
           if (!versions || versions.length === 0) {
+            const infoLoader = effectiveLoader ? `loader ${effectiveLoader.toUpperCase()}` : 'loader apapun';
+            const infoVer = effectiveGameVersion ? `Minecraft ${effectiveGameVersion}` : 'versi apapun';
             throw new Error(
-              `Tidak ditemukan versi yang cocok untuk "${slugOrId}" dengan loader ${loader ? loader.toUpperCase() : 'apapun'}.`
+              `Tidak ditemukan versi yang cocok untuk "${slugOrId}" pada ${infoVer} dengan ${infoLoader}.`
             );
           }
           targetVersion = versions.find((v: any) => v.version_type === 'release') ?? versions[0];
         }
 
-        if (loader && targetVersion.loaders && targetVersion.loaders.length > 0) {
-          const currentLoader = loader.toLowerCase();
+        if (effectiveLoader && targetVersion.loaders && targetVersion.loaders.length > 0) {
           const versionLoaders = targetVersion.loaders.map((l: string) => l.toLowerCase());
           const isLoaderMatch =
-            versionLoaders.includes(currentLoader) ||
-            (currentLoader === 'quilt' && versionLoaders.includes('fabric'));
+            versionLoaders.includes(effectiveLoader) ||
+            (effectiveLoader === 'quilt' && versionLoaders.includes('fabric'));
 
           if (!isLoaderMatch) {
             throw new Error(
-              `Tidak Kompatibel: Mod "${targetVersion.name || slugOrId}" (${versionLoaders.join(', ')}) tidak cocok untuk loader instance aktif (${loader.toUpperCase()}).`
+              `Tidak Kompatibel: Mod "${targetVersion.name || slugOrId}" (${versionLoaders.join(', ')}) tidak cocok untuk loader instance aktif (${effectiveLoader.toUpperCase()}).`
+            );
+          }
+        }
+
+        if (effectiveGameVersion && targetVersion.game_versions && targetVersion.game_versions.length > 0) {
+          const isGameVerMatch = targetVersion.game_versions.includes(effectiveGameVersion);
+          if (!isGameVerMatch) {
+            throw new Error(
+              `Tidak Kompatibel: Mod "${targetVersion.name || slugOrId}" mendukung versi (${targetVersion.game_versions.join(', ')}), tidak cocok untuk Minecraft instance aktif (${effectiveGameVersion}).`
             );
           }
         }
@@ -1084,8 +1811,8 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
             mainVersion: targetVersion,
             project,
             modsDir: active.modsDir,
-            gameVersion: gameVersion ?? active.gameVersion ?? '',
-            loader: loader ?? active.loader ?? '',
+            gameVersion: effectiveGameVersion ?? active.gameVersion ?? '',
+            loader: effectiveLoader ?? active.loader ?? '',
             graph,
             onDownloadProgress: (info) => {
               if (!depNotifier || depNotifier.name !== info.name) {
@@ -1106,6 +1833,7 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         }
 
         await graph.save();
+        await profileSnapshotManager.syncActiveProfile();
 
         const depMsg = depCount > 0 ? ` (+ ${depCount} dependensi otomatis dipasang)` : '';
         return { success: true, message: `Berhasil menginstal ${safeDest}${depMsg}` };
@@ -1116,33 +1844,239 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   );
 
-  ipcMain.handle('modrinth:installLocalMrpack', async (event, customFilePath?: string) => {
+  ipcMain.handle(
+    'modrinth:installLocalMrpack',
+    async (
+      event,
+      customFilePath?: string,
+      options?: { modsOnly?: boolean; cleanInstall?: boolean }
+    ) => {
+      try {
+        await instanceConfig.load();
+        const active = instanceConfig.getActiveInstance();
+        if (!active?.rootDir) throw new Error('Silakan pilih instance aktif terlebih dahulu.');
+
+        const caps = getLauncherCapabilities(active.launcher);
+        if (!caps.supportsModpack) {
+          throw new Error(
+            caps.incompatibilityReason ??
+            `Launcher "${active.launcher}" tidak mendukung format .mrpack secara langsung. Gunakan launcher pihak ketiga seperti TLauncher atau Legacy Launcher untuk modpack.`
+          );
+        }
+
+        let mrpackPath = customFilePath;
+        if (!mrpackPath) {
+          const win = BrowserWindow.fromWebContents(event.sender);
+          const res = await dialog.showOpenDialog(win!, {
+            properties: ['openFile'],
+            filters: [{ name: 'Modrinth Modpack', extensions: ['mrpack'] }],
+            title: 'Pilih Berkas .mrpack Modpack',
+          });
+          if (res.canceled || res.filePaths.length === 0) return { success: false };
+          mrpackPath = res.filePaths[0];
+        }
+
+        const unpacker = new ModpackUnpacker(modrinthClient);
+        let packLoader = active.loader ?? 'fabric';
+        let packGameVersion = active.gameVersion ?? '1.20.1';
+        let packTitle = path.basename(mrpackPath, '.mrpack');
+
+        try {
+          const modpackIndex = await unpacker.inspect(mrpackPath);
+          if (modpackIndex.name) packTitle = modpackIndex.name;
+          if (modpackIndex.dependencies) {
+            for (const [dep, ver] of Object.entries(modpackIndex.dependencies)) {
+              const lower = dep.toLowerCase();
+              if (lower.includes('fabric')) packLoader = 'fabric';
+              else if (lower.includes('neoforge')) packLoader = 'neoforge';
+              else if (lower.includes('forge')) packLoader = 'forge';
+              else if (lower.includes('quilt')) packLoader = 'quilt';
+              if (lower === 'minecraft' && typeof ver === 'string') packGameVersion = ver;
+            }
+          }
+        } catch {}
+
+        const container = await ModpackProfileManager.resolveContainerForLoader(
+          active.rootDir,
+          packLoader,
+          packGameVersion,
+          active.launcher
+        );
+
+        await BaselineManager.createBaselineOnce(container.containerDir);
+
+        const activeProfile = await ModpackProfileManager.getActiveProfile(container.containerDir);
+        if (activeProfile?.activeProfile) {
+          await ModpackProfileManager.saveActiveToProfile(container.containerDir);
+          await ModpackProfileManager.clearContainerLiveFiles(container.containerDir);
+        }
+
+        const downloadsDir = ModpackProfileManager.getDownloadsDir(container.containerDir);
+        await mkdir(downloadsDir, { recursive: true });
+
+        const safeFilename = path.basename(mrpackPath);
+        const vaultPath = path.join(downloadsDir, safeFilename);
+        if (path.resolve(mrpackPath) !== path.resolve(vaultPath)) {
+          await copyFile(mrpackPath, vaultPath);
+        }
+
+        const modsOnly = options?.modsOnly ?? false;
+        const result = await unpacker.install(vaultPath, {
+          instanceDir: container.containerDir,
+          targetEnv: 'client',
+          modsOnly,
+        });
+
+        const profileId = path
+          .basename(safeFilename, '.mrpack')
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, '_');
+
+        await ModpackProfileManager.createProfileAfterInstall(container.containerDir, {
+          id: profileId,
+          name: packTitle,
+          versionId: result.index.versionId || '1.0.0',
+          loader: container.matchedLoader,
+          gameVersion: packGameVersion,
+        });
+
+        await ModpackProfileManager.syncProfilesFromDownloads(container.containerDir);
+
+        const packGraph = new DependencyGraph(
+          container.containerDir,
+          packGameVersion ?? '',
+          container.matchedLoader
+        );
+        await packGraph.load();
+        for (const file of result.index.files) {
+          if (modsOnly && !file.path.startsWith('mods/') && !file.path.endsWith('.jar')) continue;
+          const basename = path.basename(file.path);
+          const baseSlug = basename.replace(/\.(jar|zip|mrpack)$/i, '').toLowerCase();
+          if (file.path.startsWith('shaderpacks/') || file.path.includes('/shaderpacks/')) {
+            packGraph.registerAsset('shader', baseSlug, { filename: basename, sha512: file.hashes.sha512 });
+          } else if (file.path.startsWith('resourcepacks/') || file.path.includes('/resourcepacks/')) {
+            packGraph.registerAsset('resourcepack', baseSlug, { filename: basename, sha512: file.hashes.sha512 });
+          } else if (file.path.endsWith('.jar') || file.path.startsWith('mods/')) {
+            packGraph.registerMod(baseSlug, {
+              projectId: baseSlug,
+              versionId: result.index.versionId,
+              versionNumber: result.index.versionId,
+              filename: basename,
+              sha512: file.hashes.sha512,
+              isRoot: true,
+              dependencies: [],
+            });
+          }
+        }
+        await packGraph.save();
+
+        await ModpackProfileManager.saveActiveToProfile(container.containerDir);
+
+        await ModpackProfileManager.setActiveProfileInfo(container.containerDir, {
+          activeProfile: profileId,
+          name: packTitle,
+          versionId: result.index.versionId || '1.0.0',
+          loader: container.matchedLoader,
+          gameVersion: packGameVersion,
+          updatedAt: new Date().toISOString(),
+        });
+
+        const activeKey = instanceConfig.get().activeInstance;
+        if (activeKey && instanceConfig.get().instances[activeKey]) {
+          const inst = instanceConfig.get().instances[activeKey];
+          inst.mode = 'modpack';
+          inst.activeContainer = container.containerName;
+          inst.modsDir = path.join(container.containerDir, 'mods');
+          if (packGameVersion) inst.gameVersion = packGameVersion;
+          if (container.matchedLoader) inst.loader = container.matchedLoader as any;
+          await instanceConfig.save();
+        }
+
+        const win = getMainWindow?.();
+        win?.webContents.send('mods:changed');
+        win?.webContents.send('instances:changed');
+
+        return {
+          success: true,
+          message: `Modpack "${result.index.name}" berhasil dipasang & diaktifkan di wadah ${container.containerName} (${result.installedFiles.length} berkas diproses).`,
+        };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    }
+  );
+
+  ipcMain.handle('modpack:resolveContainer', async (_event, loader?: string, gameVersion?: string) => {
     try {
       await instanceConfig.load();
       const active = instanceConfig.getActiveInstance();
-      if (!active?.rootDir) throw new Error('Silakan pilih instance aktif terlebih dahulu.');
+      if (!active?.rootDir) return null;
 
-      let mrpackPath = customFilePath;
-      if (!mrpackPath) {
-        const win = BrowserWindow.fromWebContents(event.sender);
-        const res = await dialog.showOpenDialog(win!, {
-          properties: ['openFile'],
-          filters: [{ name: 'Modrinth Modpack', extensions: ['mrpack'] }],
-          title: 'Pilih Berkas .mrpack Modpack',
-        });
-        if (res.canceled || res.filePaths.length === 0) return { success: false };
-        mrpackPath = res.filePaths[0];
-      }
+      const container = await ModpackProfileManager.resolveContainerForLoader(
+        active.rootDir,
+        loader,
+        gameVersion,
+        active.launcher
+      );
 
-      const unpacker = new ModpackUnpacker(modrinthClient);
-      const result = await unpacker.install(mrpackPath, { instanceDir: active.rootDir });
+      const activeProfile = await ModpackProfileManager.getActiveProfile(container.containerDir);
 
       return {
-        success: true,
-        message: `Modpack "${result.index.name}" berhasil dipasang (${result.installedFiles.length} berkas diekstrak).`,
+        containerDir: container.containerDir,
+        containerName: container.containerName,
+        matchedLoader: container.matchedLoader,
+        launcher: active.launcher,
+        activeProfile: activeProfile?.activeProfile ?? null,
+        activeProfileName: activeProfile?.name ?? activeProfile?.activeProfile ?? null,
+      };
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle('modpack:inspect', async (_event, filePath: string) => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) throw new Error('Tidak ada instance aktif');
+
+      const unpacker = new ModpackUnpacker(modrinthClient);
+      const index = await unpacker.inspect(filePath);
+
+      let packLoader = active.loader ?? 'fabric';
+      let packGameVersion = active.gameVersion ?? '1.20.1';
+      if (index.dependencies) {
+        for (const [dep, ver] of Object.entries(index.dependencies)) {
+          const lower = dep.toLowerCase();
+          if (lower.includes('fabric')) packLoader = 'fabric';
+          else if (lower.includes('neoforge')) packLoader = 'neoforge';
+          else if (lower.includes('forge')) packLoader = 'forge';
+          else if (lower.includes('quilt')) packLoader = 'quilt';
+          if (lower === 'minecraft' && typeof ver === 'string') packGameVersion = ver;
+        }
+      }
+
+      const container = await ModpackProfileManager.resolveContainerForLoader(
+        active.rootDir,
+        packLoader,
+        packGameVersion,
+        active.launcher
+      );
+
+      const activeProfile = await ModpackProfileManager.getActiveProfile(container.containerDir);
+
+      return {
+        name: index.name,
+        versionId: index.versionId,
+        gameVersion: packGameVersion,
+        loader: packLoader,
+        containerName: container.containerName,
+        containerDir: container.containerDir,
+        activeProfile: activeProfile?.activeProfile ?? null,
+        activeProfileName: activeProfile?.name ?? activeProfile?.activeProfile ?? null,
       };
     } catch (err: any) {
-      return { success: false, error: err.message };
+      return { error: err.message };
     }
   });
 
@@ -1152,7 +2086,8 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       const active = instanceConfig.getActiveInstance();
       if (!active?.rootDir) return [];
 
-      return await ModpackProfileManager.listProfiles(active.rootDir);
+      const targetDir = active.mode === 'modpack' && active.modsDir ? path.dirname(active.modsDir) : active.rootDir;
+      return await ModpackProfileManager.listProfiles(targetDir);
     } catch (err: any) {
       console.error('List modpack profiles error:', err);
       return [];
@@ -1165,7 +2100,8 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       const active = instanceConfig.getActiveInstance();
       if (!active?.rootDir) throw new Error('Instance belum aktif');
 
-      await ModpackProfileManager.activateProfile(active.rootDir, profileId);
+      const targetDir = active.mode === 'modpack' && active.modsDir ? path.dirname(active.modsDir) : active.rootDir;
+      await ModpackProfileManager.activateProfile(targetDir, profileId);
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -1178,7 +2114,22 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       const active = instanceConfig.getActiveInstance();
       if (!active?.rootDir) throw new Error('Instance belum aktif');
 
-      await ModpackProfileManager.disableProfile(active.rootDir);
+      const targetDir = active.mode === 'modpack' && active.modsDir ? path.dirname(active.modsDir) : active.rootDir;
+      await ModpackProfileManager.disableProfile(targetDir);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('modpack:removeProfile', async (_event, profileId: string) => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) throw new Error('Instance belum aktif');
+
+      const targetDir = active.mode === 'modpack' && active.modsDir ? path.dirname(active.modsDir) : active.rootDir;
+      await ModpackProfileManager.removeProfile(targetDir, profileId);
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -1195,12 +2146,17 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
         version: string;
         summary?: string;
         includeConfigs?: boolean;
+        includeResourcepacks?: boolean;
+        includeShaderpacks?: boolean;
+        profileId?: string;
       }
     ) => {
       try {
         await instanceConfig.load();
         const active = instanceConfig.getActiveInstance();
-        if (!active?.rootDir) throw new Error('Silakan pilih instance aktif terlebih dahulu.');
+        if (!active?.rootDir && !active?.modsDir) {
+          throw new Error('Silakan pilih instance aktif terlebih dahulu.');
+        }
 
         const win = BrowserWindow.fromWebContents(event.sender);
         const ext = options.format === 'mrpack' ? 'mrpack' : 'zip';
@@ -1221,9 +2177,24 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           return { success: false, error: 'Dibatalkan oleh pengguna' };
         }
 
+        let sourceProfileDir: string | undefined = undefined;
+        const effectiveModsDir = active.modsDir;
+        const effectiveInstanceDir = active.rootDir || (active.modsDir ? path.dirname(active.modsDir) : '');
+
+        if (options.profileId && effectiveInstanceDir) {
+          const profilePath = path.join(ModpackProfileManager.getProfilesDir(effectiveInstanceDir), options.profileId);
+          try {
+            const st = await stat(profilePath);
+            if (st.isDirectory()) {
+              sourceProfileDir = profilePath;
+            }
+          } catch {}
+        }
+
         const result = await modpackExporter.exportModpack({
           format: options.format,
-          instanceDir: active.rootDir,
+          instanceDir: effectiveInstanceDir,
+          modsDir: effectiveModsDir,
           outputPath: res.filePath,
           name: options.name,
           version: options.version,
@@ -1231,6 +2202,9 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
           gameVersion: active.gameVersion || '1.20.1',
           loader: active.loader || 'fabric',
           includeConfigs: options.includeConfigs ?? true,
+          includeResourcepacks: options.includeResourcepacks ?? false,
+          includeShaderpacks: options.includeShaderpacks ?? false,
+          sourceProfileDir,
         });
 
         return {
@@ -1294,6 +2268,24 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     }
   });
 
+  ipcMain.handle('snapshots:saveCurrent', async () => {
+    try {
+      await instanceConfig.load();
+      const activeKey = instanceConfig.get().activeInstance;
+      const active = instanceConfig.getActiveInstance();
+      if (!active || !activeKey) throw new Error('Tidak ada instance aktif');
+      const res = await profileSnapshotManager.saveCurrentSnapshot(activeKey, active, {
+        preserveLiveFiles: true,
+      });
+      const win = getMainWindow?.();
+      win?.webContents.send('instances:changed');
+      win?.webContents.send('mods:changed');
+      return { success: true, snapshot: res.snapshot, savedCount: res.savedCount };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('snapshots:switchProfile', async (_event, loader: string, gameVersion: string) => {
     try {
       await instanceConfig.load();
@@ -1301,6 +2293,13 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
       const activeKey = cfg.activeInstance;
       if (!activeKey) throw new Error('Tidak ada instance aktif');
       const res = await profileSnapshotManager.switchProfile(activeKey, loader, gameVersion);
+      const active = instanceConfig.getActiveInstance();
+      if (active?.modsDir && active?.rootDir) {
+        setupWatcher(active.modsDir, active.rootDir, getMainWindow);
+      }
+      const win = getMainWindow?.();
+      win?.webContents.send('instances:changed');
+      win?.webContents.send('mods:changed');
       return { success: true, savedCount: res.savedCount, restoredCount: res.restoredCount };
     } catch (err: any) {
       return { success: false, error: err.message };

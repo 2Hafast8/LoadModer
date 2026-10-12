@@ -69,10 +69,11 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
       rel.includes("legacy/minecraft") ||
       rel.includes("legacylauncher")
     ) {
+      const isDefaultGame = sub.toLowerCase() === "game" || sub.toLowerCase() === "minecraft";
       return {
         launcher: "Legacy",
-        name: `Legacy Launcher (${sub})`,
-        id: `legacy-${sub.toLowerCase()}`,
+        name: isDefaultGame ? "Legacy Launcher" : `Legacy Launcher (${sub})`,
+        id: isDefaultGame ? "legacy-default" : `legacy-${sub.toLowerCase()}`,
       };
     }
 

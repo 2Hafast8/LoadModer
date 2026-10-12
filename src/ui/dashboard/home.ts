@@ -14,7 +14,7 @@ import {runInteractiveBrowser} from "./browser.js";
 import {runInteractiveManager} from "./manager.js";
 import {updateCommand} from "../../commands/update.js";
 import {initCommand} from "../../commands/init.js";
-import {bisectCommand} from "../../commands/bisect.js";
+import {runInteractiveDiagnostics} from "./diagnostics.js";
 import {runInteractiveProfileSwitcher} from "./profileSwitcher.js";
 import {DependencyGraph} from "../../core/dependency/graph.js";
 import {ModsWatcher} from "../../core/watcher/modsWatcher.js";
@@ -232,9 +232,9 @@ export async function launchHomeDashboard(): Promise<void> {
         {name: "ALAT & PANDUAN", value: "sep"},
         {
           name: "🩺  Diagnostik Crash & Bisect Tool",
-          value: "bisect",
-          hint: "Cari mod penyebab crash via binary search otomatis",
-          badge: formatBadge("Bisect", "warning"),
+          value: "diagnostics",
+          hint: "Pindai log error crash & isolasi mod via binary search otomatis",
+          badge: formatBadge("Diagnostik", "warning"),
         },
         {
           name: "❓  Pusat Bantuan & Panduan",
@@ -337,26 +337,11 @@ export async function launchHomeDashboard(): Promise<void> {
           break;
         }
 
+        case "diagnostics":
         case "bisect": {
           clearScreen();
-          showBanner(active?.name, true);
-          const bisectChoice = await askInteractiveMenu(
-            "SESI BISECT TROUBLESHOOTING",
-            [
-              {name: "1. Mulai Sesi Bisect (Nonaktifkan 50% mod kandidat)", value: "start"},
-              {name: "2. Lapor: Game BERHASIL Terbuka (Good step)", value: "good"},
-              {name: "3. Lapor: Game MASIH Crash (Bad step)", value: "bad"},
-              {name: "4. Reset / Kembalikan Seluruh Mod ke Aktif", value: "reset"},
-              {name: "──────────────────", value: "sep"},
-              {name: "[Kembali ke Dashboard]", value: "back"},
-            ],
-            () => showBanner(active?.name, true),
-          );
-
-          if (bisectChoice && bisectChoice !== "back" && bisectChoice !== "sep") {
-            await bisectCommand(bisectChoice, {dir: active?.modsDir, skipBanner: true});
-            await ask("Tekan Enter untuk kembali ke dashboard...");
-          }
+          cleanupWatcher();
+          await runInteractiveDiagnostics(active);
           break;
         }
 

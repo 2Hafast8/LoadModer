@@ -194,7 +194,7 @@ export async function resolveLegacyContainerForLoader(
     return {
       containerDir: exactMatch.containerDir,
       containerName: exactMatch.containerName,
-      matchedLoader: exactMatch.loader === "forge" ? "forge" : "fabric",
+      matchedLoader: exactMatch.loader,
     };
   }
 
@@ -204,7 +204,7 @@ export async function resolveLegacyContainerForLoader(
     return {
       containerDir: loaderMatch.containerDir,
       containerName: loaderMatch.containerName,
-      matchedLoader: loaderMatch.loader === "forge" ? "forge" : "fabric",
+      matchedLoader: loaderMatch.loader,
     };
   }
 
@@ -218,6 +218,6 @@ export async function resolveLegacyContainerForLoader(
   return {
     containerDir: newContainerDir,
     containerName: folderName,
-    matchedLoader: targetLoader === "forge" ? "forge" : "fabric",
+    matchedLoader: targetLoader,
   };
 }

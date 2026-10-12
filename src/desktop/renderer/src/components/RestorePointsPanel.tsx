@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Plus, RotateCcw, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import {
+  Layers,
+  RefreshCw,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ArrowRightLeft,
+  Save,
+} from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 
 interface SnapshotItem {
@@ -15,15 +24,20 @@ interface SnapshotItem {
 
 interface RestorePointsPanelProps {
   activeInstance: any | null;
+  onOpenSwitchModal?: () => void;
+  onProfileSwitched?: () => void;
 }
 
-export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({ activeInstance }) => {
+export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
+  activeInstance,
+  onOpenSwitchModal,
+  onProfileSwitched,
+}) => {
   const { t } = useLanguage();
   const [snapshots, setSnapshots] = useState<SnapshotItem[]>([]);
-  const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const loadSnapshots = async () => {
@@ -41,154 +55,243 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({ activeIn
 
   useEffect(() => {
     loadSnapshots();
-  }, [activeInstance?.id, activeInstance?.rootDir]);
+  }, [activeInstance?.id, activeInstance?.rootDir, activeInstance?.gameVersion, activeInstance?.loader]);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (notice) {
+      const timer = setTimeout(() => {
+        setNotice(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notice]);
+
+  const handleSaveCurrent = async () => {
     if (!activeInstance) return;
-    setCreating(true);
+    setSaving(true);
     setNotice(null);
     try {
-      const res = await window.api.snapshots.create(note.trim() || undefined);
+      const res = await window.api.snapshots.saveCurrent();
       if (res.success) {
-        setNote('');
         setNotice({ text: t.snapshots.createSuccess, type: 'success' });
         loadSnapshots();
       } else {
-        setNotice({ text: res.error || 'Failed to create backup', type: 'error' });
+        setNotice({ text: res.error || 'Gagal menyimpan profil versi.', type: 'error' });
       }
     } catch (err: any) {
       setNotice({ text: err.message, type: 'error' });
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
   };
 
-  const handleRestore = async (snapshotId: string) => {
-    if (!window.confirm(t.snapshots.confirmRestore)) return;
-    setRestoringId(snapshotId);
+  const handleSwitchProfile = async (loader: string, gameVersion: string) => {
+    const confirmMsg = t.snapshots.confirmSwitch
+      .replace('{loader}', loader.toUpperCase())
+      .replace('{version}', gameVersion);
+    if (!window.confirm(confirmMsg)) return;
+
+    const snapKey = `${loader}-${gameVersion}`;
+    setSwitchingId(snapKey);
     setNotice(null);
     try {
-      const res = await window.api.snapshots.restore(snapshotId);
+      const res = await window.api.snapshots.switchProfile(loader, gameVersion);
       if (res.success) {
         setNotice({
           text: t.snapshots.restoreSuccess.replace('{count}', String(res.restoredCount ?? 0)),
           type: 'success',
         });
-        loadSnapshots();
+        await loadSnapshots();
+        onProfileSwitched?.();
       } else {
-        setNotice({ text: res.error || 'Failed to restore', type: 'error' });
+        setNotice({ text: res.error || 'Gagal mengalihkan profil versi.', type: 'error' });
       }
     } catch (err: any) {
       setNotice({ text: err.message, type: 'error' });
     } finally {
-      setRestoringId(null);
+      setSwitchingId(null);
     }
   };
 
-  const handleDelete = async (snapshotId: string) => {
-    if (!window.confirm(t.snapshots.confirmDelete)) return;
+  const handleDelete = async (snapshotId: string, label: string) => {
+    const confirmMsg = t.snapshots.confirmDelete.replace('{name}', label);
+    if (!window.confirm(confirmMsg)) return;
     try {
       const res = await window.api.snapshots.delete(snapshotId);
       if (res.success) {
         setNotice({ text: t.snapshots.deleteSuccess, type: 'success' });
         loadSnapshots();
       }
-    } catch {}
+    } catch (err: any) {
+      setNotice({ text: err.message, type: 'error' });
+    }
   };
 
   if (!activeInstance) return null;
 
   return (
-    <div className="border border-[#1E2822] bg-[#0D1310] rounded-xl p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider font-mono">
-            {t.snapshots.title}
-          </h3>
+    <div className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <Layers className="w-4 h-4 text-emerald-primary shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-xs font-bold text-nordic-text uppercase tracking-wider font-mono">
+              {t.snapshots.title}
+            </h3>
+            <p className="text-[11px] text-nordic-muted mt-0.5 max-w-xl leading-relaxed">
+              {t.snapshots.subtitle}
+            </p>
+          </div>
         </div>
-        <span className="text-[11px] text-zinc-400">{t.snapshots.subtitle}</span>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleSaveCurrent}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            title={t.snapshots.saveCurrentBtn}
+          >
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            <span>{t.snapshots.saveCurrentBtn}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenSwitchModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-emerald-primary text-obsidian-bg text-xs font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
+            title={t.snapshots.switchVersionBtn}
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <span>{t.snapshots.switchVersionBtn}</span>
+          </button>
+        </div>
       </div>
 
       {notice && (
         <div
-          className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${
+          className={`p-2.5 rounded text-xs flex items-center gap-2 border ${
             notice.type === 'success'
-              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/30'
-              : 'bg-rose-950/40 text-rose-300 border border-rose-500/30'
+              ? 'bg-emerald-dark/30 text-emerald-active border-emerald-primary/40'
+              : 'bg-status-danger/10 text-status-danger border-status-danger/30'
           }`}
         >
           {notice.type === 'success' ? (
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-primary shrink-0" />
           ) : (
-            <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            <AlertCircle className="w-3.5 h-3.5 text-status-danger shrink-0" />
           )}
           <span>{notice.text}</span>
         </div>
       )}
 
-      <form onSubmit={handleCreate} className="flex gap-2">
-        <input
-          type="text"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder={t.snapshots.notePlaceholder}
-          className="flex-1 px-3 py-1.5 bg-[#131B16] border border-[#1E2822] focus:border-emerald-500/50 rounded-lg text-xs text-zinc-200 outline-none placeholder:text-zinc-600"
-        />
-        <button
-          type="submit"
-          disabled={creating}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold rounded-lg text-xs transition-colors disabled:opacity-50"
-        >
-          {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-          <span>{creating ? t.snapshots.creating : t.snapshots.createBtn}</span>
-        </button>
-      </form>
-
       {loading ? (
-        <div className="py-4 text-center text-xs text-zinc-500">Loading snapshots...</div>
+        <div className="py-6 flex items-center justify-center space-x-2 text-xs text-nordic-muted">
+          <RefreshCw className="w-4 h-4 animate-spin text-emerald-primary" />
+          <span>Memuat profil versi...</span>
+        </div>
       ) : snapshots.length === 0 ? (
-        <div className="py-3 text-center text-xs text-zinc-500">{t.snapshots.emptySnapshots}</div>
+        <div className="py-4 text-center text-xs text-nordic-muted border border-dashed border-obsidian-border rounded">
+          {t.snapshots.emptySnapshots}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
-          {snapshots.map((snap) => {
-            const isRestoring = restoringId === snap.snapshotId;
-            const dateStr = new Date(snap.createdAt).toLocaleString();
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+          {[...snapshots]
+            .sort((a, b) => {
+              const loaderA = (a.loader || '').toLowerCase();
+              const loaderB = (b.loader || '').toLowerCase();
+              if (loaderA !== loaderB) {
+                return loaderA.localeCompare(loaderB);
+              }
+
+              const verA = a.gameVersion || '';
+              const verB = b.gameVersion || '';
+              if (verA !== verB) {
+                const partsA = verA.split('.').map((n) => parseInt(n, 10) || 0);
+                const partsB = verB.split('.').map((n) => parseInt(n, 10) || 0);
+                const maxLen = Math.max(partsA.length, partsB.length);
+                for (let i = 0; i < maxLen; i++) {
+                  const numA = partsA[i] ?? 0;
+                  const numB = partsB[i] ?? 0;
+                  if (numA !== numB) {
+                    return numB - numA;
+                  }
+                }
+                return verB.localeCompare(verA);
+              }
+
+              const timeA = new Date(a.createdAt || 0).getTime();
+              const timeB = new Date(b.createdAt || 0).getTime();
+              if (timeA !== timeB) {
+                return timeA - timeB;
+              }
+              return a.snapshotId.localeCompare(b.snapshotId);
+            })
+            .map((snap) => {
+            const snapLoader = (snap.loader || 'fabric').toLowerCase();
+            const snapVersion = snap.gameVersion || 'unknown';
+            const isSwitching = switchingId === `${snapLoader}-${snapVersion}`;
+
+            const activeLoader = (activeInstance?.loader || '').toLowerCase();
+            const activeVersion = (activeInstance?.gameVersion || '').toLowerCase();
+            const isActive =
+              activeLoader && activeVersion && snapLoader === activeLoader && snapVersion === activeVersion;
+
+            const dateStr = snap.createdAt ? new Date(snap.createdAt).toLocaleDateString() : '-';
 
             return (
               <div
                 key={snap.snapshotId}
-                className="p-2.5 bg-[#131B16] border border-[#1E2822] rounded-lg flex items-center justify-between text-xs"
+                className={`p-3 rounded border text-xs flex items-center justify-between transition-colors ${
+                  isActive
+                    ? 'bg-emerald-dark/20 border-emerald-primary/60 text-emerald-active shadow-sm'
+                    : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:border-obsidian-hover'
+                }`}
               >
-                <div className="truncate min-w-0 mr-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-zinc-200 truncate">
-                      {snap.note || snap.snapshotId}
+                <div className="truncate min-w-0 mr-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-nordic-text uppercase font-mono text-xs">
+                      {snap.loader || 'Fabric'} {snap.gameVersion}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.2 bg-[#18221B] border border-[#243028] text-emerald-400 rounded font-mono">
-                      {snap.loader || 'universal'}
-                    </span>
+                    {isActive ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-dark/40 border border-emerald-primary/40 text-emerald-active">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>{t.snapshots.currentActiveBadge}</span>
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-obsidian-surface border border-obsidian-border text-nordic-muted">
+                        {t.snapshots.savedBadge}
+                      </span>
+                    )}
                   </div>
-                  <div className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                    {dateStr} • {t.snapshots.modsCount.replace('{count}', String(snap.modsCount))}
+                  <div className="text-[11px] text-nordic-muted font-mono flex items-center gap-2">
+                    <span>{t.snapshots.modsCount.replace('{count}', String(snap.modsCount ?? 0))}</span>
+                    <span>•</span>
+                    <span>{dateStr}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {isActive ? (
+                    <span className="px-2.5 py-1 rounded bg-emerald-primary/20 border border-emerald-primary/40 text-emerald-active text-[11px] font-semibold cursor-default">
+                      {t.snapshots.currentInUseBtn}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSwitchProfile(snap.loader || 'fabric', snap.gameVersion || '1.20.1')}
+                      disabled={isSwitching}
+                      title={t.snapshots.switchBtn}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded bg-obsidian-surface hover:bg-emerald-dark/30 text-nordic-text hover:text-emerald-primary border border-obsidian-border hover:border-emerald-primary/40 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isSwitching ? 'animate-spin' : ''}`} />
+                      <span>{isSwitching ? t.snapshots.switching : t.snapshots.switchBtn}</span>
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => handleRestore(snap.snapshotId)}
-                    disabled={isRestoring}
-                    title={t.snapshots.restoreBtn}
-                    className="flex items-center gap-1 px-2 py-1 rounded bg-[#18221B] hover:bg-emerald-500/20 text-emerald-400 border border-[#243028] hover:border-emerald-500/40 text-[11px] font-medium transition-colors"
-                  >
-                    <RotateCcw className={`w-3 h-3 ${isRestoring ? 'animate-spin' : ''}`} />
-                    <span>{isRestoring ? t.snapshots.restoring : t.snapshots.restoreBtn}</span>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(snap.snapshotId)}
+                    onClick={() => handleDelete(snap.snapshotId, `${snap.loader} ${snap.gameVersion}`)}
                     title={t.snapshots.deleteBtn}
-                    className="p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-rose-950/20 transition-colors"
+                    className="p-1.5 rounded text-nordic-muted hover:text-status-danger hover:bg-status-danger/10 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

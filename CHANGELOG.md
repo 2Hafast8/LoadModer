@@ -5,6 +5,29 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.7.0] - 2026-10-12
+
+### Added
+- **CLI Diagnostics & Crash Log Analyzer (`lm diagnose` / `lm diagnostics`)**: Perintah CLI baru untuk menganalisis log Minecraft (`latest.log`) dan crash report (`crash-reports/crash-*.txt`), mendeteksi akar penyebab crash (incompatible mod, missing dependencies, JVM incompatibility), menampilkan visualisasi stack trace berbasis tema Nordic Clean, serta mendukung flag `--raw` dan `--json`.
+- **Diagnostics Parity di TUI Dashboard**: Menu Troubleshoot & Diagnostics interaktif di TUI dashboard (`lm` / `lm home`) dengan opsi langsung menonaktifkan mod bermasalah (.jar -> .jar.disabled) tanpa keluar dari terminal.
+- **Bulk Mod Updates pada Desktop App**: Tombol "Update All" pada tab Mods untuk memperbarui seluruh mod kadaluarsa secara serentak dengan visualisasi progress dan resolusi dependensi otomatis.
+- **Enhanced Explore Screen & Dual-Tier Toolbar**: Toolbar 2-tingkat dengan pencarian real-time, selector versi Minecraft & loader, filter kategori dinamis per tipe konten (otomatis menyembunyikan filter loader untuk Shaders dan Resource Packs), sort dropdown, serta sistem paginasi lengkap (previous, next, dan direct page navigation).
+- **Edit Version Loader Modal**: Modal UI baru di Desktop App untuk memodifikasi konfigurasi loader dan versi Minecraft instance langsung dari antarmuka visual.
+- **Desktop Notification Auto-Dismiss**: Durasi dismiss otomatis 3000ms (3 detik) untuk seluruh toast notifikasi sistem di Desktop GUI.
+- **Adaptive Modpack Exporter**: Penyesuaian struktur ekspor modpack sesuai arsitektur launcher (Official Minecraft, Legacy, TLauncher, CurseForge, Modrinth App).
+
+### Changed
+- **Version Profile Auto-Sync**: Sistem secara cerdas mendeteksi perubahan mod live (`hasLiveChanges`) dan otomatis memperbarui arsip profil aktif (`syncActiveProfile`) sebelum perpindahan profil pada mode default.
+- **Archive Pruning pada Snapshot Profile**: Pembersihan arsip snapshot profil saat penyimpanan (`saveCurrentSnapshot`) untuk mencegah duplikasi file `.jar` dan `.jar.disabled` serta menghapus ghost files yang sudah dihapus pengguna di lingkungan live.
+- **Layout Responsif Explore Fullscreen**: Penyesuaian grid kartu konten hingga 4 kolom (`2xl:grid-cols-4`) pada layar resolusi tinggi/fullscreen.
+- **SemVer Bump**: Peningkatan versi resmi aplikasi ke `2.7.0`.
+
+### Fixed
+- **Version Profile Switching Parity**: Memperbaiki perpindahan profil versi agar membersihkan mod dari profil sebelumnya secara atomik dan konsisten.
+- **Desktop Download Parity**: Memastikan pengunduhan mod di Desktop App menyelesaikan dependensi wajib secara otomatis melalui DAG resolver Modrinth API v2 setara dengan CLI.
+
+---
+
 ## [2.6.0] - 2026-10-11
 
 ### Added

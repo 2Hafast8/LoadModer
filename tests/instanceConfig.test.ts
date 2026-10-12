@@ -70,4 +70,36 @@ describe("InstanceConfigManager", () => {
     expect(manager.getActiveInstance()).toBeUndefined();
     expect(manager.get().instances["inst-del"]).toBeUndefined();
   });
+
+  it("harus otomatis membersihkan entri lama jika menyimpan instance baru dengan rootDir yang sama", async () => {
+    const instOld: SavedInstanceConfig = {
+      name: "Legacy Launcher (game)",
+      launcher: "Legacy",
+      rootDir: "/games/minecraft/game",
+      modsDir: "/games/minecraft/game/mods",
+      loader: "forge",
+      gameVersion: "1.20.1",
+    };
+
+    const instCanonical: SavedInstanceConfig = {
+      name: "Legacy Launcher",
+      launcher: "Legacy",
+      rootDir: "/games/minecraft/game",
+      modsDir: "/games/minecraft/game/home/Forge-1.20/mods",
+      loader: "forge",
+      gameVersion: "1.20.1",
+      mode: "modpack",
+      activeContainer: "Forge-1.20",
+    };
+
+    manager.saveInstance("legacy-game", instOld, true);
+    expect(manager.get().instances["legacy-game"]).toBeDefined();
+
+    manager.saveInstance("legacy-default", instCanonical, true);
+
+    expect(manager.get().instances["legacy-game"]).toBeUndefined();
+    expect(manager.get().instances["legacy-default"]).toBeDefined();
+    expect(manager.getActiveInstance()?.name).toBe("Legacy Launcher");
+    expect(manager.getActiveInstance()?.mode).toBe("modpack");
+  });
 });

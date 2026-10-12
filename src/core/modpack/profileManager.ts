@@ -58,7 +58,7 @@ export interface ProfileManifest {
 export interface ResolvedContainer {
   containerDir: string;
   containerName: string;
-  matchedLoader: "fabric" | "forge";
+  matchedLoader: "fabric" | "forge" | "neoforge" | "quilt";
 }
 
 export interface ClientContainerInfo {

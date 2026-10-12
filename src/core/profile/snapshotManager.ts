@@ -43,6 +43,7 @@ export class ProfileSnapshotManager {
   async saveCurrentSnapshot(
     instanceKey: string,
     instance: SavedInstanceConfig,
+    options?: { preserveLiveFiles?: boolean },
   ): Promise<{snapshot: ProfileSnapshot; savedCount: number}> {
     await instanceConfig.load();
     const cfg = instanceConfig.get();
@@ -70,18 +71,15 @@ export class ProfileSnapshotManager {
     const modFiles = files.filter((f) => f.endsWith(".jar") || f.endsWith(".jar.disabled"));
     const jsonPath = path.join(baseDir, `${snapshotId}.json`);
 
-    if (modFiles.length === 0) {
-      try {
-        const existingData: ProfileSnapshot = JSON.parse(await readFile(jsonPath, "utf8"));
-        const archivedFiles = await readdir(archiveJarDir);
-        if (
-          existingData.modsCount > 0 &&
-          archivedFiles.some((f) => f.endsWith(".jar") || f.endsWith(".jar.disabled"))
-        ) {
-          return {snapshot: existingData, savedCount: 0};
+    // Bersihkan berkas arsip yang sudah tidak ada di modFiles live (prune deleted / renamed files)
+    try {
+      const existingArchived = await readdir(archiveJarDir);
+      for (const archFile of existingArchived) {
+        if (!modFiles.includes(archFile)) {
+          await unlink(path.join(archiveJarDir, archFile)).catch(() => {});
         }
-      } catch {}
-    }
+      }
+    } catch {}
 
     const items: SnapshotModItem[] = [];
 
@@ -131,7 +129,11 @@ export class ProfileSnapshotManager {
 
       items.push(modItem);
 
-      await this.safeMoveFile(fullSrcPath, fullDestPath);
+      if (options?.preserveLiveFiles) {
+        await copyFile(fullSrcPath, fullDestPath);
+      } else {
+        await this.safeMoveFile(fullSrcPath, fullDestPath);
+      }
     }
 
     const snapshot: ProfileSnapshot = {
@@ -150,8 +152,10 @@ export class ProfileSnapshotManager {
 
     await writeFileAtomic(jsonPath, JSON.stringify(snapshot, null, 2) + "\n", "utf8");
 
-    graph.data.mods = {};
-    await graph.save();
+    if (!options?.preserveLiveFiles) {
+      graph.data.mods = {};
+      await graph.save();
+    }
 
     return {snapshot, savedCount: items.length};
   }
@@ -198,12 +202,21 @@ export class ProfileSnapshotManager {
 
     let restoredFilesCount = 0;
     try {
+      const currentInMods = await readdir(freshInstance.modsDir);
+      for (const f of currentInMods) {
+        if (f.endsWith(".jar") || f.endsWith(".jar.disabled")) {
+          await unlink(path.join(freshInstance.modsDir, f)).catch(() => {});
+        }
+      }
+    } catch {}
+
+    try {
       const archivedFiles = await readdir(archiveJarDir);
       for (const file of archivedFiles) {
         if (file.endsWith(".jar") || file.endsWith(".jar.disabled")) {
           const src = path.join(archiveJarDir, file);
           const dest = path.join(freshInstance.modsDir, file);
-          await this.safeMoveFile(src, dest);
+          await copyFile(src, dest);
           restoredFilesCount++;
         }
       }
@@ -245,6 +258,91 @@ export class ProfileSnapshotManager {
     };
   }
 
+  async hasLiveChanges(
+    instanceKey: string,
+    instance: SavedInstanceConfig,
+  ): Promise<boolean> {
+    await instanceConfig.load();
+    const cfg = instanceConfig.get();
+    const freshInstance = cfg.instances[instanceKey] ?? instance;
+
+    const currentLoader = freshInstance.loader || "";
+    const currentVersion = freshInstance.gameVersion || "";
+    if (!currentLoader || !currentVersion) return false;
+
+    const baseDir = this.getSnapshotBaseDir(freshInstance);
+    const snapshotId = this.buildSnapshotId(currentLoader, currentVersion);
+    const jsonPath = path.join(baseDir, `${snapshotId}.json`);
+    const archiveJarDir = path.join(baseDir, snapshotId, "jars");
+
+    let liveFiles: string[] = [];
+    try {
+      liveFiles = (await readdir(freshInstance.modsDir)).filter(
+        (f) => f.endsWith(".jar") || f.endsWith(".jar.disabled"),
+      );
+    } catch {}
+
+    let existingData: ProfileSnapshot | null = null;
+    try {
+      existingData = JSON.parse(await readFile(jsonPath, "utf8"));
+    } catch {
+      return liveFiles.length > 0;
+    }
+
+    if (!existingData) return true;
+
+    let archivedFiles: string[] = [];
+    try {
+      archivedFiles = (await readdir(archiveJarDir)).filter(
+        (f) => f.endsWith(".jar") || f.endsWith(".jar.disabled"),
+      );
+    } catch {}
+
+    if (liveFiles.length !== existingData.modsCount) return true;
+    if (liveFiles.length !== archivedFiles.length) return true;
+
+    const archivedSet = new Set(archivedFiles);
+    for (const f of liveFiles) {
+      if (!archivedSet.has(f)) return true;
+    }
+
+    const snapshotModsMap = new Map(existingData.mods.map((m) => [m.filename, m]));
+    for (const f of liveFiles) {
+      const snapMod = snapshotModsMap.get(f);
+      if (!snapMod) return true;
+      const isDisabled = f.endsWith(".disabled");
+      if (snapMod.disabled !== isDisabled) return true;
+    }
+
+    return false;
+  }
+
+  async syncActiveProfile(
+    instanceKey?: string,
+    instance?: SavedInstanceConfig,
+  ): Promise<ProfileSnapshot | null> {
+    try {
+      await instanceConfig.load();
+      const cfg = instanceConfig.get();
+      const key = instanceKey || cfg.activeInstance;
+      if (!key) return null;
+
+      const inst = cfg.instances[key] ?? instance;
+      if (!inst || !inst.modsDir) return null;
+
+      if (inst.mode === "modpack") return null;
+      if (!inst.loader || !inst.gameVersion) return null;
+
+      const res = await this.saveCurrentSnapshot(key, inst, {
+        preserveLiveFiles: true,
+      });
+      return res.snapshot;
+    } catch (err) {
+      console.warn("Gagal melakukan syncActiveProfile:", err);
+      return null;
+    }
+  }
+
   async switchProfile(
     instanceKey: string,
     newLoader: string,
@@ -269,13 +367,16 @@ export class ProfileSnapshotManager {
         savedCount: 0,
         restoredCount: 0,
         isNewProfile: false,
+        hadChanges: false,
       };
     }
 
     let savedCount = 0;
     let prevSnapshot: ProfileSnapshot | undefined;
+    let hadChanges = false;
 
     if (currentLoader && currentVersion) {
+      hadChanges = await this.hasLiveChanges(instanceKey, instance);
       const saveRes = await this.saveCurrentSnapshot(instanceKey, instance);
       savedCount = saveRes.savedCount;
       prevSnapshot = saveRes.snapshot;
@@ -294,6 +395,7 @@ export class ProfileSnapshotManager {
       savedCount,
       restoredCount: restoreRes.restoredCount,
       isNewProfile: !restoreRes.restored,
+      hadChanges,
     };
   }
 
@@ -314,7 +416,36 @@ export class ProfileSnapshotManager {
       }
     } catch {}
 
-    snapshots.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    snapshots.sort((a, b) => {
+      const loaderA = (a.loader || "").toLowerCase();
+      const loaderB = (b.loader || "").toLowerCase();
+      if (loaderA !== loaderB) {
+        return loaderA.localeCompare(loaderB);
+      }
+
+      const verA = a.gameVersion || "";
+      const verB = b.gameVersion || "";
+      if (verA !== verB) {
+        const partsA = verA.split(".").map((n) => parseInt(n, 10) || 0);
+        const partsB = verB.split(".").map((n) => parseInt(n, 10) || 0);
+        const maxLen = Math.max(partsA.length, partsB.length);
+        for (let i = 0; i < maxLen; i++) {
+          const numA = partsA[i] ?? 0;
+          const numB = partsB[i] ?? 0;
+          if (numA !== numB) {
+            return numB - numA;
+          }
+        }
+        return verB.localeCompare(verA);
+      }
+
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      if (timeA !== timeB) {
+        return timeA - timeB;
+      }
+      return a.snapshotId.localeCompare(b.snapshotId);
+    });
     return snapshots;
   }
 

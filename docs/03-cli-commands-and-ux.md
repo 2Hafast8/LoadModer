@@ -42,6 +42,7 @@ loadmoder (alias: lm)
 ├── enable <mod>             # Mengaktifkan mod (.jar.disabled -> .jar)
 ├── disable <mod>            # Menonaktifkan mod (.jar -> .jar.disabled)
 ├── bisect <action>          # Investigasi biner mod penyebab crash (start|good|bad|reset)
+├── diagnose                 # Pindai log & crash report untuk analisis akar masalah otomatis
 ├── watch                    # Memantau folder mods secara real-time untuk sinkronisasi
 ├── profile <action>         # Kelola snapshot profil versi game (list | switch)
 ├── modpack <action>         # Kelola profil modpack tersimpan (list | switch | disable)
@@ -56,7 +57,7 @@ loadmoder (alias: lm)
 Membuka antarmuka navigasi keyboard berbasis `@inquirer/prompts`:
 
 ```text
-  LOADMODER v2.6.0 • Minecraft Mod & Modpack Manager • Nordic Clean TUI
+  LOADMODER v2.7.0 • Minecraft Mod & Modpack Manager • Nordic Clean TUI
 
   Instance Aktif : [Prism] Fabulously Optimized (1.21.1 / fabric)
   Mod Terpasang  : 14 Mod (14 Aktif) • Ukuran: 28.4 MB
@@ -227,3 +228,20 @@ lm config use <instance-id>
 # Mengatur opsi konfigurasi global
 lm config set defaultLoader fabric
 ```
+
+### 3.13 `lm diagnose` (Crash Log Analyzer)
+Menganalisis berkas `latest.log` atau `crash-reports/crash-*.txt` terbaru secara otomatis untuk mendeteksi akar penyebab crash:
+```bash
+# Analisis otomatis pada instance aktif
+lm diagnose
+
+# Analisis instance pada folder tertentu
+lm diagnose -d "D:\Games\.minecraft"
+
+# Cetak isi teks log mentah
+lm diagnose --raw
+
+# Keluarkan laporan diagnostik dalam format JSON terstruktur
+lm diagnose --json
+```
+

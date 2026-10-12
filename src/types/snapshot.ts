@@ -35,4 +35,5 @@ export interface SwitchProfileResult {
   savedCount: number;
   restoredCount: number;
   isNewProfile: boolean;
+  hadChanges?: boolean;
 }

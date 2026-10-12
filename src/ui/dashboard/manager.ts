@@ -8,6 +8,7 @@ import { DependencyGraph } from '../../core/dependency/graph.js';
 import { formatBytes } from '../../utils/format.js';
 import { runInstalledModDetailRoute } from './detail.js';
 import { instanceConfig } from '../../core/instance/config.js';
+import { profileSnapshotManager } from '../../core/profile/snapshotManager.js';
 import type { SavedInstanceConfig } from '../../types/instance.js';
 
 export async function runInteractiveManager(activeInstance: SavedInstanceConfig | undefined): Promise<void> {
@@ -218,6 +219,7 @@ export async function runInteractiveManager(activeInstance: SavedInstanceConfig 
           count++;
         }
         await graph.reconcileWithDisk(modsDir);
+        await profileSnapshotManager.syncActiveProfile();
         logger.success(`Berhasil mengaktifkan ${count} mod.`);
         await ask('Tekan Enter untuk melanjutkan...');
       } else if (bulkChoice === 'disable_all') {
@@ -227,6 +229,7 @@ export async function runInteractiveManager(activeInstance: SavedInstanceConfig 
           count++;
         }
         await graph.reconcileWithDisk(modsDir);
+        await profileSnapshotManager.syncActiveProfile();
         logger.warn(`Berhasil menonaktifkan ${count} mod.`);
         await ask('Tekan Enter untuk melanjutkan...');
       }

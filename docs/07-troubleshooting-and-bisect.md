@@ -16,7 +16,7 @@ LoadModer memanfaatkan karakteristik ini untuk mengaktifkan atau menonaktifkan m
 
 ## 2. Crash Log Analyzer (`src/core/troubleshoot/logAnalyzer.ts`)
 
-LoadModer v2.6.0 menyertakan mesin analisis log otomatis yang dapat memindai berkas `latest.log` atau `crash-reports/crash-*.txt` terbaru.
+LoadModer v2.7.0 menyertakan mesin analisis log otomatis yang dapat memindai berkas `latest.log` atau `crash-reports/crash-*.txt` terbaru, dapat diakses via perintah CLI `lm diagnose` maupun tab Diagnostics pada Desktop GUI.
 
 ### Kategori Crash yang Didukung:
 1. **Missing Dependency**:

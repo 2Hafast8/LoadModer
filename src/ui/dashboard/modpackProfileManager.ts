@@ -286,6 +286,12 @@ async function runContainerProfileOperations(
         badge: formatBadge("Modrinth v2", "info"),
       },
       {
+        name: "📦  Ekspor Modpack ke Arsip (.mrpack / .zip)",
+        value: "export_pack",
+        hint: `Ekspor kumpulan mod aktif atau arsip di wadah ${container.containerName}`,
+        badge: formatBadge("Ekspor", "success"),
+      },
+      {
         name: "🗑️   Hapus Profil Modpack Tersimpan",
         value: "delete",
         hint: "Hapus arsip modpack dari penyimpanan brankas",
@@ -426,6 +432,139 @@ async function runContainerProfileOperations(
         };
 
         await runInteractiveBrowser(clientInstance, query?.trim() ?? "", "modpack");
+        break;
+      }
+
+      case "export_pack": {
+        clearScreen();
+        showBanner(`Client: ${container.containerName}`, true);
+
+        let sourceProfileId: string | undefined = undefined;
+        let defaultExportName = activeInfo?.name || container.containerName;
+
+        if (profiles.length > 0) {
+          const sourceChoices: InteractiveChoice[] = [
+            {
+              name: `📁  Kondisi Aktif Wadah (${container.containerName})`,
+              value: "__active__",
+              hint: activeInfo?.name
+                ? `Modpack aktif saat ini: ${activeInfo.name}`
+                : "Kondisi mod dan konfigurasi yang sedang aktif di wadah",
+              badge: formatBadge("Aktif", "success"),
+            },
+            ...profiles.map((pr) => ({
+              name: `📦  Arsip Tersimpan: ${pr.name} (v${pr.versionId})`,
+              value: pr.id,
+              hint: `Loader: ${pr.loader ?? container.loader} • ${pr.filesCount} berkas`,
+              badge: pr.isActive ? formatBadge("Sedang Aktif", "info") : formatBadge("Tersimpan", "muted"),
+            })),
+            {name: "──────────────────────────────────────", value: "sep"},
+            {name: "[Batal]", value: "cancel"},
+          ];
+
+          const pickedSource = await askInteractiveMenu(
+            "PILIH SUMBER MODPACK UNTUK DIEKSPOR",
+            sourceChoices,
+          );
+
+          if (!pickedSource || pickedSource === "cancel" || pickedSource === "sep") {
+            break;
+          }
+
+          if (pickedSource !== "__active__") {
+            sourceProfileId = pickedSource;
+            const foundProfile = profiles.find((p) => p.id === pickedSource);
+            if (foundProfile) {
+              defaultExportName = foundProfile.name;
+            }
+          }
+        }
+
+        const formatChoices: InteractiveChoice[] = [
+          {
+            name: "✨  Modrinth Modpack (.mrpack)",
+            value: "mrpack",
+            hint: "Standar Modrinth v2 resmi. Berkas kecil, metadata dependency & overrides otomatis",
+            badge: formatBadge("Rekomendasi", "success"),
+          },
+          {
+            name: "🗜️   Arsip Universal (.zip)",
+            value: "zip",
+            hint: "Arsip zip mandiri lengkap berisi berkas mods/ dan modpack.json",
+            badge: formatBadge("Universal", "info"),
+          },
+          {name: "──────────────────────────────────────", value: "sep"},
+          {name: "[Batal]", value: "cancel"},
+        ];
+
+        const chosenFormat = await askInteractiveMenu("PILIH FORMAT EKSPOR", formatChoices);
+        if (!chosenFormat || chosenFormat === "cancel" || chosenFormat === "sep") break;
+
+        const packName = await ask(`Nama Modpack [${defaultExportName}]:`);
+        const finalName = packName?.trim() || defaultExportName;
+
+        const versionStr = await ask("Versi Modpack [1.0.0]:");
+        const finalVersion = versionStr?.trim() || "1.0.0";
+
+        const includeConfigs = await p.confirm({
+          message: "Sertakan folder konfigurasi (config/)?",
+          initialValue: true,
+        });
+
+        const includeResourcepacks = await p.confirm({
+          message: "Sertakan folder resourcepacks/?",
+          initialValue: false,
+        });
+
+        const includeShaderpacks = await p.confirm({
+          message: "Sertakan folder shaderpacks/?",
+          initialValue: false,
+        });
+
+        const ext = chosenFormat === "mrpack" ? "mrpack" : "zip";
+        const safeBaseName = finalName.trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+        const defaultFilename = `${safeBaseName}-${finalVersion}.${ext}`;
+        const outputInput = await ask(`Nama / Jalur Berkas Output [${defaultFilename}]:`);
+        const finalOutput = path.resolve(outputInput?.trim() || defaultFilename);
+
+        const s = p.spinner();
+        s.start(`Mengekspor ${finalName} (${chosenFormat.toUpperCase()})...`);
+        try {
+          const { modpackExporter } = await import("../../core/modpack/exporter.js");
+          let sourceProfileDir: string | undefined = undefined;
+          if (sourceProfileId) {
+            sourceProfileDir = path.join(ModpackProfileManager.getProfilesDir(containerDir), sourceProfileId);
+          }
+
+          const result = await modpackExporter.exportModpack({
+            format: chosenFormat as "mrpack" | "zip",
+            instanceDir: containerDir,
+            modsDir: path.join(containerDir, "mods"),
+            outputPath: finalOutput,
+            name: finalName,
+            version: finalVersion,
+            gameVersion: container.gameVersion ?? "1.20.1",
+            loader: container.loader ?? "fabric",
+            includeConfigs: Boolean(includeConfigs),
+            includeResourcepacks: Boolean(includeResourcepacks),
+            includeShaderpacks: Boolean(includeShaderpacks),
+            sourceProfileDir,
+          });
+
+          const sizeMb = (result.sizeBytes / (1024 * 1024)).toFixed(2);
+          s.stop(pc.green(`Modpack berhasil diekspor!`));
+          p.note(
+            `${pc.bold("Berkas")}      : ${pc.cyan(result.outputPath)}\n` +
+            `${pc.bold("Format")}      : ${pc.yellow(chosenFormat.toUpperCase())}\n` +
+            `${pc.bold("Jumlah File")} : ${pc.white(String(result.filesCount))} berkas\n` +
+            `${pc.bold("Ukuran")}      : ${pc.white(`${sizeMb} MB`)}`,
+            "📦 HASIL EKSPOR MODPACK",
+          );
+        } catch (err: any) {
+          s.stop(pc.red(`Gagal mengekspor: ${err.message}`));
+        }
+
+        await ask("Tekan Enter untuk melanjutkan...");
         break;
       }
 

@@ -1,5 +1,6 @@
 import { instanceConfig } from '../core/instance/config.js';
 import { toggleModFile } from '../core/instance/modToggle.js';
+import { profileSnapshotManager } from '../core/profile/snapshotManager.js';
 import { p, pc, showBanner } from '../ui/prompts.js';
 
 interface ToggleOptions {
@@ -20,6 +21,7 @@ export async function toggleCommand(modQuery: string, enable: boolean, opts: Tog
 
   try {
     const newName = await toggleModFile(modsDir, modQuery, enable);
+    await profileSnapshotManager.syncActiveProfile();
     if (enable) {
       p.outro(pc.green(`Mod diaktifkan: ${pc.bold(newName)}`));
     } else {

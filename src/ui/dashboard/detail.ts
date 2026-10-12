@@ -176,6 +176,7 @@ export async function runInstalledModDetailRoute(
         try {
           const newName = await toggleModFile(modsDir, currentFilename, willEnable);
           currentFilename = newName;
+          await profileSnapshotManager.syncActiveProfile();
           p.log.success(
             willEnable
               ? pc.green(`Mod diaktifkan: ${pc.bold(newName)}`)
@@ -281,6 +282,7 @@ export async function runInstalledModDetailRoute(
             await graph.load();
             const {orphanedSlugs} = graph.removeMod(currentFilename);
             await graph.save();
+            await profileSnapshotManager.syncActiveProfile();
             s.stop(pc.green(`Berkas ${currentFilename} berhasil dihapus.`));
             if (orphanedSlugs.length > 0) {
               p.log.warn(

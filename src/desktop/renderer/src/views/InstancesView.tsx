@@ -13,10 +13,15 @@ import {
   PackageCheck,
   Undo2,
   Package,
+  Shield,
+  Trash2,
+  Settings2,
+  Boxes,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 import { RestorePointsPanel } from '../components/RestorePointsPanel.js';
 import { ExportModpackModal } from '../components/ExportModpackModal.js';
+import { EditVersionLoaderModal } from '../components/EditVersionLoaderModal.js';
 
 interface InstanceItem {
   id: string;
@@ -26,6 +31,29 @@ interface InstanceItem {
   modsDir: string;
   gameVersion?: string;
   loader?: string;
+  mode?: 'default' | 'modpack';
+  activeContainer?: string;
+  capabilities?: {
+    launcher: string;
+    supportsModpack: boolean;
+    supportsContainers: boolean;
+    supportsModeSwitch: boolean;
+    modpackStrategy: string;
+    incompatibilityReason?: string;
+  };
+}
+
+interface InstanceStatusInfo {
+  instanceName: string;
+  gameVersion: string;
+  loader: string;
+  mode: 'default' | 'modpack';
+  activeContainer?: string;
+  supportsModeSwitch: boolean;
+  modsCount: number;
+  activeCount: number;
+  storageUsage: string;
+  statusText: string;
 }
 
 interface InstancesViewProps {
@@ -36,12 +64,21 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
   const { t } = useLanguage();
   const [instances, setInstances] = useState<InstanceItem[]>([]);
   const [activeInstance, setActiveInstance] = useState<InstanceItem | null>(null);
+  const [instanceStatus, setInstanceStatus] = useState<InstanceStatusInfo | null>(null);
   const [modpackProfiles, setModpackProfiles] = useState<any[]>([]);
+  const [containers, setContainers] = useState<any[]>([]);
+  const [baselineInfo, setBaselineInfo] = useState<{
+    exists: boolean;
+    createdAt?: string;
+    filesCount?: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [deepScanning, setDeepScanning] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingInstance, setEditingInstance] = useState<InstanceItem | null>(null);
 
   const loadInstances = async () => {
     setLoading(true);
@@ -49,6 +86,14 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
       const data = await window.api.instances.getAll();
       setInstances(data.list ?? []);
       setActiveInstance(data.active ?? null);
+      if (data.status) {
+        setInstanceStatus(data.status);
+      } else if (data.active) {
+        const s = await window.api.instances.getStatus();
+        setInstanceStatus(s);
+      } else {
+        setInstanceStatus(null);
+      }
       if (data.active?.name && onInstanceChanged) {
         onInstanceChanged(data.active.name);
       }
@@ -57,6 +102,18 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         const profiles = await window.api.modpack.listProfiles();
         setModpackProfiles(profiles ?? []);
       } catch {}
+
+      try {
+        const bInfo = await window.api.baseline.getStatus();
+        setBaselineInfo(bInfo);
+      } catch {}
+
+      if (data.active?.capabilities?.supportsModeSwitch) {
+        try {
+          const cList = await window.api.instances.getContainers();
+          setContainers(cList ?? []);
+        } catch {}
+      }
     } catch (err: any) {
       console.error('Failed to load instances:', err);
     } finally {
@@ -66,7 +123,22 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
 
   useEffect(() => {
     loadInstances();
+    const unsub = window.api.instances.onChanged?.(() => {
+      loadInstances();
+    });
+    return () => {
+      unsub?.();
+    };
   }, []);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const handleSelect = async (inst: InstanceItem) => {
     setSwitchingId(inst.id);
@@ -80,8 +152,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           text: t.instances.switchedInstance.replace('{name}', inst.name),
           type: 'success',
         });
-        const profiles = await window.api.modpack.listProfiles().catch(() => []);
-        setModpackProfiles(profiles ?? []);
+        loadInstances();
       } else {
         setNotification({
           text: res.error ?? t.instances.switchFailed,
@@ -181,6 +252,56 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
     }
   };
 
+  const handleSwitchMode = async (mode: 'default' | 'modpack', containerName?: string) => {
+    try {
+      const res = await window.api.instances.switchMode(mode, containerName);
+      if (res.success) {
+        setNotification({
+          text: t.instances.modeSwitched.replace('{mode}', mode === 'default' ? 'Default (.minecraft)' : `Wadah (${containerName})`),
+          type: 'success',
+        });
+        loadInstances();
+      } else {
+        setNotification({ text: res.error || 'Gagal mengubah mode launcher', type: 'error' });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    }
+  };
+
+  const handleRestoreBaseline = async () => {
+    if (!window.confirm(t.instances.confirmRestoreBaseline)) return;
+    try {
+      const res = await window.api.baseline.restore();
+      if (res.success) {
+        setNotification({
+          text: t.instances.baselineRestored.replace('{count}', String(res.restoredCount ?? 0)),
+          type: 'success',
+        });
+        loadInstances();
+      } else {
+        setNotification({ text: res.error || 'Gagal memulihkan baseline', type: 'error' });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    }
+  };
+
+  const handleRemoveModpackProfile = async (profileId: string, profileName: string) => {
+    if (!window.confirm(t.instances.confirmDeleteProfile.replace('{name}', profileName))) return;
+    try {
+      const res = await window.api.modpack.removeProfile(profileId);
+      if (res.success) {
+        setNotification({ text: t.instances.profileDeleted, type: 'success' });
+        loadInstances();
+      } else {
+        setNotification({ text: res.error || 'Gagal menghapus profil modpack', type: 'error' });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
       <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-wrap items-center justify-between gap-3">
@@ -263,7 +384,162 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
       )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <RestorePointsPanel activeInstance={activeInstance} />
+        {/* ❖ STATUS INSTANCE (CLI Parity Box) */}
+        {instanceStatus && (
+          <div className="border border-emerald-primary/40 bg-obsidian-card/90 rounded-md p-3.5 space-y-2.5 shadow-sm font-sans">
+            <div className="flex items-center justify-between border-b border-obsidian-border/80 pb-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-emerald-primary font-bold text-xs font-mono tracking-wider flex items-center space-x-1.5">
+                  <span className="text-sm">❖</span>
+                  <span>STATUS INSTANCE</span>
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-dark/30 border border-emerald-primary/40 text-emerald-active font-mono uppercase font-semibold">
+                  {instanceStatus.mode === 'modpack' ? `Modpack (${instanceStatus.activeContainer ?? 'wadah'})` : 'Default'}
+                </span>
+              </div>
+              <span className="text-[11px] font-mono text-nordic-muted">
+                CLI Parity
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-nordic-muted">Instance :</span>
+                <span className="font-bold text-emerald-primary">{instanceStatus.instanceName}</span>
+              </div>
+              <span className="text-nordic-muted hidden md:inline">•</span>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-nordic-muted">Mode :</span>
+                <span className="font-semibold text-nordic-text">
+                  {instanceStatus.mode === 'modpack'
+                    ? `modpack (${instanceStatus.activeContainer ?? 'wadah'})`
+                    : 'default'}
+                </span>
+              </div>
+              <span className="text-nordic-muted hidden md:inline">•</span>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-nordic-muted">Loader :</span>
+                <span className="font-semibold text-emerald-muted capitalize">
+                  {instanceStatus.loader} {instanceStatus.gameVersion}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs border-t border-obsidian-border/40 pt-2">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-nordic-muted">Mods :</span>
+                <span className="font-bold text-emerald-primary font-mono">{instanceStatus.activeCount} Aktif</span>
+                <span className="text-nordic-muted font-mono">/ {instanceStatus.modsCount} Total</span>
+              </div>
+              <span className="text-nordic-muted hidden md:inline">•</span>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-nordic-muted">Storage :</span>
+                <span className="font-mono text-nordic-text font-semibold">{instanceStatus.storageUsage}</span>
+              </div>
+              <span className="text-nordic-muted hidden md:inline">•</span>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-emerald-active font-semibold">
+                  {instanceStatus.statusText}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeInstance?.capabilities?.supportsModeSwitch && (
+          <div className="border border-obsidian-border bg-obsidian-surface rounded p-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center space-x-2">
+              <Boxes className="w-4 h-4 text-emerald-primary" />
+              <div>
+                <span className="text-xs font-bold text-nordic-text font-mono uppercase">
+                  {t.instances.modeSelector}
+                </span>
+                <span className="text-[11px] text-nordic-muted ml-2">
+                  (Launcher: {activeInstance.launcher})
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleSwitchMode('default')}
+                className={`px-3 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
+                  activeInstance.mode !== 'modpack'
+                    ? 'bg-emerald-primary text-obsidian-bg'
+                    : 'bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text'
+                }`}
+              >
+                {t.instances.modeDefault}
+              </button>
+
+              {containers.length > 0 ? (
+                containers.map((c) => (
+                  <button
+                    key={c.containerName}
+                    onClick={() => handleSwitchMode('modpack', c.containerName)}
+                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
+                      activeInstance.mode === 'modpack' && activeInstance.activeContainer === c.containerName
+                        ? 'bg-emerald-primary text-obsidian-bg'
+                        : 'bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text'
+                    }`}
+                  >
+                    Wadah: {c.containerName}
+                  </button>
+                ))
+              ) : (
+                <button
+                  onClick={() => handleSwitchMode('modpack')}
+                  className={`px-3 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
+                    activeInstance.mode === 'modpack'
+                      ? 'bg-emerald-primary text-obsidian-bg'
+                      : 'bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text'
+                  }`}
+                >
+                  {t.instances.modeModpack}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {baselineInfo?.exists && (
+          <div className="border border-emerald-500/30 bg-emerald-950/20 rounded p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <Shield className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="text-xs">
+                <span className="font-semibold text-emerald-300 block">
+                  {t.instances.goldenBaseline}
+                </span>
+                <span className="text-[11px] text-zinc-400">
+                  {t.instances.goldenBaselineDesc
+                    .replace('{count}', String(baselineInfo.filesCount ?? 0))
+                    .replace('{date}', baselineInfo.createdAt ? new Date(baselineInfo.createdAt).toLocaleDateString() : '')}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleRestoreBaseline}
+              className="px-3 py-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/30 transition-colors cursor-pointer"
+            >
+              {t.instances.restoreBaseline}
+            </button>
+          </div>
+        )}
+
+        {activeInstance?.mode !== 'modpack' && (
+          <RestorePointsPanel
+            activeInstance={activeInstance}
+            onOpenSwitchModal={() => {
+              setEditingInstance(activeInstance);
+              setEditModalOpen(true);
+            }}
+            onProfileSwitched={() => {
+              loadInstances();
+            }}
+          />
+        )}
+
         {modpackProfiles.length > 0 && (
           <div className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -301,17 +577,27 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => handleSwitchModpackProfile(prof.id)}
-                    disabled={prof.isActive}
-                    className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                      prof.isActive
-                        ? 'bg-emerald-primary text-obsidian-bg cursor-default'
-                        : 'bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary hover:text-emerald-primary'
-                    }`}
-                  >
-                    {prof.isActive ? t.common.active : t.common.install}
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleRemoveModpackProfile(prof.id, prof.name)}
+                      className="p-1 rounded text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
+                      title={t.instances.deleteProfile}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleSwitchModpackProfile(prof.id)}
+                      disabled={prof.isActive}
+                      className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                        prof.isActive
+                          ? 'bg-emerald-primary text-obsidian-bg cursor-default'
+                          : 'bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary hover:text-emerald-primary'
+                      }`}
+                    >
+                      {prof.isActive ? t.common.active : t.common.install}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -367,34 +653,80 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                         <Gamepad2 className="w-3.5 h-3.5 shrink-0 text-emerald-muted" />
                         <span>{t.instances.gameVersionLabel}</span>
                         <span className="font-mono text-nordic-text font-medium">
-                          {inst.gameVersion ?? t.instances.autoDetect}
+                          {(isActive ? (activeInstance?.gameVersion ?? inst.gameVersion) : inst.gameVersion) ?? t.instances.autoDetect}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2 text-nordic-muted">
                         <Cpu className="w-3.5 h-3.5 shrink-0 text-emerald-muted" />
                         <span>{t.instances.loaderLabel}</span>
                         <span className="font-mono text-nordic-text font-medium capitalize">
-                          {inst.loader ?? t.instances.universal}
+                          {(isActive ? (activeInstance?.loader ?? inst.loader) : inst.loader) ?? t.instances.universal}
                         </span>
                       </div>
+                      <div className="flex items-center space-x-2 text-nordic-muted">
+                        <Boxes className="w-3.5 h-3.5 shrink-0 text-emerald-muted" />
+                        <span>Mode:</span>
+                        <span className="font-mono text-nordic-text font-medium">
+                          {isActive && instanceStatus
+                            ? (instanceStatus.mode === 'modpack'
+                                ? `modpack (${instanceStatus.activeContainer ?? 'wadah'})`
+                                : 'default')
+                            : (inst.mode === 'modpack'
+                                ? `modpack (${inst.activeContainer ?? 'wadah'})`
+                                : (inst.mode ?? 'default'))}
+                        </span>
+                      </div>
+                      {isActive && instanceStatus && (
+                        <div className="flex items-center space-x-2 text-nordic-muted">
+                          <PackageCheck className="w-3.5 h-3.5 shrink-0 text-emerald-muted" />
+                          <span>Mods:</span>
+                          <span className="font-mono text-emerald-primary font-medium">
+                            {instanceStatus.activeCount} Aktif / {instanceStatus.modsCount} Total
+                          </span>
+                          <span>•</span>
+                          <span className="font-mono text-nordic-text font-medium">
+                            {instanceStatus.storageUsage}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center space-x-2 text-nordic-muted">
                         <Folder className="w-3.5 h-3.5 shrink-0 text-emerald-muted" />
                         <span className="truncate font-mono text-[10px]">
                           {inst.rootDir}
                         </span>
                       </div>
+                      {isActive && instanceStatus && (
+                        <div className="pt-1 border-t border-obsidian-border/50 flex items-center justify-between text-[10px]">
+                          <span className="text-emerald-active font-semibold flex items-center space-x-1">
+                            <span>{instanceStatus.statusText}</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-obsidian-border flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => handleOpenFolder(inst.rootDir)}
-                      className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
-                      title={t.instances.openFolderTooltip}
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                      <span>{t.instances.openFolderBtn}</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenFolder(inst.rootDir)}
+                        className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+                        title={t.instances.openFolderTooltip}
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span>{t.instances.openFolderBtn}</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setEditingInstance(inst);
+                          setEditModalOpen(true);
+                        }}
+                        className="flex items-center space-x-1 px-2 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+                        title={t.instances.editVersionLoader}
+                      >
+                        <Settings2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
                     <button
                       onClick={() => handleSelect(inst)}
@@ -425,6 +757,16 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         instanceName={activeInstance?.name}
+      />
+
+      <EditVersionLoaderModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditingInstance(null);
+        }}
+        instance={editingInstance}
+        onSaved={loadInstances}
       />
     </div>
   );

@@ -161,6 +161,20 @@ program
     }),
   );
 
+program
+  .command("diagnose")
+  .alias("diagnostics")
+  .description("Pindai crash report & error log untuk menemukan akar masalah crash secara otomatis")
+  .option("-d, --dir <path>", "Folder instance atau game Minecraft")
+  .option("--raw", "Tampilkan isi teks log mentah (latest.log / crash report)")
+  .option("--json", "Keluarkan hasil analisis dalam format JSON")
+  .action(
+    handleAction(async (opts) => {
+      const {diagnoseCommand} = await import("./commands/diagnose.js");
+      await diagnoseCommand(opts);
+    }),
+  );
+
 const configCmd = program.command("config").description("Kelola konfigurasi global LoadModer");
 
 configCmd
@@ -297,6 +311,46 @@ modpackCmd
     handleAction(async (profileId: string, opts: {dir?: string; yes?: boolean}) => {
       const {modpackRemoveCommand} = await import("./commands/modpack.js");
       await modpackRemoveCommand(profileId, opts);
+    }),
+  );
+
+modpackCmd
+  .command("export")
+  .description("Mengekspor modpack instance ke arsip .mrpack (Modrinth) atau .zip")
+  .option("-f, --format <format>", "Format ekspor: mrpack | zip", "mrpack")
+  .option("-o, --output <path>", "Jalur berkas output ekspor")
+  .option("-n, --name <name>", "Nama modpack")
+  .option("-v, --version <version>", "Versi modpack", "1.0.0")
+  .option("-s, --summary <summary>", "Deskripsi singkat modpack")
+  .option("-d, --dir <path>", "Folder instance atau wadah")
+  .option("--no-config", "Kecualikan berkas konfigurasi config/")
+  .option("--resourcepacks", "Sertakan folder resourcepacks/")
+  .option("--shaderpacks", "Sertakan folder shaderpacks/")
+  .option("-p, --profile <profileId>", "ID profil tersimpan yang ingin diekspor")
+  .action(
+    handleAction(async (opts) => {
+      const {modpackExportCommand} = await import("./commands/modpack.js");
+      await modpackExportCommand(opts);
+    }),
+  );
+
+program
+  .command("export")
+  .description("Mengekspor modpack instance ke arsip .mrpack (Modrinth) atau .zip")
+  .option("-f, --format <format>", "Format ekspor: mrpack | zip", "mrpack")
+  .option("-o, --output <path>", "Jalur berkas output ekspor")
+  .option("-n, --name <name>", "Nama modpack")
+  .option("-v, --version <version>", "Versi modpack", "1.0.0")
+  .option("-s, --summary <summary>", "Deskripsi singkat modpack")
+  .option("-d, --dir <path>", "Folder instance atau wadah")
+  .option("--no-config", "Kecualikan berkas konfigurasi config/")
+  .option("--resourcepacks", "Sertakan folder resourcepacks/")
+  .option("--shaderpacks", "Sertakan folder shaderpacks/")
+  .option("-p, --profile <profileId>", "ID profil tersimpan yang ingin diekspor")
+  .action(
+    handleAction(async (opts) => {
+      const {modpackExportCommand} = await import("./commands/modpack.js");
+      await modpackExportCommand(opts);
     }),
   );
 

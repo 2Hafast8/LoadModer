@@ -158,4 +158,74 @@ describe("ProfileSnapshotManager", () => {
     expect(activeModsAfter).toContain("active-mod.jar");
     expect(activeModsAfter).not.toContain("new-mod.jar");
   });
+
+  it("saveCurrentSnapshot dengan preserveLiveFiles: true mempertahankan file di modsDir", async () => {
+    await writeFile(path.join(modsDir, "preserved-mod.jar"), "live content");
+
+    const res = await manager.saveCurrentSnapshot("test-inst", testInstance, {
+      preserveLiveFiles: true,
+    });
+
+    expect(res.savedCount).toBe(1);
+    expect(res.snapshot.modsCount).toBe(1);
+
+    // Live mods directory must still contain the file!
+    const liveMods = await readdir(modsDir);
+    expect(liveMods).toContain("preserved-mod.jar");
+
+    // Archive folder must also have the file
+    const snapshotBase = manager.getSnapshotBaseDir(testInstance);
+    const archived = await readdir(path.join(snapshotBase, res.snapshot.snapshotId, "jars"));
+    expect(archived).toContain("preserved-mod.jar");
+  });
+
+  it("archiveJarDir harus membersihkan berkas yang sudah dihapus dari mods live (pruning)", async () => {
+    await writeFile(path.join(modsDir, "mod-keep.jar"), "content keep");
+    await writeFile(path.join(modsDir, "mod-delete.jar"), "content delete");
+
+    await manager.saveCurrentSnapshot("test-inst", testInstance, { preserveLiveFiles: true });
+
+    const snapshotBase = manager.getSnapshotBaseDir(testInstance);
+    const archiveJarDir = path.join(snapshotBase, "fabric-26.2", "jars");
+    let archived = await readdir(archiveJarDir);
+    expect(archived).toContain("mod-keep.jar");
+    expect(archived).toContain("mod-delete.jar");
+
+    // Hapus mod-delete.jar dari folder live
+    await rm(path.join(modsDir, "mod-delete.jar"));
+
+    // Simpan ulang (atau sync)
+    const res = await manager.saveCurrentSnapshot("test-inst", testInstance, { preserveLiveFiles: true });
+    expect(res.snapshot.modsCount).toBe(1);
+
+    archived = await readdir(archiveJarDir);
+    expect(archived).toContain("mod-keep.jar");
+    expect(archived).not.toContain("mod-delete.jar");
+  });
+
+  it("hasLiveChanges mendeteksi penambahan, penghapusan, dan pengubahan status disabled", async () => {
+    await writeFile(path.join(modsDir, "mod-alpha.jar"), "content alpha");
+    await manager.saveCurrentSnapshot("test-inst", testInstance, { preserveLiveFiles: true });
+
+    // Ketika live files sama persis dengan snapshot
+    let changed = await manager.hasLiveChanges("test-inst", testInstance);
+    expect(changed).toBe(false);
+
+    // Ketika mod dinonaktifkan (rename ke .disabled)
+    await rm(path.join(modsDir, "mod-alpha.jar"));
+    await writeFile(path.join(modsDir, "mod-alpha.jar.disabled"), "content alpha");
+
+    changed = await manager.hasLiveChanges("test-inst", testInstance);
+    expect(changed).toBe(true);
+
+    // Setelah disinkronkan, hasLiveChanges kembali false
+    await manager.saveCurrentSnapshot("test-inst", testInstance, { preserveLiveFiles: true });
+    changed = await manager.hasLiveChanges("test-inst", testInstance);
+    expect(changed).toBe(false);
+
+    // Ketika mod baru ditambahkan
+    await writeFile(path.join(modsDir, "mod-beta.jar"), "content beta");
+    changed = await manager.hasLiveChanges("test-inst", testInstance);
+    expect(changed).toBe(true);
+  });
 });

@@ -19,9 +19,81 @@ import {
   Users,
   Shield,
   X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  RotateCcw,
+  Filter,
 } from 'lucide-react';
 import { MarkdownViewer } from '../components/MarkdownViewer.js';
+import { ModpackInstallModal, type ModpackTargetInfo } from '../components/ModpackInstallModal.js';
 import { useLanguage } from '../i18n/LanguageContext.js';
+
+export const CATEGORIES_BY_TYPE: Record<string, Array<{ slug: string; name: string }>> = {
+  mod: [
+    { slug: 'optimization', name: 'Optimasi & FPS Boost' },
+    { slug: 'adventure', name: 'Petualangan & Eksplorasi' },
+    { slug: 'magic', name: 'Sihir & Supranatural' },
+    { slug: 'technology', name: 'Teknologi & Otomasi' },
+    { slug: 'decoration', name: 'Dekorasi & Blok' },
+    { slug: 'storage', name: 'Penyimpanan & Chest' },
+    { slug: 'utility', name: 'Utilitas & Tool' },
+    { slug: 'library', name: 'Library & API' },
+    { slug: 'worldgen', name: 'Generasi Dunia & Bioma' },
+    { slug: 'mobs', name: 'Mob & Makhluk' },
+    { slug: 'food', name: 'Makanan & Pertanian' },
+    { slug: 'equipment', name: 'Senjata, Armor & Alat' },
+  ],
+  modpack: [
+    { slug: 'optimization', name: 'Optimasi & Ringan' },
+    { slug: 'adventure', name: 'Petualangan & Eksplorasi' },
+    { slug: 'quests', name: 'Quest & Progresi' },
+    { slug: 'tech', name: 'Teknologi & Industri' },
+    { slug: 'magic', name: 'Sihir & Misteri' },
+    { slug: 'combat', name: 'PvP & Pertarungan' },
+    { slug: 'kitchen-sink', name: 'All-in-One (Kitchen Sink)' },
+    { slug: 'challenging', name: 'Tantangan Hardcore' },
+  ],
+  shader: [
+    { slug: 'low', name: 'Low-End (Ringan & Cepat)' },
+    { slug: 'medium', name: 'Medium (Seimbang)' },
+    { slug: 'high', name: 'High / Ultra (Detail Tinggi)' },
+    { slug: 'path-tracing', name: 'Ray Tracing / Path Tracing' },
+    { slug: 'photorealistic', name: 'Fotorealistis' },
+    { slug: 'cartoon', name: 'Kartun & Cel Shading' },
+    { slug: 'vanilla-like', name: 'Vanilla Plus' },
+  ],
+  resourcepack: [
+    { slug: 'combat', name: 'PvP & Combat (Ringkas)' },
+    { slug: 'faith-vanilla', name: 'Faithful / Vanilla Plus' },
+    { slug: 'medieval', name: 'Abad Pertengahan' },
+    { slug: 'modern', name: 'Modern & Minimalis' },
+    { slug: 'photo-realistic', name: 'Fotorealistis' },
+    { slug: 'futuristic', name: 'Futuristik & Sci-Fi' },
+    { slug: 'utility', name: 'Utilitas, Font & GUI' },
+  ],
+};
+
+function getPageNumbers(current: number, total: number): Array<number | '...'> {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages: Array<number | '...'> = [1];
+  if (current > 3) {
+    pages.push('...');
+  }
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) {
+    pages.push('...');
+  }
+  pages.push(total);
+  return pages;
+}
 
 interface ProjectHit {
   project_id: string;
@@ -40,8 +112,15 @@ export const ExploreView: React.FC = () => {
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [projectType, setProjectType] = useState<'mod' | 'modpack' | 'shader' | 'resourcepack'>('mod');
-  const [loader, setLoader] = useState<'all' | 'fabric' | 'forge' | 'neoforge'>('all');
-  const [sortIndex, setSortIndex] = useState<'relevance' | 'downloads' | 'newest' | 'updated'>('downloads');
+  const [loader, setLoader] = useState<'all' | 'fabric' | 'forge' | 'neoforge' | 'quilt'>('all');
+  const [mcVersionFilter, setMcVersionFilter] = useState<string>('all');
+  const [availableVersions, setAvailableVersions] = useState<string[]>([]);
+  const [category, setCategory] = useState<string>('all');
+  const [environment, setEnvironment] = useState<'all' | 'client' | 'server'>('all');
+  const [sortIndex, setSortIndex] = useState<'relevance' | 'downloads' | 'follows' | 'newest' | 'updated'>('downloads');
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(24);
+  const [totalHits, setTotalHits] = useState<number>(0);
   const [hits, setHits] = useState<ProjectHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
@@ -51,6 +130,7 @@ export const ExploreView: React.FC = () => {
     name: string;
     gameVersion?: string;
     loader?: string;
+    capabilities?: any;
   } | null>(null);
   const [installedIndex, setInstalledIndex] = useState<{
     projectIds: string[];
@@ -65,6 +145,9 @@ export const ExploreView: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState<'description' | 'versions'>('description');
 
+  const [modpackModalTarget, setModpackModalTarget] = useState<ModpackTargetInfo | null>(null);
+  const [isModpackModalOpen, setIsModpackModalOpen] = useState(false);
+
   const fetchInstalledIndex = async () => {
     try {
       const idx = await window.api.mods.getInstalledIndex();
@@ -74,7 +157,7 @@ export const ExploreView: React.FC = () => {
     } catch {}
   };
 
-  const fetchActiveInstance = async () => {
+  const fetchActiveInstance = async (forceSyncFilters = false) => {
     try {
       const data = await window.api.instances.getAll();
       if (data.active) {
@@ -82,9 +165,18 @@ export const ExploreView: React.FC = () => {
           name: data.active.name,
           gameVersion: data.active.gameVersion,
           loader: data.active.loader,
+          capabilities: data.active.capabilities,
         });
-        if (data.active.loader && ['fabric', 'forge', 'neoforge'].includes(data.active.loader.toLowerCase())) {
-          setLoader(data.active.loader.toLowerCase() as any);
+        const ldr = data.active.loader?.toLowerCase();
+        if (ldr && ['fabric', 'forge', 'neoforge', 'quilt'].includes(ldr)) {
+          if (forceSyncFilters || loader === 'all') {
+            setLoader(ldr as any);
+          }
+        }
+        if (data.active.gameVersion) {
+          if (forceSyncFilters || mcVersionFilter === 'all') {
+            setMcVersionFilter(data.active.gameVersion);
+          }
         }
       }
     } catch (err) {
@@ -92,15 +184,46 @@ export const ExploreView: React.FC = () => {
     }
   };
 
+  const fetchMinecraftVersions = async () => {
+    try {
+      const vers = await window.api.minecraft.getVersions();
+      if (Array.isArray(vers)) {
+        const releaseVers = vers
+          .filter((v: any) => v.type === 'release')
+          .map((v: any) => v.id);
+        if (releaseVers.length > 0) {
+          setAvailableVersions(releaseVers);
+        }
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     fetchInstalledIndex();
     fetchActiveInstance();
-    const unsub = window.api.mods.onChanged?.(() => {
+    fetchMinecraftVersions();
+    const unsubMods = window.api.mods.onChanged?.(() => {
       fetchInstalledIndex();
       fetchActiveInstance();
     });
-    return () => unsub?.();
+    const unsubInst = window.api.instances.onChanged?.(() => {
+      fetchInstalledIndex();
+      fetchActiveInstance(true);
+    });
+    return () => {
+      unsubMods?.();
+      unsubInst?.();
+    };
   }, []);
+
+  useEffect(() => {
+    if (statusMessage) {
+      const timer = setTimeout(() => {
+        setStatusMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
 
   const checkIsInstalled = (item: { project_id?: string; id?: string; slug?: string }) => {
     const pid = (item.project_id || item.id || '').toLowerCase().trim();
@@ -118,28 +241,38 @@ export const ExploreView: React.FC = () => {
     return false;
   };
 
-  const searchModrinth = async (customQuery?: string) => {
+  const searchModrinth = async (customQuery?: string, targetPage?: number) => {
     const q = customQuery !== undefined ? customQuery : query;
+    const activePage = targetPage !== undefined ? targetPage : page;
+    const offset = Math.max(0, (activePage - 1) * pageSize);
     setLoading(true);
     setStatusMessage(null);
     try {
+      const isPackOrShader = projectType === 'shader' || projectType === 'resourcepack';
       const res = await window.api.modrinth.search(q, {
         type: projectType,
-        loader: loader !== 'all' ? loader : undefined,
-        limit: 24,
+        loader: isPackOrShader ? undefined : (loader !== 'all' ? loader : undefined),
+        mcVersion: mcVersionFilter !== 'all' ? mcVersionFilter : undefined,
+        category: category !== 'all' ? category : undefined,
+        environment: environment !== 'all' ? environment : undefined,
+        limit: pageSize,
+        offset,
         index: q.trim() ? (sortIndex === 'downloads' ? 'relevance' : sortIndex) : sortIndex,
       });
 
       if (res.error) {
         setStatusMessage({ text: res.error, type: 'error' });
         setHits([]);
+        setTotalHits(0);
       } else {
         setHits(res.hits ?? []);
+        setTotalHits(res.total_hits ?? 0);
       }
     } catch (err: any) {
       console.error('Search failed:', err);
       setStatusMessage({ text: err.message || t.explore.loadError, type: 'error' });
       setHits([]);
+      setTotalHits(0);
     } finally {
       setLoading(false);
     }
@@ -150,12 +283,13 @@ export const ExploreView: React.FC = () => {
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
-      searchModrinth(query);
+      searchModrinth(query, 1);
       return;
     }
 
     const timer = setTimeout(() => {
-      searchModrinth(query);
+      setPage(1);
+      searchModrinth(query, 1);
     }, 350);
 
     return () => clearTimeout(timer);
@@ -163,9 +297,42 @@ export const ExploreView: React.FC = () => {
 
   useEffect(() => {
     if (!isFirstRender.current) {
-      searchModrinth(query);
+      setPage(1);
+      searchModrinth(query, 1);
     }
-  }, [projectType, loader, sortIndex]);
+  }, [projectType, loader, category, environment, mcVersionFilter, sortIndex, pageSize]);
+
+  const handlePageChange = (newPage: number) => {
+    const totalPages = Math.max(1, Math.ceil(totalHits / pageSize));
+    if (newPage < 1 || newPage > totalPages || newPage === page) return;
+    setPage(newPage);
+    searchModrinth(query, newPage);
+  };
+
+  const handleSelectProjectType = (type: 'mod' | 'modpack' | 'shader' | 'resourcepack') => {
+    setProjectType(type);
+    setCategory('all');
+  };
+
+  const handleResetFilters = () => {
+    setQuery('');
+    setProjectType('mod');
+    if (activeInstance?.loader && ['fabric', 'forge', 'neoforge', 'quilt'].includes(activeInstance.loader.toLowerCase())) {
+      setLoader(activeInstance.loader.toLowerCase() as any);
+    } else {
+      setLoader('all');
+    }
+    if (activeInstance?.gameVersion) {
+      setMcVersionFilter(activeInstance.gameVersion);
+    } else {
+      setMcVersionFilter('all');
+    }
+    setCategory('all');
+    setEnvironment('all');
+    setSortIndex('downloads');
+    setPage(1);
+    setPageSize(24);
+  };
 
   const handleOpenDetail = async (hit: ProjectHit) => {
     setSelectedSlug(hit.slug);
@@ -192,13 +359,91 @@ export const ExploreView: React.FC = () => {
     }
   };
 
+  const executeModpackInstall = async (options: { modsOnly: boolean; cleanInstall: boolean }) => {
+    if (!modpackModalTarget) return;
+    setLoading(true);
+    setStatusMessage(null);
+
+    try {
+      if (modpackModalTarget.localFilePath) {
+        const res = await window.api.modrinth.installLocalMrpack(
+          modpackModalTarget.localFilePath,
+          options
+        );
+        if (res.success) {
+          setStatusMessage({
+            text: res.message ?? t.explore.mrpackSuccess,
+            type: 'success',
+          });
+          await fetchInstalledIndex();
+        } else {
+          setStatusMessage({ text: res.error ?? 'Gagal memasang modpack', type: 'error' });
+        }
+      } else if (modpackModalTarget.slugOrId) {
+        const res = await window.api.modrinth.install(modpackModalTarget.slugOrId, {
+          type: 'modpack',
+          loader: modpackModalTarget.loader,
+          versionId: modpackModalTarget.versionId,
+          modsOnly: options.modsOnly,
+          cleanInstall: options.cleanInstall,
+        });
+
+        if (res.success) {
+          if (modpackModalTarget.slugOrId) {
+            setInstalledMap((prev) => ({ ...prev, [modpackModalTarget.slugOrId!]: true }));
+          }
+          await fetchInstalledIndex();
+          setStatusMessage({
+            text: res.message ?? t.explore.installSuccess.replace('{name}', modpackModalTarget.title),
+            type: 'success',
+          });
+        } else {
+          setStatusMessage({
+            text: res.error ?? t.explore.installFailed.replace('{name}', modpackModalTarget.title),
+            type: 'error',
+          });
+        }
+      }
+    } catch (err: any) {
+      setStatusMessage({ text: err.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInstall = async (slug: string, id: string, type: string) => {
+    if (type === 'modpack') {
+      if (activeInstance?.capabilities && !activeInstance.capabilities.supportsModpack) {
+        setStatusMessage({
+          text: t.explore.officialNoModpack,
+          type: 'error',
+        });
+        return;
+      }
+      setModpackModalTarget({
+        title: slug,
+        slugOrId: slug,
+        loader: loader !== 'all' ? loader : undefined,
+        gameVersion: mcVersionFilter !== 'all' ? mcVersionFilter : activeInstance?.gameVersion,
+      });
+      setIsModpackModalOpen(true);
+      return;
+    }
+
     setInstallingId(id);
     setStatusMessage(null);
     try {
+      const targetLoader = activeInstance?.loader
+        ? activeInstance.loader
+        : (loader !== 'all' ? loader : undefined);
+      const targetGameVersion = activeInstance?.gameVersion
+        ? activeInstance.gameVersion
+        : (mcVersionFilter !== 'all' ? mcVersionFilter : undefined);
+
       const res = await window.api.modrinth.install(slug, {
         type,
-        loader: loader !== 'all' ? loader : undefined,
+        loader: targetLoader,
+        mcVersion: targetGameVersion,
       });
 
       if (res.success) {
@@ -223,11 +468,32 @@ export const ExploreView: React.FC = () => {
 
   const handleInstallVersion = async (v: any) => {
     if (!projectDetail) return;
+    const pType = projectDetail.project_type || projectType;
+    if (pType === 'modpack') {
+      if (activeInstance?.capabilities && !activeInstance.capabilities.supportsModpack) {
+        setStatusMessage({
+          text: t.explore.officialNoModpack,
+          type: 'error',
+        });
+        return;
+      }
+      setModpackModalTarget({
+        title: projectDetail.title || projectDetail.slug,
+        slugOrId: projectDetail.slug,
+        versionId: v.id,
+        versionNumber: v.version_number,
+        loader: loader !== 'all' ? loader : undefined,
+        gameVersion: activeInstance?.gameVersion,
+      });
+      setIsModpackModalOpen(true);
+      return;
+    }
+
     setInstallingId(v.id);
     setStatusMessage(null);
     try {
       const res = await window.api.modrinth.install(projectDetail.slug, {
-        type: projectDetail.project_type || projectType,
+        type: pType,
         loader: loader !== 'all' ? loader : undefined,
         versionId: v.id,
       });
@@ -257,22 +523,28 @@ export const ExploreView: React.FC = () => {
   };
 
   const handleInstallLocalMrpack = async () => {
-    setLoading(true);
-    setStatusMessage(null);
+    if (activeInstance?.capabilities && !activeInstance.capabilities.supportsModpack) {
+      setStatusMessage({
+        text: t.explore.officialNoModpack,
+        type: 'error',
+      });
+      return;
+    }
+
     try {
-      const res = await window.api.modrinth.installLocalMrpack();
-      if (res.success) {
-        setStatusMessage({
-          text: res.message ?? t.explore.mrpackSuccess,
-          type: 'success',
-        });
-      } else if (res.error) {
-        setStatusMessage({ text: res.error, type: 'error' });
-      }
+      const filePath = await window.api.dialog.selectMrpack();
+      if (!filePath) return;
+
+      const baseName = filePath.split(/[/\\]/).pop()?.replace(/\.mrpack$/i, '') || 'Modpack';
+      setModpackModalTarget({
+        title: baseName,
+        localFilePath: filePath,
+        loader: loader !== 'all' ? loader : undefined,
+        gameVersion: activeInstance?.gameVersion,
+      });
+      setIsModpackModalOpen(true);
     } catch (err: any) {
       setStatusMessage({ text: err.message, type: 'error' });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -605,61 +877,83 @@ export const ExploreView: React.FC = () => {
             </div>
           )}
         </div>
+
+        <ModpackInstallModal
+          isOpen={isModpackModalOpen}
+          onClose={() => {
+            setIsModpackModalOpen(false);
+            setModpackModalTarget(null);
+          }}
+          targetInfo={modpackModalTarget}
+          onConfirm={executeModpackInstall}
+        />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
-      <div className="p-3.5 border-b border-obsidian-border bg-obsidian-surface flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
-        <div className="flex items-center space-x-2 w-full xl:w-auto xl:flex-1 xl:max-w-md">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              searchModrinth();
-            }}
-            className="relative flex-1 flex items-center"
-          >
-            <Search className="w-4 h-4 absolute left-3 text-nordic-muted" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t.explore.searchPlaceholder}
-              className="w-full bg-obsidian-card border border-obsidian-border rounded pl-9 pr-20 py-1.5 text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary transition-colors"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                className="absolute right-14 text-nordic-muted hover:text-nordic-text p-1 cursor-pointer transition-colors"
-                title={t.explore.clearSearch}
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <button
-              type="submit"
-              className="absolute right-1 px-2.5 py-1 rounded bg-emerald-primary text-obsidian-bg text-[11px] font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
+      {/* 2-Tier Header Toolbar */}
+      <div className="border-b border-obsidian-border bg-obsidian-surface divide-y divide-obsidian-border/50 shrink-0">
+        {/* Tier 1: Pencarian & Pemilihan Tipe Aset */}
+        <div className="p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="flex items-center space-x-2 w-full md:max-w-xl flex-1">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                searchModrinth();
+              }}
+              className="relative flex-1 flex items-center"
             >
-              {t.explore.searchBtn}
-            </button>
-          </form>
+              <Search className="w-4 h-4 absolute left-3 text-nordic-muted" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t.explore.searchPlaceholder}
+                className="w-full bg-obsidian-card border border-obsidian-border rounded pl-9 pr-20 py-1.5 text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary transition-colors"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="absolute right-14 text-nordic-muted hover:text-nordic-text p-1 cursor-pointer transition-colors"
+                  title={t.explore.clearSearch}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                type="submit"
+                className="absolute right-1 px-2.5 py-1 rounded bg-emerald-primary text-obsidian-bg text-[11px] font-semibold hover:bg-emerald-active transition-colors cursor-pointer"
+              >
+                {t.explore.searchBtn}
+              </button>
+            </form>
 
-          <button
-            onClick={handleInstallLocalMrpack}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            title={t.explore.installMrpackTooltip}
-          >
-            <FileArchive className="w-3.5 h-3.5" />
-            <span>{t.explore.installMrpack}</span>
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 justify-start xl:justify-end">
-          <div className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs shrink-0">
             <button
-              onClick={() => setProjectType('mod')}
+              onClick={handleInstallLocalMrpack}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              title={t.explore.installMrpackTooltip}
+            >
+              <FileArchive className="w-3.5 h-3.5" />
+              <span>{t.explore.installMrpack}</span>
+            </button>
+
+            <button
+              onClick={handleResetFilters}
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              title={t.explore.resetTooltip}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t.explore.resetFilters}</span>
+            </button>
+          </div>
+
+          {/* Tipe Asset Selector Tabs */}
+          <div className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs shrink-0 self-start md:self-auto">
+            <button
+              onClick={() => handleSelectProjectType('mod')}
               className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
                 projectType === 'mod'
                   ? 'bg-emerald-primary text-obsidian-bg font-semibold'
@@ -670,7 +964,7 @@ export const ExploreView: React.FC = () => {
               <span>{t.explore.typeMod}</span>
             </button>
             <button
-              onClick={() => setProjectType('modpack')}
+              onClick={() => handleSelectProjectType('modpack')}
               className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
                 projectType === 'modpack'
                   ? 'bg-emerald-primary text-obsidian-bg font-semibold'
@@ -681,7 +975,7 @@ export const ExploreView: React.FC = () => {
               <span>{t.explore.typeModpack}</span>
             </button>
             <button
-              onClick={() => setProjectType('shader')}
+              onClick={() => handleSelectProjectType('shader')}
               className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
                 projectType === 'shader'
                   ? 'bg-emerald-primary text-obsidian-bg font-semibold'
@@ -692,7 +986,7 @@ export const ExploreView: React.FC = () => {
               <span>{t.explore.typeShader}</span>
             </button>
             <button
-              onClick={() => setProjectType('resourcepack')}
+              onClick={() => handleSelectProjectType('resourcepack')}
               className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
                 projectType === 'resourcepack'
                   ? 'bg-emerald-primary text-obsidian-bg font-semibold'
@@ -703,37 +997,123 @@ export const ExploreView: React.FC = () => {
               <span>{t.explore.typeResourcepack}</span>
             </button>
           </div>
+        </div>
 
-          <select
-            value={loader}
-            onChange={(e) => setLoader(e.target.value as any)}
-            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
-          >
-            <option value="all">{t.explore.loaderAll}</option>
-            <option value="fabric">Fabric</option>
-            <option value="forge">Forge</option>
-            <option value="neoforge">NeoForge</option>
-          </select>
+        {/* Tier 2: Bilah Filter & Pengurutan */}
+        <div className="px-3.5 py-2 flex flex-wrap items-center justify-between gap-2.5 bg-obsidian-card/30 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center space-x-1 text-nordic-muted text-[11px] font-semibold uppercase font-mono mr-1">
+              <Filter className="w-3 h-3 text-emerald-primary" />
+              <span>Filter:</span>
+            </div>
 
-          <select
-            value={sortIndex}
-            onChange={(e) => setSortIndex(e.target.value as any)}
-            className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
-          >
-            <option value="downloads">{t.explore.sortDownloads}</option>
-            <option value="relevance">{t.explore.sortRelevance}</option>
-            <option value="updated">{t.explore.sortUpdated}</option>
-            <option value="newest">{t.explore.sortNewest}</option>
-          </select>
+            {/* Kategori Dinamis per Tipe */}
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0 max-w-[160px] truncate"
+              title="Filter Kategori"
+            >
+              <option value="all">{t.explore.categoryAll}</option>
+              {CATEGORIES_BY_TYPE[projectType]?.map((cat) => (
+                <option key={cat.slug} value={cat.slug}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
 
-          <button
-            onClick={() => searchModrinth()}
-            disabled={loading}
-            className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer shrink-0"
-            title={t.explore.refreshTooltip}
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+            {/* Loader Filter: HANYA jika bukan shader & bukan resourcepack */}
+            {projectType !== 'shader' && projectType !== 'resourcepack' && (
+              <select
+                value={loader}
+                onChange={(e) => setLoader(e.target.value as any)}
+                className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
+                title="Filter Mod Loader"
+              >
+                <option value="all">{t.explore.loaderAll}</option>
+                <option value="fabric">Fabric</option>
+                <option value="forge">Forge</option>
+                <option value="neoforge">NeoForge</option>
+                <option value="quilt">Quilt</option>
+              </select>
+            )}
+
+            {/* Minecraft Version Filter */}
+            <select
+              value={mcVersionFilter}
+              onChange={(e) => setMcVersionFilter(e.target.value)}
+              className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0 max-w-[160px] truncate"
+              title="Filter Versi Minecraft"
+            >
+              {activeInstance?.gameVersion && (
+                <option value={activeInstance.gameVersion}>
+                  {t.explore.mcVersionActive.replace('{version}', activeInstance.gameVersion)}
+                </option>
+              )}
+              <option value="all">{t.explore.mcVersionAll}</option>
+              {(availableVersions.length > 0
+                ? availableVersions
+                : [
+                    '1.21.4',
+                    '1.21.1',
+                    '1.21',
+                    '1.20.6',
+                    '1.20.4',
+                    '1.20.2',
+                    '1.20.1',
+                    '1.19.4',
+                    '1.19.2',
+                    '1.18.2',
+                    '1.16.5',
+                    '1.12.2',
+                  ]
+              )
+                .filter((v) => v !== activeInstance?.gameVersion)
+                .slice(0, 30)
+                .map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+            </select>
+
+            {/* Environment Filter (Client / Server / All) */}
+            <select
+              value={environment}
+              onChange={(e) => setEnvironment(e.target.value as any)}
+              className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
+              title="Filter Lingkungan"
+            >
+              <option value="all">{t.explore.environmentAll}</option>
+              <option value="client">{t.explore.envClient}</option>
+              <option value="server">{t.explore.envServer}</option>
+            </select>
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0">
+            {/* Sort Index Filter */}
+            <select
+              value={sortIndex}
+              onChange={(e) => setSortIndex(e.target.value as any)}
+              className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
+              title="Urutan Hasil"
+            >
+              <option value="downloads">{t.explore.sortDownloads}</option>
+              <option value="relevance">{t.explore.sortRelevance}</option>
+              <option value="follows">{t.explore.sortFollows}</option>
+              <option value="updated">{t.explore.sortUpdated}</option>
+              <option value="newest">{t.explore.sortNewest}</option>
+            </select>
+
+            <button
+              onClick={() => searchModrinth()}
+              disabled={loading}
+              className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer shrink-0"
+              title={t.explore.refreshTooltip}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -766,7 +1146,7 @@ export const ExploreView: React.FC = () => {
             <span>{t.explore.emptyResults}</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
             {hits.map((hit) => {
               const isInstalled = checkIsInstalled(hit);
               const isInstalling = installingId === hit.project_id;
@@ -847,6 +1227,99 @@ export const ExploreView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {totalHits > 0 && (
+        <div className="px-4 py-2.5 border-t border-obsidian-border bg-obsidian-surface flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0 select-none">
+          <div className="text-nordic-muted text-[11px]">
+            {t.explore.paginationShowing
+              .replace('{from}', String(Math.min((page - 1) * pageSize + 1, totalHits)))
+              .replace('{to}', String(Math.min(page * pageSize, totalHits)))
+              .replace('{total}', totalHits.toLocaleString())
+              .replace('{page}', String(page))
+              .replace('{pages}', String(Math.max(1, Math.ceil(totalHits / pageSize))))}
+          </div>
+
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={() => handlePageChange(1)}
+              disabled={page <= 1 || loading}
+              className="p-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              title={t.explore.paginationFirst}
+            >
+              <ChevronsLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1 || loading}
+              className="p-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              title={t.explore.paginationPrev}
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            {getPageNumbers(page, Math.max(1, Math.ceil(totalHits / pageSize))).map((pNum, idx) =>
+              pNum === '...' ? (
+                <span key={`dots-${idx}`} className="px-1.5 text-nordic-muted font-bold text-xs select-none">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={pNum}
+                  onClick={() => handlePageChange(Number(pNum))}
+                  disabled={loading}
+                  className={`min-w-[28px] h-7 px-2 rounded font-medium text-xs transition-colors cursor-pointer ${
+                    page === pNum
+                      ? 'bg-emerald-primary text-obsidian-bg font-bold'
+                      : 'bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40'
+                  }`}
+                >
+                  {pNum}
+                </button>
+              )
+            )}
+
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= Math.max(1, Math.ceil(totalHits / pageSize)) || loading}
+              className="p-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              title={t.explore.paginationNext}
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => handlePageChange(Math.max(1, Math.ceil(totalHits / pageSize)))}
+              disabled={page >= Math.max(1, Math.ceil(totalHits / pageSize)) || loading}
+              className="p-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              title={t.explore.paginationLast}
+            >
+              <ChevronsRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <span className="text-[11px] text-nordic-muted">Tampilkan:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="bg-obsidian-card border border-obsidian-border rounded px-2 py-1 text-[11px] text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer"
+            >
+              <option value={12}>12 {t.explore.paginationPerPage.replace('{count}', '').trim()}</option>
+              <option value={24}>24 {t.explore.paginationPerPage.replace('{count}', '').trim()}</option>
+              <option value={48}>48 {t.explore.paginationPerPage.replace('{count}', '').trim()}</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      <ModpackInstallModal
+        isOpen={isModpackModalOpen}
+        onClose={() => {
+          setIsModpackModalOpen(false);
+          setModpackModalTarget(null);
+        }}
+        targetInfo={modpackModalTarget}
+        onConfirm={executeModpackInstall}
+      />
     </div>
   );
 };

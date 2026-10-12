@@ -48,6 +48,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
   const [updates, setUpdates] = useState<Record<string, UpdateItem>>({});
   const [loading, setLoading] = useState(true);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updatingAll, setUpdatingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'updates'>('all');
   const [storageUsage, setStorageUsage] = useState('0 B');
@@ -218,6 +219,37 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
     }
   };
 
+  const handleApplyAllUpdates = async () => {
+    const updateCount = Object.keys(updates).length;
+    if (updateCount === 0) return;
+
+    const confirmed = window.confirm(
+      t.mods.updateAllConfirm.replace('{count}', String(updateCount))
+    );
+    if (!confirmed) return;
+
+    setUpdatingAll(true);
+    try {
+      const res = await window.api.mods.applyAllUpdates();
+      if (res.success) {
+        showNotification(
+          t.mods.updateAllSuccess.replace('{count}', String(res.updatedCount))
+        );
+        setUpdates({});
+        if (statusFilter === 'updates') {
+          setStatusFilter('all');
+        }
+        await fetchMods();
+      } else {
+        showNotification(res.error ?? t.mods.updateFailed, 'error');
+      }
+    } catch (err: any) {
+      showNotification(err.message, 'error');
+    } finally {
+      setUpdatingAll(false);
+    }
+  };
+
   const filteredMods = useMemo(() => {
     return mods.filter((m) => {
       const matchesSearch =
@@ -340,13 +372,29 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
 
               <button
                 onClick={handleCheckUpdates}
-                disabled={checkingUpdates}
-                className="flex items-center space-x-1 px-2.5 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+                disabled={checkingUpdates || updatingAll}
+                className="flex items-center space-x-1 px-2.5 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer disabled:opacity-50"
                 title={t.mods.checkUpdatesTooltip}
               >
                 <ArrowUpCircle className={`w-3.5 h-3.5 ${checkingUpdates ? 'animate-spin' : ''}`} />
                 <span>{t.mods.checkUpdates}</span>
               </button>
+
+              {Object.keys(updates).length > 0 && (
+                <button
+                  onClick={handleApplyAllUpdates}
+                  disabled={updatingAll || checkingUpdates}
+                  className="flex items-center space-x-1 px-2.5 py-1.5 rounded bg-status-warning/20 border border-status-warning/40 text-xs text-status-warning hover:bg-status-warning hover:text-obsidian-bg transition-colors cursor-pointer disabled:opacity-50 font-semibold"
+                  title={t.mods.updateAllTooltip}
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${updatingAll ? 'animate-spin' : ''}`} />
+                  <span>
+                    {updatingAll
+                      ? t.mods.updatingAll
+                      : t.mods.updateAll.replace('{count}', String(Object.keys(updates).length))}
+                  </span>
+                </button>
+              )}
             </>
           )}
 
@@ -470,7 +518,8 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
                           {updateInfo ? (
                             <button
                               onClick={() => handleApplyUpdate(updateInfo)}
-                              className="px-2 py-0.5 rounded bg-status-warning/20 border border-status-warning/40 text-status-warning hover:bg-status-warning hover:text-obsidian-bg text-[10px] font-mono font-semibold transition-colors cursor-pointer"
+                              disabled={updatingAll}
+                              className="px-2 py-0.5 rounded bg-status-warning/20 border border-status-warning/40 text-status-warning hover:bg-status-warning hover:text-obsidian-bg text-[10px] font-mono font-semibold transition-colors cursor-pointer disabled:opacity-50"
                               title={t.mods.updateTo.replace('{version}', updateInfo.nextFileName)}
                             >
                               ⬆ {updateInfo.nextVersion}

@@ -18,12 +18,25 @@ export interface DesktopAPI {
     isMaximized: () => Promise<boolean>;
   };
   instances: {
-    getAll: () => Promise<{ active: any | null; list: any[] }>;
+    getAll: () => Promise<{ active: any | null; list: any[]; status?: any }>;
+    getStatus: () => Promise<any | null>;
     setActive: (id: string) => Promise<{ success: boolean; error?: string }>;
     scanAll: () => Promise<any[]>;
     deepScanDrives: () => Promise<any[]>;
     browseFolder: () => Promise<{ success: boolean; instance?: any; error?: string }>;
     openFolder: (targetPath?: string) => Promise<{ success: boolean; error?: string }>;
+    switchMode: (mode: 'default' | 'modpack', containerName?: string) => Promise<{ success: boolean; active?: any; error?: string }>;
+    getContainers: () => Promise<any[]>;
+    switchVersionAndLoader: (loader: string, gameVersion: string) => Promise<{ success: boolean; savedCount?: number; restoredCount?: number; error?: string }>;
+    updateConfig: (instanceId: string, updates: { name?: string; loader?: string; gameVersion?: string }) => Promise<{ success: boolean; error?: string }>;
+    onChanged: (callback: () => void) => () => void;
+  };
+  minecraft: {
+    getVersions: () => Promise<string[]>;
+  };
+  baseline: {
+    getStatus: () => Promise<{ exists: boolean; createdAt?: string; filesCount?: number }>;
+    restore: () => Promise<{ success: boolean; restoredCount?: number; error?: string }>;
   };
   mods: {
     list: (customDir?: string) => Promise<{
@@ -69,6 +82,12 @@ export interface DesktopAPI {
       loader?: string;
     }>;
     applyUpdate: (currentFile: string) => Promise<{ success: boolean; error?: string }>;
+    applyAllUpdates: () => Promise<{
+      success: boolean;
+      updatedCount: number;
+      errors?: Array<{ filename: string; error: string }>;
+      error?: string;
+    }>;
     getInstalledIndex: () => Promise<{
       projectIds: string[];
       slugs: string[];
@@ -95,28 +114,64 @@ export interface DesktopAPI {
         type?: string;
         mcVersion?: string;
         loader?: string;
+        category?: string;
+        environment?: 'client' | 'server' | 'all';
         limit?: number;
+        offset?: number;
         index?: 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';
       }
-    ) => Promise<any>;
+    ) => Promise<{ hits: any[]; total_hits: number; offset: number; limit: number; error?: string }>;
     getProject: (slugOrId: string) => Promise<any>;
     getVersions: (slugOrId: string, filter?: { loader?: string; mcVersion?: string }) => Promise<any[]>;
     install: (
       slugOrId: string,
-      options?: { type?: string; mcVersion?: string; loader?: string; versionId?: string }
+      options?: {
+        type?: string;
+        mcVersion?: string;
+        loader?: string;
+        versionId?: string;
+        modsOnly?: boolean;
+        cleanInstall?: boolean;
+      }
     ) => Promise<{ success: boolean; message?: string; error?: string }>;
-    installLocalMrpack: (filePath?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+    installLocalMrpack: (
+      filePath?: string,
+      options?: { modsOnly?: boolean; cleanInstall?: boolean }
+    ) => Promise<{ success: boolean; message?: string; error?: string }>;
   };
   modpack: {
+    resolveContainer: (loader?: string, gameVersion?: string) => Promise<{
+      containerDir: string;
+      containerName: string;
+      matchedLoader: string;
+      launcher: string;
+      activeProfile: string | null;
+      activeProfileName: string | null;
+    } | null>;
+    inspect: (filePath: string) => Promise<{
+      name?: string;
+      versionId?: string;
+      gameVersion?: string;
+      loader?: string;
+      containerName?: string;
+      containerDir?: string;
+      activeProfile?: string | null;
+      activeProfileName?: string | null;
+      error?: string;
+    }>;
     listProfiles: () => Promise<any[]>;
     switchProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
     disableActive: () => Promise<{ success: boolean; error?: string }>;
+    removeProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
     export: (options: {
       format: 'mrpack' | 'zip';
       name: string;
       version: string;
       summary?: string;
       includeConfigs?: boolean;
+      includeResourcepacks?: boolean;
+      includeShaderpacks?: boolean;
+      profileId?: string;
     }) => Promise<{
       success: boolean;
       outputPath?: string;
@@ -130,6 +185,7 @@ export interface DesktopAPI {
     create: (note?: string) => Promise<{ success: boolean; snapshot?: any; error?: string }>;
     restore: (snapshotId: string) => Promise<{ success: boolean; restoredCount?: number; error?: string }>;
     delete: (snapshotId: string) => Promise<{ success: boolean; error?: string }>;
+    saveCurrent: () => Promise<{ success: boolean; snapshot?: any; savedCount?: number; error?: string }>;
     switchProfile: (loader: string, gameVersion: string) => Promise<{ success: boolean; savedCount?: number; restoredCount?: number; error?: string }>;
   };
   logs: {
@@ -157,11 +213,33 @@ const api: DesktopAPI = {
   },
   instances: {
     getAll: () => ipcRenderer.invoke('instances:getAll'),
+    getStatus: () => ipcRenderer.invoke('instances:getStatus'),
     setActive: (id: string) => ipcRenderer.invoke('instances:setActive', id),
     scanAll: () => ipcRenderer.invoke('instances:scanAll'),
     deepScanDrives: () => ipcRenderer.invoke('instances:deepScanDrives'),
     browseFolder: () => ipcRenderer.invoke('instances:browseFolder'),
     openFolder: (targetPath?: string) => ipcRenderer.invoke('instances:openFolder', targetPath),
+    switchMode: (mode: 'default' | 'modpack', containerName?: string) =>
+      ipcRenderer.invoke('instances:switchMode', mode, containerName),
+    getContainers: () => ipcRenderer.invoke('instances:getContainers'),
+    switchVersionAndLoader: (loader: string, gameVersion: string) =>
+      ipcRenderer.invoke('instances:switchVersionAndLoader', loader, gameVersion),
+    updateConfig: (instanceId: string, updates: { name?: string; loader?: string; gameVersion?: string }) =>
+      ipcRenderer.invoke('instances:updateConfig', instanceId, updates),
+    onChanged: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on('instances:changed', listener);
+      return () => {
+        ipcRenderer.removeListener('instances:changed', listener);
+      };
+    },
+  },
+  minecraft: {
+    getVersions: () => ipcRenderer.invoke('minecraft:getVersions'),
+  },
+  baseline: {
+    getStatus: () => ipcRenderer.invoke('baseline:getStatus'),
+    restore: () => ipcRenderer.invoke('baseline:restore'),
   },
   mods: {
     list: (customDir?: string) => ipcRenderer.invoke('mods:list', customDir),
@@ -172,6 +250,7 @@ const api: DesktopAPI = {
       ipcRenderer.invoke('mods:remove', fileName, prune, customDir, type),
     checkUpdates: () => ipcRenderer.invoke('mods:checkUpdates'),
     applyUpdate: (currentFile: string) => ipcRenderer.invoke('mods:applyUpdate', currentFile),
+    applyAllUpdates: () => ipcRenderer.invoke('mods:applyAllUpdates'),
     getInstalledIndex: () => ipcRenderer.invoke('mods:getInstalledIndex'),
     installDroppedFiles: (filePaths: string[]) =>
       ipcRenderer.invoke('mods:installDroppedFiles', filePaths),
@@ -188,12 +267,17 @@ const api: DesktopAPI = {
     getProject: (slugOrId: string) => ipcRenderer.invoke('modrinth:getProject', slugOrId),
     getVersions: (slugOrId: string, filter) => ipcRenderer.invoke('modrinth:getVersions', slugOrId, filter),
     install: (slugOrId: string, options) => ipcRenderer.invoke('modrinth:install', slugOrId, options),
-    installLocalMrpack: (filePath?: string) => ipcRenderer.invoke('modrinth:installLocalMrpack', filePath),
+    installLocalMrpack: (filePath?: string, options?: any) =>
+      ipcRenderer.invoke('modrinth:installLocalMrpack', filePath, options),
   },
   modpack: {
+    resolveContainer: (loader?: string, gameVersion?: string) =>
+      ipcRenderer.invoke('modpack:resolveContainer', loader, gameVersion),
+    inspect: (filePath: string) => ipcRenderer.invoke('modpack:inspect', filePath),
     listProfiles: () => ipcRenderer.invoke('modpack:listProfiles'),
     switchProfile: (profileId: string) => ipcRenderer.invoke('modpack:switchProfile', profileId),
     disableActive: () => ipcRenderer.invoke('modpack:disableActive'),
+    removeProfile: (profileId: string) => ipcRenderer.invoke('modpack:removeProfile', profileId),
     export: (options) => ipcRenderer.invoke('modpack:export', options),
   },
   snapshots: {
@@ -201,6 +285,7 @@ const api: DesktopAPI = {
     create: (note?: string) => ipcRenderer.invoke('snapshots:create', note),
     restore: (snapshotId: string) => ipcRenderer.invoke('snapshots:restore', snapshotId),
     delete: (snapshotId: string) => ipcRenderer.invoke('snapshots:delete', snapshotId),
+    saveCurrent: () => ipcRenderer.invoke('snapshots:saveCurrent'),
     switchProfile: (loader: string, gameVersion: string) =>
       ipcRenderer.invoke('snapshots:switchProfile', loader, gameVersion),
   },

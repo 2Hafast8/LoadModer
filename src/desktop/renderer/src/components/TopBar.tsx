@@ -49,7 +49,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             LoadModer
           </span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-card text-nordic-muted border border-obsidian-border">
-            v2.6.0
+            v2.7.0
           </span>
         </div>
       </div>

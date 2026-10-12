@@ -50,4 +50,18 @@ describe('Desktop Dual-Mode Architecture', () => {
     const { registerIpcHandlers } = await import('../src/desktop/main/ipcHandlers.js');
     expect(typeof registerIpcHandlers).toBe('function');
   });
+
+  it('harus mengekspos API backend CLI lengkap pada preload desktop bridge', () => {
+    const preloadCjsPath = path.resolve(process.cwd(), 'dist-desktop/preload.cjs');
+    expect(existsSync(preloadCjsPath)).toBe(true);
+    const content = readFileSync(preloadCjsPath, 'utf8');
+
+    expect(content).toContain('switchMode');
+    expect(content).toContain('getContainers');
+    expect(content).toContain('switchVersionAndLoader');
+    expect(content).toContain('updateConfig');
+    expect(content).toContain('minecraft');
+    expect(content).toContain('baseline');
+    expect(content).toContain('removeProfile');
+  });
 });

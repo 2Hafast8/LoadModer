@@ -358,3 +358,81 @@ export async function modpackRemoveCommand(
     process.exitCode = 1;
   }
 }
+
+export interface ModpackExportCliOptions {
+  format?: 'mrpack' | 'zip';
+  output?: string;
+  name?: string;
+  version?: string;
+  summary?: string;
+  dir?: string;
+  config?: boolean;
+  resourcepacks?: boolean;
+  shaderpacks?: boolean;
+  profile?: string;
+  skipBanner?: boolean;
+}
+
+export async function modpackExportCommand(opts: ModpackExportCliOptions = {}): Promise<void> {
+  if (!opts.skipBanner) {
+    showBanner();
+  }
+  await instanceConfig.load();
+  const active = instanceConfig.getActiveInstance();
+
+  const effectiveInstanceDir = await resolveInstanceDir(opts.dir);
+  if (!effectiveInstanceDir && !active?.modsDir) {
+    p.log.error('Folder instance belum ditentukan. Jalankan "lm init" terlebih dahulu.');
+    process.exitCode = 1;
+    return;
+  }
+
+  const format = opts.format === 'zip' ? 'zip' : 'mrpack';
+  const name = opts.name || active?.name || 'LoadModer Pack';
+  const version = opts.version || '1.0.0';
+  const ext = format === 'mrpack' ? 'mrpack' : 'zip';
+  const safeBaseName = name.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+  const defaultOutputPath = path.resolve(opts.output || `${safeBaseName}-${version}.${ext}`);
+
+  const s = p.spinner();
+  s.start(`Mengekspor modpack (${format.toUpperCase()}) ke: ${pc.cyan(defaultOutputPath)}...`);
+
+  try {
+    let sourceProfileDir: string | undefined = undefined;
+    if (opts.profile && effectiveInstanceDir) {
+      const pDir = path.join(ModpackProfileManager.getProfilesDir(effectiveInstanceDir), opts.profile);
+      sourceProfileDir = pDir;
+    }
+
+    const { modpackExporter } = await import("../core/modpack/exporter.js");
+    const result = await modpackExporter.exportModpack({
+      format,
+      instanceDir: effectiveInstanceDir || path.dirname(active?.modsDir || ''),
+      modsDir: active?.modsDir,
+      outputPath: defaultOutputPath,
+      name,
+      version,
+      summary: opts.summary,
+      gameVersion: active?.gameVersion || '1.20.1',
+      loader: active?.loader || 'fabric',
+      includeConfigs: opts.config !== false,
+      includeResourcepacks: Boolean(opts.resourcepacks),
+      includeShaderpacks: Boolean(opts.shaderpacks),
+      sourceProfileDir,
+    });
+
+    const sizeMb = (result.sizeBytes / (1024 * 1024)).toFixed(2);
+    s.stop(pc.green(`Modpack berhasil diekspor!`));
+    p.note(
+      `${pc.bold('Berkas')}      : ${pc.cyan(result.outputPath)}\n` +
+      `${pc.bold('Format')}      : ${pc.yellow(format.toUpperCase())}\n` +
+      `${pc.bold('Jumlah File')} : ${pc.white(String(result.filesCount))} berkas\n` +
+      `${pc.bold('Ukuran')}      : ${pc.white(`${sizeMb} MB`)}`,
+      '📦 HASIL EKSPOR MODPACK'
+    );
+  } catch (err: any) {
+    s.stop(pc.red(`Gagal mengekspor modpack: ${err.message}`));
+    process.exitCode = 1;
+  }
+}
+

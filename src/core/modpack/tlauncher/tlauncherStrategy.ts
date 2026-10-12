@@ -124,29 +124,19 @@ export async function resolveTLauncherContainerForLoader(
   gameVersion?: string,
 ): Promise<ResolvedContainer> {
   const normLoader = (loader ?? "").toLowerCase();
-  const isFabric = normLoader.includes("fabric") || normLoader.includes("quilt");
-  const matchedLoader: "fabric" | "forge" = isFabric ? "fabric" : "forge";
+  let matchedLoader: "fabric" | "forge" | "neoforge" | "quilt" = "fabric";
+  if (normLoader.includes("neoforge")) matchedLoader = "neoforge";
+  else if (normLoader.includes("quilt")) matchedLoader = "quilt";
+  else if (normLoader.includes("fabric")) matchedLoader = "fabric";
+  else if (normLoader.includes("forge")) matchedLoader = "forge";
 
-  let versionsDir: string | null = null;
+  let versionsDir: string;
   const parentDir = path.dirname(baseInstanceDir);
   if (path.basename(parentDir).toLowerCase() === "versions") {
     versionsDir = parentDir;
   } else {
-    const candidateVersions = path.join(baseInstanceDir, "versions");
-    try {
-      const s = await stat(candidateVersions);
-      if (s.isDirectory()) {
-        versionsDir = candidateVersions;
-      }
-    } catch {}
-  }
-
-  if (!versionsDir) {
-    return {
-      containerDir: baseInstanceDir,
-      containerName: path.basename(baseInstanceDir),
-      matchedLoader,
-    };
+    versionsDir = path.join(baseInstanceDir, "versions");
+    await mkdir(versionsDir, {recursive: true});
   }
 
   let entries: string[] = [];
@@ -157,7 +147,39 @@ export async function resolveTLauncherContainerForLoader(
 
   let chosenContainerName: string | null = null;
 
-  if (matchedLoader === "fabric") {
+  if (matchedLoader === "neoforge") {
+    const versionCandidate = gameVersion
+      ? entries.find((e) => {
+          const lower = e.toLowerCase();
+          return lower.includes("mypack") && lower.includes("neoforge") && lower.includes(gameVersion.toLowerCase());
+        })
+      : null;
+    const baseCandidate = entries.find((e) => e.toLowerCase().includes("mypack") && e.toLowerCase().includes("neoforge"));
+    const cand = versionCandidate ?? baseCandidate;
+    if (cand) {
+      chosenContainerName = cand;
+    } else {
+      const usesParens = entries.some((e) => e.toLowerCase().includes("mypack("));
+      const verSuffix = gameVersion && gameVersion !== "1.20.1" ? `-${gameVersion}` : "";
+      chosenContainerName = usesParens ? `mypack(neoforge${verSuffix})` : `mypack-neoforge${verSuffix}`;
+    }
+  } else if (matchedLoader === "quilt") {
+    const versionCandidate = gameVersion
+      ? entries.find((e) => {
+          const lower = e.toLowerCase();
+          return lower.includes("mypack") && (lower.includes("quilt") || lower.includes("fabric")) && lower.includes(gameVersion.toLowerCase());
+        })
+      : null;
+    const baseCandidate = entries.find((e) => e.toLowerCase().includes("mypack") && (e.toLowerCase().includes("quilt") || e.toLowerCase().includes("fabric")));
+    const cand = versionCandidate ?? baseCandidate;
+    if (cand) {
+      chosenContainerName = cand;
+    } else {
+      const usesParens = entries.some((e) => e.toLowerCase().includes("mypack("));
+      const verSuffix = gameVersion && gameVersion !== "1.20.1" ? `-${gameVersion}` : "";
+      chosenContainerName = usesParens ? `mypack(quilt${verSuffix})` : `mypack-quilt${verSuffix}`;
+    }
+  } else if (matchedLoader === "fabric") {
     const versionCandidate = gameVersion
       ? entries.find((e) => {
           const lower = e.toLowerCase();
@@ -191,6 +213,7 @@ export async function resolveTLauncherContainerForLoader(
           const lower = e.toLowerCase();
           return (
             lower.includes("mypack") &&
+            !lower.includes("neoforge") &&
             (lower.includes("forge") || lower === "mypack") &&
             lower.includes(gameVersion.toLowerCase())
           );
@@ -202,6 +225,7 @@ export async function resolveTLauncherContainerForLoader(
           const lower = e.toLowerCase();
           return (
             lower.includes("mypack") &&
+            !lower.includes("neoforge") &&
             (lower.includes("forge") || lower === "mypack") &&
             !/\d+\.\d+/.test(lower)
           );

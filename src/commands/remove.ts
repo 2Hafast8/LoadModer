@@ -2,6 +2,7 @@ import path from 'node:path';
 import { readdir, rm } from 'node:fs/promises';
 import { instanceConfig } from '../core/instance/config.js';
 import { DependencyGraph } from '../core/dependency/graph.js';
+import { profileSnapshotManager } from '../core/profile/snapshotManager.js';
 import { p, pc, exitIfCancel, showBanner } from '../ui/prompts.js';
 
 interface RemoveOptions {
@@ -163,5 +164,6 @@ export async function removeCommand(targets: string[], opts: RemoveOptions) {
   }
 
   await graph.save();
+  await profileSnapshotManager.syncActiveProfile();
   p.outro(pc.green('Operasi penghapusan selesai!'));
 }

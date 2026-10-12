@@ -65,9 +65,9 @@ LoadModer/
 │   │   └── theme.ts           # Palet Nordic Clean, ASCII banner, kontras
 │   ├── types/                 # Skema Zod & tipe data TypeScript
 │   ├── utils/                 # Utilitas filesystem, streaming hash, & format
-│   ├── constants.ts           # Metadata aplikasi, versi (2.6.0), dan konstanta
+│   ├── constants.ts           # Metadata aplikasi, versi (2.7.0), dan konstanta
 │   └── index.ts               # Titik masuk utama CLI (Entry Point)
-├── tests/                     # 34 berkas pengujian Vitest (244 tests)
+├── tests/                     # 35 berkas pengujian Vitest (257 tests)
 ├── electron-builder.json      # Konfigurasi packaging Windows .exe (NSIS & Portable)
 ├── tsup.config.ts             # Bundler esbuild untuk CLI
 ├── tsup.desktop.config.ts     # Bundler esbuild untuk Desktop main & preload
@@ -145,8 +145,8 @@ npm run dist:exe
 ```
 
 Output kompilasi:
-* **`LoadModer-Setup-2.6.0.exe`**: NSIS installer wizard dengan pembuatan desktop shortcut dan uninstaller bersih.
-* **`LoadModer-2.6.0-Portable.exe`**: Executable mandiri yang dapat langsung dijalankan dari USB flashdisk atau folder mana pun.
+* **`LoadModer-Setup-2.7.0.exe`**: NSIS installer wizard dengan pembuatan desktop shortcut dan uninstaller bersih.
+* **`LoadModer-2.7.0-Portable.exe`**: Executable mandiri yang dapat langsung dijalankan dari USB flashdisk atau folder mana pun.
 
 Distribusi ini juga terintegrasi dengan **GitHub Actions CI/CD** (`.github/workflows/release.yml`), yang secara otomatis mengompilasi dan mengunggah aset binary ke halaman GitHub Releases ketika tag rilis `v*` dipush.
 

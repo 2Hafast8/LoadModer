@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 
@@ -19,9 +19,39 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
   const [version, setVersion] = useState('1.0.0');
   const [summary, setSummary] = useState('');
   const [includeConfigs, setIncludeConfigs] = useState(true);
+  const [includeResourcepacks, setIncludeResourcepacks] = useState(false);
+  const [includeShaderpacks, setIncludeShaderpacks] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<string>('active');
+  const [savedProfiles, setSavedProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(instanceName || 'My Modpack');
+    setResultMessage(null);
+    setErrorMessage(null);
+
+    const loadProfiles = async () => {
+      try {
+        const list = await window.api.modpack.listProfiles();
+        if (Array.isArray(list)) {
+          setSavedProfiles(list);
+        }
+      } catch {}
+    };
+    loadProfiles();
+  }, [isOpen, instanceName]);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => {
+        setErrorMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
 
   if (!isOpen) return null;
 
@@ -38,6 +68,9 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
         version: version.trim() || '1.0.0',
         summary: summary.trim() || undefined,
         includeConfigs,
+        includeResourcepacks,
+        includeShaderpacks,
+        profileId: selectedProfile !== 'active' ? selectedProfile : undefined,
       });
 
       if (res.success) {
@@ -123,6 +156,24 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
             </div>
           </div>
 
+          {savedProfiles.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">{t.export.sourceLabel}</label>
+              <select
+                value={selectedProfile}
+                onChange={(e) => setSelectedProfile(e.target.value)}
+                className="w-full px-3 py-1.5 bg-[#131B16] border border-[#1E2822] focus:border-emerald-500/60 rounded-lg text-xs text-zinc-200 outline-none"
+              >
+                <option value="active">{t.export.sourceActive}</option>
+                {savedProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Profil: {p.name} ({p.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="block text-xs font-medium text-zinc-300 mb-1">{t.export.packName}</label>
@@ -157,15 +208,37 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
             />
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer pt-1">
-            <input
-              type="checkbox"
-              checked={includeConfigs}
-              onChange={(e) => setIncludeConfigs(e.target.checked)}
-              className="rounded bg-[#131B16] border-[#1E2822] text-emerald-500 focus:ring-0 focus:ring-offset-0"
-            />
-            <span className="text-xs text-zinc-300">{t.export.includeConfigs}</span>
-          </label>
+          <div className="space-y-2 pt-1 border-t border-[#1E2822]">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeConfigs}
+                onChange={(e) => setIncludeConfigs(e.target.checked)}
+                className="rounded bg-[#131B16] border-[#1E2822] text-emerald-500 focus:ring-0 focus:ring-offset-0"
+              />
+              <span className="text-xs text-zinc-300">{t.export.includeConfigs}</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeResourcepacks}
+                onChange={(e) => setIncludeResourcepacks(e.target.checked)}
+                className="rounded bg-[#131B16] border-[#1E2822] text-emerald-500 focus:ring-0 focus:ring-offset-0"
+              />
+              <span className="text-xs text-zinc-300">{t.export.includeResourcepacks}</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeShaderpacks}
+                onChange={(e) => setIncludeShaderpacks(e.target.checked)}
+                className="rounded bg-[#131B16] border-[#1E2822] text-emerald-500 focus:ring-0 focus:ring-offset-0"
+              />
+              <span className="text-xs text-zinc-300">{t.export.includeShaderpacks}</span>
+            </label>
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#1E2822]">
             <button
@@ -179,7 +252,7 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <>

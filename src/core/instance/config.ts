@@ -64,6 +64,17 @@ export class InstanceConfigManager {
   }
 
   saveInstance(key: string, instance: SavedInstanceConfig, makeActive = true): void {
+    if (instance.rootDir) {
+      const normRoot = path.resolve(instance.rootDir).toLowerCase();
+      for (const [existingKey, existingCfg] of Object.entries(this.config.instances)) {
+        if (existingKey !== key && existingCfg.rootDir && path.resolve(existingCfg.rootDir).toLowerCase() === normRoot) {
+          delete this.config.instances[existingKey];
+          if (this.config.activeInstance === existingKey) {
+            this.config.activeInstance = key;
+          }
+        }
+      }
+    }
     this.config.instances[key] = instance;
     if (makeActive || !this.config.activeInstance) {
       this.config.activeInstance = key;

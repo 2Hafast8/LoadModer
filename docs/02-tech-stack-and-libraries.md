@@ -41,7 +41,7 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 * **Electron 32**: Menyediakan isolasi proses yang aman antara Node.js main process dan renderer browser via `contextBridge` di preload script (`src/desktop/preload/index.ts`). Renderer tidak memiliki akses langsung ke filesystem mentah tanpa melalui IPC type-safe.
 * **React 19**: Menyediakan arsitektur komponen modular untuk dashboard desktop, state management reaktif, dan performa perenderan tinggi untuk daftar ratusan mod.
 * **Vite 5**: Mengompilasi kode renderer React dengan Hot Module Replacement (HMR) berkecepatan tinggi dan menghasilkan bundle produksi yang sangat teroptimasi.
-* **electron-builder**: Mengompilasi aplikasi desktop menjadi standalone executable Windows (`.exe`) dalam format instalasi NSIS (`LoadModer-Setup-2.6.0.exe`) dan versi portabel mandiri (`LoadModer-2.6.0-Portable.exe`).
+* **electron-builder**: Mengompilasi aplikasi desktop menjadi standalone executable Windows (`.exe`) dalam format instalasi NSIS (`LoadModer-Setup-2.7.0.exe`) dan versi portabel mandiri (`LoadModer-2.7.0-Portable.exe`).
 
 ### B. CLI Router: `commander`
 * Waktu cold-start sangat cepat (< 50ms), lebih efisien dibanding framework CLI berat.
@@ -79,7 +79,7 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 
 ### J. Test Runner: `vitest`
 * Eksekusi pengujian TypeScript instan tanpa tahap kompilasi terpisah.
-* Menjalankan 244 unit tests pada 34 test files dengan waktu eksekusi di bawah 3 detik.
+* Menjalankan 257 unit tests pada 35 test files dengan waktu eksekusi di bawah 3 detik.
 
 ---
 
@@ -88,7 +88,7 @@ Dokumen ini menjelaskan alasan teknis, pertimbangan arsitektur, dan kurasi pusta
 ```json
 {
   "name": "loadmoder",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "High-performance Minecraft mod & modpack manager CLI",
   "license": "MIT",
   "type": "module",

@@ -3,11 +3,11 @@
 > **CLI, TUI, dan Desktop GUI package manager untuk mod, modpack (.mrpack), shader, dan resource pack Minecraft berbasis Modrinth API v2.**  
 > Ditulis menggunakan TypeScript (ESM) dengan arsitektur DAG dependency resolution, isolasi profil snapshot, pendeteksi multi-launcher otomatis, dan distribusi standalone Windows executable (`.exe`).
 
-[![Version](https://img.shields.io/badge/version-2.6.0-38bdf8.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.7.0-38bdf8.svg)](package.json)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-244%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-257%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 [![Releases](https://img.shields.io/github/v/release/2Hafast8/LoadModer?color=a855f7&label=Windows%20App)](https://github.com/2Hafast8/LoadModer/releases)
@@ -16,12 +16,17 @@
 
 ## ⚡ Fitur Utama
 
-* **🖥️ Standalone Windows Desktop GUI & Drag-and-Drop Installer (v2.6.0)**:
-  - **Aplikasi Windows Mandiri (.exe)**: Tersedia dalam bentuk **NSIS Setup Wizard** (`LoadModer-Setup-2.6.0.exe`) dan **Portable Executable** (`LoadModer-2.6.0-Portable.exe`) di [GitHub Releases](https://github.com/2Hafast8/LoadModer/releases).
+* **🖥️ Standalone Windows Desktop GUI & Drag-and-Drop Installer (v2.7.0)**:
+  - **Aplikasi Windows Mandiri (.exe)**: Tersedia dalam bentuk **NSIS Setup Wizard** (`LoadModer-Setup-2.7.0.exe`) dan **Portable Executable** (`LoadModer-2.7.0-Portable.exe`) di [GitHub Releases](https://github.com/2Hafast8/LoadModer/releases).
   - **Drag-and-Drop Installer**: Cukup seret dan lepaskan berkas `.jar`, `.mrpack`, atau `.zip` ke jendela aplikasi untuk langsung memasangnya ke instance aktif.
   - **Smart Archive Inspection**: Secara otomatis membedakan apakah berkas ZIP adalah Shaderpack (folder `shaders/`), Resourcepack (`pack.mcmeta`), atau Modpack (`modrinth.index.json`).
   - **Bilingual Interface**: Dukungan penuh bahasa Indonesia dan bahasa Inggris dengan peralihan instan.
   - **Diagnostics & Modpack Exporter GUI**: Visualisasi Bisect binary search, Crash Log Analyzer, Restore Points Panel, dan ekspor modpack ke `.mrpack`/`.zip`.
+* **🩺 CLI Diagnostics Parity & Crash Log Analyzer (`lm diagnose`)**:
+  - Perintah CLI mandiri untuk memindai berkas log dan crash report secara otomatis, mendeteksi mod penyebab crash, missing dependencies, dan rekomendasi solusi cepat.
+* **⚡ Bulk Updates & Enhanced Explore Navigation**:
+  - Pembaruan serentak semua mod ("Update All") dengan resolusi dependensi otomatis.
+  - Toolbar jelajah 2-tingkat dengan selector versi, loader, filter dinamis, dan sistem paginasi responsif hingga 4 kolom grid.
 * **👑 Official Minecraft Vanilla Priority & Koeksistensi Aditif**:
   - Menetapkan Official Minecraft (`vanilla-default`) sebagai launcher resmi standar saat inisialisasi awal.
   - Pengenalan pintar wadah bersama `%APPDATA%\.minecraft` (memprioritaskan file executable/profil TLauncher sebelum mengasumsikan instalasi resmi Mojang).
@@ -78,8 +83,8 @@
 ### 1. Unduh Aplikasi Desktop Windows Mandiri (.exe)
 Bagi pengguna yang menginginkan tampilan grafis tanpa perlu instalasi Node.js:
 - Kunjungi halaman **[LoadModer Releases](https://github.com/2Hafast8/LoadModer/releases)**.
-- Unduh **`LoadModer-Setup-2.6.0.exe`** untuk instalasi dengan wizard desktop shortcut, atau
-- Unduh **`LoadModer-2.6.0-Portable.exe`** untuk menjalankan aplikasi langsung tanpa instalasi.
+- Unduh **`LoadModer-Setup-2.7.0.exe`** untuk instalasi dengan wizard desktop shortcut, atau
+- Unduh **`LoadModer-2.7.0-Portable.exe`** untuk menjalankan aplikasi langsung tanpa instalasi.
 
 ### 2. Instalasi CLI via NPM
 ```bash
@@ -205,9 +210,9 @@ npx vitest
 ```
 
 **Hasil Pengujian:**
-- 34 test files lulus (100%)
-- 244 unit & integration tests lulus (100%)
-- Cakupan: Dependency Graph, Resolver, Drive Scanner, Multi-Launcher Detection, Legacy Launcher Dual-Path, TLauncher Profile Vault, Log Analyzer, Bisect Runner, Modpack Exporter, Local Installer, Desktop Dual-Mode IPC, Desktop I18n, UI Theme & Accessibility.
+- 35 test files lulus (100%)
+- 257 unit & integration tests lulus (100%)
+- Cakupan: Dependency Graph, Resolver, Drive Scanner, Multi-Launcher Detection, Legacy Launcher Dual-Path, TLauncher Profile Vault, Log Analyzer, Bisect Runner, Diagnostics CLI, Modpack Exporter, Local Installer, Desktop Dual-Mode IPC, Desktop I18n, UI Theme & Accessibility.
 
 ---
 

@@ -20,12 +20,12 @@ describe("Legacy Launcher & Adaptive Path Detection", () => {
   });
 
   describe("detectLauncherFromPath() - Local Disk C (analisis setelah Roaming)", () => {
-    it("harus mendeteksi Legacy Launcher pada path .tlauncher/legacy/Minecraft/game", () => {
+    it("harus mendeteksi Legacy Launcher pada path .tlauncher/legacy/Minecraft/game sebagai legacy-default", () => {
       const p = "C:\\Users\\LENOVO\\AppData\\Roaming\\.tlauncher\\legacy\\Minecraft\\game";
       const res = detectLauncherFromPath(p);
       expect(res.launcher).toBe("Legacy");
-      expect(res.name).toBe("Legacy Launcher (game)");
-      expect(res.id).toBe("legacy-game");
+      expect(res.name).toBe("Legacy Launcher");
+      expect(res.id).toBe("legacy-default");
     });
 
     it("harus mendeteksi Legacy Launcher pada path .tlauncher/legacy/Minecraft/files", () => {
