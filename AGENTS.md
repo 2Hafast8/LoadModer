@@ -129,3 +129,9 @@ Setelah pengguna memberikan konfirmasi untuk melakukan push, lakukan eksekusi ri
    ```
    - **Tujuan Wajib**: Push tag `v*` ini secara otomatis memicu GitHub Actions CI/CD (`.github/workflows/release.yml`) untuk mengompilasi installer Windows (`LoadModer-Setup-<version>.exe` dan `LoadModer-<version>-Portable.exe`), menghasilkan checksum SHA-256, dan menerbitkan rilis baru di GitHub Releases sehingga seluruh pengguna dapat langsung mengunduh/memperbarui aplikasi.
 
+### 6. Standar Catatan Rilis GitHub (GitHub Release Notes)
+Agar rilis di GitHub selalu informatif dan tidak menampilkan template kosong:
+1. **Otomasi CI/CD Workflow**: Workflow `.github/workflows/release.yml` secara otomatis mengekstrak rincian versi dari `CHANGELOG.md` dan menyematkan tabel unduhan binary (`LoadModer-Setup-<version>.exe`, `LoadModer-<version>-Portable.exe`, dan `SHA256SUMS.txt`) ke dalam deskripsi rilis GitHub.
+2. **Penyajian Teks Rilis**: Setiap kali push tag selesai, agen **WAJIB** menyajikan format teks catatan rilis yang lengkap (Highlights fitur terperinci, tabel berkas unduhan Windows, kontributor, dan tautan compare changelog) dalam balasan percakapan untuk memudahkan pengguna menyalin atau menyesuaikan rilis di GitHub.
+
+
