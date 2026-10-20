@@ -4,3 +4,4 @@ dist-desktop/
 release/
 .DS_Store
 Thumbs.db
+.agent/
