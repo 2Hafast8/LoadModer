@@ -6,6 +6,7 @@ import { InstancesView } from './views/InstancesView.js';
 import { BisectView } from './views/BisectView.js';
 import { DownloadCenter } from './components/DownloadCenter.js';
 import { DropZoneOverlay } from './components/DropZoneOverlay.js';
+import { UpdateModal, type AppUpdateInfo } from './components/UpdateModal.js';
 import { useLanguage } from './i18n/LanguageContext.js';
 
 export const App: React.FC = () => {
@@ -19,6 +20,10 @@ export const App: React.FC = () => {
     count: number;
     error?: string;
   } | null>(null);
+
+  const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
   const dragCounter = useRef(0);
 
@@ -36,7 +41,36 @@ export const App: React.FC = () => {
       }
     };
     fetchActive();
+
+    // Non-blocking auto check for updates 2.5s after launch
+    const updateTimer = setTimeout(async () => {
+      try {
+        const info = await window.api.updater?.check?.();
+        if (info) {
+          setUpdateInfo(info);
+        }
+      } catch (err) {
+        console.error('Failed to auto-check update:', err);
+      }
+    }, 2500);
+
+    return () => clearTimeout(updateTimer);
   }, []);
+
+  const handleCheckUpdate = async () => {
+    setIsCheckingUpdate(true);
+    try {
+      const info = await window.api.updater?.check?.();
+      if (info) {
+        setUpdateInfo(info);
+        setIsUpdateModalOpen(true);
+      }
+    } catch (err) {
+      console.error('Failed to check update:', err);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -113,6 +147,10 @@ export const App: React.FC = () => {
         onTabChange={(tab: NavTab) => setCurrentTab(tab)}
         activeInstanceName={activeInstanceName}
         onOpenInstances={() => setCurrentTab('instances')}
+        updateInfo={updateInfo}
+        onOpenUpdateModal={() => setIsUpdateModalOpen(true)}
+        onCheckUpdate={handleCheckUpdate}
+        isCheckingUpdate={isCheckingUpdate}
       />
 
       <main className="flex-1 overflow-hidden relative">
@@ -135,6 +173,12 @@ export const App: React.FC = () => {
         isInstalling={isInstalling}
         activeInstanceName={activeInstanceName}
         installResult={installResult}
+      />
+
+      <UpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        updateInfo={updateInfo}
       />
     </div>
   );

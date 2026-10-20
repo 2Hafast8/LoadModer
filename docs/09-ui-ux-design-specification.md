@@ -70,7 +70,7 @@ Dashboard utama menggunakan kombinasi banner Figlet ASCII dengan **Nordic Cyber 
   ███████╗╚██████╔╝██║  ██║██████╔╝██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗██║  ██║
   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
 
-  v2.7.0  •  Minecraft Mod & Modpack Manager  •  Nordic Clean TUI
+  v2.8.0  •  Minecraft Mod & Modpack Manager  •  Nordic Clean TUI
 
 ╭  ❖ STATUS INSTANCE  ─────────────────────────────────────────────────────╮
 │  Instance : Official Minecraft (Default)   •   Loader : FABRIC 1.21.1    │
@@ -80,7 +80,7 @@ Dashboard utama menggunakan kombinasi banner Figlet ASCII dengan **Nordic Cyber 
 
 Pada sub-halaman (Browser, Manager, Detail, Profil), sistem otomatis beralih ke **Compact Header (1 Baris)** untuk menghemat ruang vertikal:
 ```text
- LOADMODER  v2.7.0 • [Official Minecraft (Default)] • FABRIC 1.21.1
+ LOADMODER  v2.8.0 • [Official Minecraft (Default)] • FABRIC 1.21.1
 ```
 
 ### 3.2 Live Badges pada Menu Navigasi Utama (`src/ui/dashboard/home.ts`)

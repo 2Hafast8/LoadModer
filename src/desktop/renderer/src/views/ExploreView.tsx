@@ -225,6 +225,12 @@ export const ExploreView: React.FC = () => {
     }
   }, [statusMessage]);
 
+  useEffect(() => {
+    if (activeInstance?.capabilities && activeInstance.capabilities.supportsModpack === false && projectType === 'modpack') {
+      setProjectType('mod');
+    }
+  }, [activeInstance?.capabilities?.supportsModpack, projectType]);
+
   const checkIsInstalled = (item: { project_id?: string; id?: string; slug?: string }) => {
     const pid = (item.project_id || item.id || '').toLowerCase().trim();
     const slug = (item.slug || '').toLowerCase().trim();
@@ -415,7 +421,7 @@ export const ExploreView: React.FC = () => {
     if (type === 'modpack') {
       if (activeInstance?.capabilities && !activeInstance.capabilities.supportsModpack) {
         setStatusMessage({
-          text: t.explore.officialNoModpack,
+          text: activeInstance.capabilities.incompatibilityReason || t.explore.officialNoModpack,
           type: 'error',
         });
         return;
@@ -472,7 +478,7 @@ export const ExploreView: React.FC = () => {
     if (pType === 'modpack') {
       if (activeInstance?.capabilities && !activeInstance.capabilities.supportsModpack) {
         setStatusMessage({
-          text: t.explore.officialNoModpack,
+          text: activeInstance.capabilities.incompatibilityReason || t.explore.officialNoModpack,
           type: 'error',
         });
         return;
@@ -525,7 +531,7 @@ export const ExploreView: React.FC = () => {
   const handleInstallLocalMrpack = async () => {
     if (activeInstance?.capabilities && !activeInstance.capabilities.supportsModpack) {
       setStatusMessage({
-        text: t.explore.officialNoModpack,
+        text: activeInstance.capabilities.incompatibilityReason || t.explore.officialNoModpack,
         type: 'error',
       });
       return;
@@ -832,6 +838,14 @@ export const ExploreView: React.FC = () => {
                                     <Check className="w-3 h-3" />
                                     <span>{t.explore.verInstalled}</span>
                                   </span>
+                                ) : (projectDetail?.project_type === 'modpack' || projectType === 'modpack') && activeInstance?.capabilities && !activeInstance.capabilities.supportsModpack ? (
+                                  <span
+                                    className="inline-flex items-center space-x-1 px-2 py-1 rounded bg-amber-950/20 border border-amber-500/30 text-amber-400 text-[10px] font-mono cursor-not-allowed"
+                                    title={activeInstance?.capabilities?.incompatibilityReason || t.explore.officialNoModpack}
+                                  >
+                                    <AlertCircle className="w-3 h-3 text-amber-400" />
+                                    <span>{t.explore.modpackDisabled}</span>
+                                  </span>
                                 ) : !isCompatible ? (
                                   <button
                                     disabled
@@ -931,14 +945,16 @@ export const ExploreView: React.FC = () => {
               </button>
             </form>
 
-            <button
-              onClick={handleInstallLocalMrpack}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-              title={t.explore.installMrpackTooltip}
-            >
-              <FileArchive className="w-3.5 h-3.5" />
-              <span>{t.explore.installMrpack}</span>
-            </button>
+            {activeInstance?.capabilities?.supportsModpack !== false && (
+              <button
+                onClick={handleInstallLocalMrpack}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                title={t.explore.installMrpackTooltip}
+              >
+                <FileArchive className="w-3.5 h-3.5" />
+                <span>{t.explore.installMrpack}</span>
+              </button>
+            )}
 
             <button
               onClick={handleResetFilters}
@@ -963,17 +979,19 @@ export const ExploreView: React.FC = () => {
               <Package className="w-3 h-3" />
               <span>{t.explore.typeMod}</span>
             </button>
-            <button
-              onClick={() => handleSelectProjectType('modpack')}
-              className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
-                projectType === 'modpack'
-                  ? 'bg-emerald-primary text-obsidian-bg font-semibold'
-                  : 'text-nordic-muted hover:text-nordic-text'
-              }`}
-            >
-              <Layers className="w-3 h-3" />
-              <span>{t.explore.typeModpack}</span>
-            </button>
+            {activeInstance?.capabilities?.supportsModpack !== false && (
+              <button
+                onClick={() => handleSelectProjectType('modpack')}
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
+                  projectType === 'modpack'
+                    ? 'bg-emerald-primary text-obsidian-bg font-semibold'
+                    : 'text-nordic-muted hover:text-nordic-text'
+                }`}
+              >
+                <Layers className="w-3 h-3" />
+                <span>{t.explore.typeModpack}</span>
+              </button>
+            )}
             <button
               onClick={() => handleSelectProjectType('shader')}
               className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
@@ -1190,36 +1208,45 @@ export const ExploreView: React.FC = () => {
                       <span className="truncate">{t.explore.byAuthor.replace('{author}', hit.author)}</span>
                     </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!isInstalled) {
-                          handleInstall(hit.slug, hit.project_id, hit.project_type);
-                        }
-                      }}
-                      disabled={isInstalling || isInstalled}
-                      className={`flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
-                        isInstalled
-                          ? 'bg-obsidian-card border border-emerald-primary/40 text-emerald-primary cursor-default'
-                          : 'bg-emerald-primary text-obsidian-bg hover:bg-emerald-active cursor-pointer'
-                      }`}
-                      title={isInstalled ? t.explore.installedTooltip : t.explore.installTooltip}
-                    >
-                      {isInstalling ? (
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                      ) : isInstalled ? (
-                        <Check className="w-3 h-3" />
-                      ) : (
-                        <Download className="w-3 h-3" />
-                      )}
-                      <span>
-                        {isInstalling
-                          ? t.explore.installingBtn
-                          : isInstalled
-                          ? t.explore.installedBtn
-                          : t.explore.installBtn}
+                    {hit.project_type === 'modpack' && activeInstance?.capabilities && !activeInstance.capabilities.supportsModpack ? (
+                      <span
+                        className="text-[10px] text-amber-400/80 font-mono italic px-2 py-0.5 rounded bg-amber-950/20 border border-amber-500/20 cursor-not-allowed"
+                        title={activeInstance.capabilities.incompatibilityReason || t.explore.officialNoModpack}
+                      >
+                        {t.explore.modpackDisabled}
                       </span>
-                    </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isInstalled) {
+                            handleInstall(hit.slug, hit.project_id, hit.project_type);
+                          }
+                        }}
+                        disabled={isInstalling || isInstalled}
+                        className={`flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                          isInstalled
+                            ? 'bg-obsidian-card border border-emerald-primary/40 text-emerald-primary cursor-default'
+                            : 'bg-emerald-primary text-obsidian-bg hover:bg-emerald-active cursor-pointer'
+                        }`}
+                        title={isInstalled ? t.explore.installedTooltip : t.explore.installTooltip}
+                      >
+                        {isInstalling ? (
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                        ) : isInstalled ? (
+                          <Check className="w-3 h-3" />
+                        ) : (
+                          <Download className="w-3 h-3" />
+                        )}
+                        <span>
+                          {isInstalling
+                            ? t.explore.installingBtn
+                            : isInstalled
+                            ? t.explore.installedBtn
+                            : t.explore.installBtn}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );

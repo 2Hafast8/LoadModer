@@ -386,3 +386,11 @@ if (process.argv.length <= 2) {
 } else {
   await program.parseAsync(process.argv);
 }
+
+// Display non-blocking update notice if a newer release exists
+try {
+  const {displayCliUpdateNotice} = await import("./utils/updateNotifier.js");
+  await displayCliUpdateNotice();
+} catch {
+  // Silent ignore
+}

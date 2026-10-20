@@ -5,6 +5,36 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.8.0] - 2026-10-20
+
+### Added
+- **Native In-App Auto Updater (Desktop & CLI)**:
+  - **Pemeriksaan Otomatis GitHub Releases**: Integrasi dengan endpoint resmi GitHub Releases (`2Hafast8/LoadModer`) untuk mendeteksi rilis baru secara asinkron (non-blocking) saat aplikasi dibuka.
+  - **Modal Pembaruan Interaktif (`UpdateModal`)**: Menampilkan perbandingan versi, catatan rilis (changelog markdown), bilah unduhan berkecepatan tinggi dengan estimasi kecepatan (MB/s) & ukuran byte, dan verifikasi checksum SHA-256 otomatis sebelum instalasi.
+  - **1-Click Auto Install & Restart**: Otomatis mengeksekusi installer Windows (`LoadModer-Setup-*.exe`) secara terpisah (`detached spawn`) dan menutup aplikasi lama dengan mulus.
+  - **Dukungan Dual-Format Windows**: Opsi langsung mengunduh binary NSIS Setup Wizard atau Portable Standalone Executable (`.exe`).
+  - **Dynamic TopBar Update Badge**: Indikator hijau berkilau `✨ vX.Y.Z` saat rilis baru tersedia, serta tombol klik untuk melakukan pengecekan pembaruan manual kapan saja.
+  - **Non-Blocking CLI Update Notifier**: Pengecekan asinkron ringan via npm registry dengan cache lokal 24 jam (`~/.loadmoder/cache/cli_update_check.json`), menampilkan banner ramah saat pembaruan tersedia.
+- **Operation Loading Overlay (Screen Lock Guard)**:
+  - Komponen overlay pengaman layar penuh (`OperationLoadingOverlay`) yang memblokir interaksi klik liar (`pointer-events-auto`) selama proses berat berlangsung (perpindahan mode launcher, penyimpanan profil modpack, disable modpack, restorasi baseline, dan switch profil versi).
+  - Dilengkapi spinner animasi, target badge, status deskripsi dinamis, pulse bar shimmer, dan peringatan keselamatan ("Proses sedang berjalan • Mohon jangan menutup aplikasi").
+- **Manual Modpack Profile Save untuk TL-Mods**:
+  - Tombol aksi simpan profil manual khusus wadah TL-Mods (`ModpackProfileManager.manualSaveTLModsProfile`) untuk mencadangkan seluruh mod, konfigurasi, dan shaderpack ke arsip profil snapshot baru secara aman.
+- **Auto-Healing & Clean State Modpack Detection**:
+  - Pengecekan fisik keberadaan mod live (`hasLiveMods`) pada wadah TL-Mods. Jika wadah bersih dari mod, status profil otomatis disetel ke `null` (tidak aktif), menampilkan tombol `[Pasang / Install]` dan tombol pulihkan cepat (`Restore`).
+
+### Changed
+- **Launcher Mode Card Grid & Responsive Pagination**:
+  - Penyederhanaan tampilan wadah launcher dari susunan horizontal menjadi kartu grid responsif (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`) dengan badge loader berwarna (Forge 🟧, Fabric 🟦, NeoForge 🟪, Quilt 🟩), versi Minecraft, status aktif, dan filter pencarian real-time saat > 4 wadah.
+  - Paginasi 6 item (`PAGE_SIZE = 6`) dengan tombol Sebelumnya/Berikutnya dan indikator halaman pada daftar *Saved Modpack Containers* dan *Profile Versions*.
+- **SemVer Bump**: Peningkatan versi resmi aplikasi ke `2.8.0`.
+
+### Fixed
+- **Status Aktivasi Profil pada Wadah Bersih (Clean State)**: Memperbaiki inkonsistensi status aktif pada profil TL-Mods ketika wadah telah dibersihkan sehingga pengguna dapat langsung memasang atau memulihkan profil.
+- **TypeScript Type Safety**: Resolusi seluruh parameter deklarasi preload dan interface IPC updater.
+
+---
+
 ## [2.7.0] - 2026-10-12
 
 ### Added

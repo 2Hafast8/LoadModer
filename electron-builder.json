@@ -5,7 +5,11 @@
   "directories": {
     "output": "release"
   },
-  "publish": null,
+  "publish": {
+    "provider": "github",
+    "owner": "2Hafast8",
+    "repo": "LoadModer"
+  },
   "files": [
     "dist/**/*",
     "dist-desktop/**/*",

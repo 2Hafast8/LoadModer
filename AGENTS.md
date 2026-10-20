@@ -78,7 +78,12 @@ LoadModer maintains 18 specialized engineering skills located in `.agent/skills/
 
 Setiap kali pengguna meminta untuk melakukan `git push` (baik ke branch `dev`, `main`, maupun branch lainnya), agen **WAJIB** menyelesaikan dan memverifikasi langkah-langkah persiapan berikut secara berurutan:
 
-### 1. Persiapan & Penyesuaian Versi Aplikasi (SemVer)
+### 1. Walkthrough & Konfirmasi Pengguna (Hal Utama & Wajib Pertama)
+- **Prioritas Utama:** Selalu buat berkas walkthrough terperinci (`walkthrough-*.md`) sebelum melakukan tindakan signifikan atau persiapan rilis akhir.
+- **Transparansi Pengerjaan:** Walkthrough wajib merangkum seluruh perubahan kode, berkas yang dimodifikasi, hasil pengujian, dan rencana rilis secara jelas.
+- **Wajib Tunggu Konfirmasi:** **Dilarang keras** mengeksekusi git push, sinkronisasi branch, atau pembuatan git tag sebelum pengguna meninjau walkthrough dan memberikan konfirmasi/persetujuan eksplisit.
+
+### 2. Persiapan & Penyesuaian Versi Aplikasi (SemVer)
 - Evaluasi seluruh perubahan dan commit yang dibuat sejak rilis sebelumnya.
 - Naikkan nomor versi aplikasi (`MAJOR.MINOR.PATCH`) secara konsisten pada:
   - `package.json` (`"version"`)
@@ -86,15 +91,15 @@ Setiap kali pengguna meminta untuk melakukan `git push` (baik ke branch `dev`, `
   - `src/constants.ts` (`APP_VERSION`)
 - Pastikan versi baru dan rincian perubahannya terdokumentasi di [`CHANGELOG.md`](CHANGELOG.md) mengikuti standar *Keep a Changelog*.
 
-### 2. Pembaruan Menyeluruh Seluruh Berkas Markdown (`.md`)
+### 3. Pembaruan Menyeluruh Seluruh Berkas Markdown (`.md`)
 - Periksa dan perbarui semua berkas dokumentasi markdown:
   - [`README.md`](README.md): pastikan petunjuk instalasi, badge status/test, ringkasan fitur, dan panduan penggunaan selalu akurat.
   - [`CHANGELOG.md`](CHANGELOG.md): pastikan rilis baru memiliki catatan perubahan yang lengkap (Added, Changed, Fixed, Security).
   - Folder `docs/` (`docs/*.md`): pastikan dokumen spesifikasi arsitektur, tech stack, UX/UI, dan panduan launcher selaras dengan kode nyata.
 - **Dilarang keras** melakukan push dengan dokumentasi yang tertinggal atau bertentangan dengan implementasi kode (*out-of-sync*).
 
-### 3. Eksekusi Protokol Verifikasi (0 Toleransi Kegagalan)
-Jalankan urutan perintah verifikasi berikut hingga seluruhnya sukses:
+### 4. Eksekusi Protokol Verifikasi (0 Toleransi Kegagalan)
+Jalankan urutan perintah verifikasi berikut hingga seluruhnya sukses (exit code 0):
 ```bash
 # 1. Type-checking (wajib exit code 0)
 npx tsc --noEmit
@@ -108,9 +113,6 @@ npm run build
 # 4. Validasi tarball paket distribusi (pastikan whitelist 'files' bersih)
 npm pack --dry-run
 ```
-
-### 4. Walkthrough & Konfirmasi Pengguna
-- Selalu buat berkas walkthrough sebelum tindakan signifikan dan tunggu perintah pengguna sebelum mengeksekusi push akhir.
 
 ### 5. Eksekusi Push & Publikasi Rilis Otomatis (GitHub Release Trigger)
 Setelah pengguna memberikan konfirmasi untuk melakukan push, lakukan eksekusi rilis secara berurutan:

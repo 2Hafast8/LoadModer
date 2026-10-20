@@ -7,6 +7,7 @@ import {formatBadge, theme} from "../theme.js";
 import {instanceConfig} from "../../core/instance/config.js";
 import {ModpackProfileManager, type ClientContainerInfo} from "../../core/modpack/profileManager.js";
 import {runInteractiveBrowser} from "./browser.js";
+import {truncateText} from "../../utils/format.js";
 
 export async function runInteractiveModpackProfileManager(): Promise<void> {
   await instanceConfig.load();
@@ -74,18 +75,30 @@ export async function runInteractiveModpackProfileManager(): Promise<void> {
     const clientChoices: InteractiveChoice[] = containers.map((c) => {
       const loaderUpper = c.loader.toUpperCase();
       const icon = c.loader === "fabric" ? "🟦" : c.loader === "forge" ? "🟧" : "🟪";
-      const badgeVariant = c.loader === "fabric" ? "info" : c.loader === "forge" ? "warning" : "primary";
-      const loaderBadge = formatBadge(loaderUpper, badgeVariant);
-      const verBadge = formatBadge(`MC ${c.gameVersion}`, "muted");
+
+      // Persingkat nama folder container jika melebihi batas tampilan konsol
+      const shortContainer = truncateText(c.containerName, 22);
+
+      // Badge status: profil aktif atau kondisi bersih
       const activeBadge = c.activeProfileName
-        ? formatBadge(c.activeProfileName, "success")
+        ? formatBadge(truncateText(c.activeProfileName, 22), "success")
         : formatBadge("Bersih", "muted");
 
+      // Badge penanda sumber modpack (misal modpack eksternal TL-Mods)
+      const tlBadge = c.isTLMods ? `${formatBadge("TL-Mods", "warning")} ` : "";
+
+      // Baris deskripsi bawah yang ringkas dan padat informasi tanpa melebihi batas layar
+      const activeHint = c.activeProfileName
+        ? `Aktif: ${truncateText(c.activeProfileName, 26)}`
+        : "Kondisi: Bersih";
+      const folderHint = `Folder: ${truncateText(c.containerName, 24)}`;
+      const hint = `${c.profilesCount} profil • ${activeHint} • ${folderHint}`;
+
       return {
-        name: `${icon}  Client ${loaderUpper} • MC ${c.gameVersion} (${c.containerName})`,
+        name: `${icon}  Client ${loaderUpper} • MC ${c.gameVersion} (${shortContainer})`,
         value: c.containerDir,
-        hint: `MC ${c.gameVersion} • ${c.profilesCount} profil tersimpan • ${c.activeProfileName ? `Aktif: ${c.activeProfileName}` : "Kondisi: Bersih / Siap"} • Folder: ${c.containerName}`,
-        badge: `${loaderBadge} ${verBadge} ${activeBadge}`,
+        hint,
+        badge: `${tlBadge}${activeBadge}`,
       };
     });
 
@@ -278,13 +291,25 @@ async function runContainerProfileOperations(
       });
     }
 
-    choices.push(
-      {
+    if (container.isTLMods) {
+      choices.push({
+        name: "💾  Simpan Profil Sekarang (Manual Backup)",
+        value: "manual_save",
+        hint: `Simpan seluruh berkas modpack ${container.containerName} secara manual ke brankas`,
+        badge: formatBadge("TL-Mods", "warning"),
+      });
+    }
+
+    if (!container.isTLMods) {
+      choices.push({
         name: `➕  Pasang Modpack Baru (${loaderUpper} • MC ${container.gameVersion})`,
         value: "install_new",
         hint: `Cari & pasang modpack resmi .mrpack dari Modrinth untuk ${loaderUpper} MC ${container.gameVersion}`,
         badge: formatBadge("Modrinth v2", "info"),
-      },
+      });
+    }
+
+    choices.push(
       {
         name: "📦  Ekspor Modpack ke Arsip (.mrpack / .zip)",
         value: "export_pack",
@@ -327,9 +352,9 @@ async function runContainerProfileOperations(
             : formatBadge(`${pr.filesCount} berkas`, "info");
           const dateStr = new Date(pr.updatedAt).toLocaleDateString();
           return {
-            name: `📦  ${pr.name} (v${pr.versionId})`,
+            name: `📦  ${truncateText(pr.name, 35)} (v${truncateText(pr.versionId, 10)})`,
             value: pr.id,
-            hint: `Loader: ${pr.loader ?? container.loader} ${pr.gameVersion ?? container.gameVersion} • File: ${pr.filesCount} berkas • Disimpan: ${dateStr}`,
+            hint: `${pr.loader ?? container.loader} ${pr.gameVersion ?? container.gameVersion} • ${pr.filesCount} berkas • Disimpan: ${dateStr}`,
             badge,
           };
         });
@@ -415,6 +440,27 @@ async function runContainerProfileOperations(
         break;
       }
 
+      case "manual_save": {
+        const s = p.spinner();
+        s.start(`Menyimpan seluruh isi modpack ${container.containerName} ke profil brankas...`);
+        try {
+          const result = await ModpackProfileManager.manualSaveTLModsProfile(containerDir, {
+            onProgress: (copied, total, file) => {
+              s.message(`Menyimpan berkas (${copied}/${total}): ${path.basename(file)}`);
+            },
+          });
+          s.stop(
+            pc.green(
+              `Profil modpack "${pc.bold(result.profile.name)}" berhasil disimpan secara manual! (${result.filesCount} berkas diamankan).`,
+            ),
+          );
+        } catch (err: any) {
+          s.stop(pc.red(`Gagal menyimpan profil manual: ${err.message}`));
+        }
+        await ask("Tekan Enter untuk melanjutkan...");
+        break;
+      }
+
       case "install_new": {
         clearScreen();
         showBanner(`Client: ${container.containerName}`, true);
@@ -445,15 +491,15 @@ async function runContainerProfileOperations(
         if (profiles.length > 0) {
           const sourceChoices: InteractiveChoice[] = [
             {
-              name: `📁  Kondisi Aktif Wadah (${container.containerName})`,
+              name: `📁  Kondisi Aktif Wadah (${truncateText(container.containerName, 24)})`,
               value: "__active__",
               hint: activeInfo?.name
-                ? `Modpack aktif saat ini: ${activeInfo.name}`
+                ? `Aktif: ${truncateText(activeInfo.name, 35)}`
                 : "Kondisi mod dan konfigurasi yang sedang aktif di wadah",
               badge: formatBadge("Aktif", "success"),
             },
             ...profiles.map((pr) => ({
-              name: `📦  Arsip Tersimpan: ${pr.name} (v${pr.versionId})`,
+              name: `📦  Arsip Tersimpan: ${truncateText(pr.name, 30)} (v${truncateText(pr.versionId, 10)})`,
               value: pr.id,
               hint: `Loader: ${pr.loader ?? container.loader} • ${pr.filesCount} berkas`,
               badge: pr.isActive ? formatBadge("Sedang Aktif", "info") : formatBadge("Tersimpan", "muted"),
@@ -576,7 +622,7 @@ async function runContainerProfileOperations(
         }
 
         const deleteChoices: InteractiveChoice[] = profiles.map((pr) => ({
-          name: `🗑️   ${pr.name} (${pr.id})`,
+          name: `🗑️   ${truncateText(pr.name, 30)} (${truncateText(pr.id, 24)})`,
           value: pr.id,
           hint: pr.isActive
             ? "Peringatan: Modpack ini sedang aktif di wadah game!"

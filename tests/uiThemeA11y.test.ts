@@ -316,4 +316,15 @@ describe("UI/UX & Accessibility (Theme & Responsive)", () => {
       expect(choices[3].value).toBe("opt2");
     });
   });
+
+  describe("Text Truncation & Compact Menu Choice Formatting", () => {
+    it("memotong teks panjang secara informatif dan membuang trailing separator sebelum elipsis", async () => {
+      const { truncateText } = await import("../src/utils/format.js");
+
+      expect(truncateText("Short Text", 20)).toBe("Short Text");
+      expect(truncateText("Cursed Walking - A Modern Zombie Apocalypse", 20)).toBe("Cursed Walking...");
+      expect(truncateText("Cursed Walking - A Modern Cursed Walking-v3.3 (patch 2)", 24)).toBe("Cursed Walking - A Mo...");
+      expect(truncateText("mypack(forge-1.21.1)", 24)).toBe("mypack(forge-1.21.1)");
+    });
+  });
 });

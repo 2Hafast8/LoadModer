@@ -5,15 +5,21 @@ import pLimit from "p-limit";
 import unzipper from "unzipper";
 import {MrpackIndexSchema} from "../../types/mrpack.js";
 import {isTLauncherPreservedEngineItem} from "./tlauncher/preservedItems.js";
-import {discoverTLauncherContainers, resolveTLauncherContainerForLoader} from "./tlauncher/tlauncherStrategy.js";
+import {
+  discoverTLauncherContainers,
+  resolveTLauncherContainerForLoader,
+  isTLModsModpackFolder,
+} from "./tlauncher/tlauncherStrategy.js";
 import {isLegacyPreservedItem} from "./legacy/preservedItems.js";
 import {discoverLegacyContainers, resolveLegacyContainerForLoader} from "./legacy/legacyStrategy.js";
 import {BaselineManager} from "./baselineManager.js";
+import {isLoadModerModpackContainerName} from "../instance/capabilities.js";
 
 export {
   isTLauncherPreservedEngineItem,
   discoverTLauncherContainers,
   resolveTLauncherContainerForLoader,
+  isTLModsModpackFolder,
   isLegacyPreservedItem,
   discoverLegacyContainers,
   resolveLegacyContainerForLoader,
@@ -68,6 +74,8 @@ export interface ClientContainerInfo {
   gameVersion: string;
   profilesCount: number;
   activeProfileName: string | null;
+  isLoadModerContainer?: boolean;
+  isTLMods?: boolean;
 }
 
 export class ModpackProfileManager {
@@ -204,6 +212,7 @@ export class ModpackProfileManager {
       (d) => this.syncProfilesFromDownloads(d),
       (d) => this.listProfiles(d),
       (d) => this.getActiveProfile(d),
+      (d) => this.ensureTLModsProfile(d),
     );
   }
 
@@ -323,6 +332,194 @@ export class ModpackProfileManager {
     return isTLauncherPreservedEngineItem(entryName, containerDir);
   }
 
+  /**
+   * Menentukan apakah suatu file/folder harus dilewati saat menyimpan isi wadah ke profil modpack.
+   * Untuk modpack bawaan TL-Mods, seluruh file disimpan tanpa terkecuali (termasuk TLauncherAdditional.json, config, options, shaders, dll.)
+   */
+  static shouldSkipFromProfileSave(entryName: string, containerDir: string): boolean {
+    const lower = entryName.toLowerCase();
+    if (lower === ".loadmoder" || lower === ".fabric" || lower === "logs") return true;
+
+    const cName = path.basename(containerDir).toLowerCase();
+    const isMypack = isLoadModerModpackContainerName(cName);
+
+    if (isMypack) {
+      if (lower === `${cName}.jar` || lower === `${cName}.json`) return true;
+      if (lower.startsWith("mypack") && (lower.endsWith(".jar") || lower.endsWith(".json"))) return true;
+      if (lower === "tlauncheradditional.json") return true;
+    }
+
+    // Untuk wadah modpack TL-Mods: simpan SEMUANYA tanpa terkecuali (mods, config, options, shader, TLauncherAdditional.json)
+    // Hanya lewati file .jar engine versi root jika merupakan Minecraft client jar
+    if (lower === `${cName}.jar`) return true;
+
+    return false;
+  }
+
+  /**
+   * Mendeteksi dan memastikan modpack bawaan TL-Mods TLauncher otomatis memiliki profil LoadModer
+   * dan seluruh file modpack-nya tersimpan rapi tanpa terkecuali.
+   */
+  static async ensureTLModsProfile(containerDir: string): Promise<ModpackProfileSummary | null> {
+    const cName = path.basename(containerDir);
+    if (isLoadModerModpackContainerName(cName)) {
+      return null;
+    }
+
+    const tlJsonPath = path.join(containerDir, "TLauncherAdditional.json");
+    let tlJson: any = null;
+    try {
+      const raw = await readFile(tlJsonPath, "utf8");
+      tlJson = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+
+    if (!tlJson?.modpack) {
+      return null;
+    }
+
+    const modpackName =
+      (typeof tlJson.modpack.name === "string" && tlJson.modpack.name.trim()) ||
+      cName;
+    const versionId =
+      tlJson.modpack.version?.name ||
+      (tlJson.modpack.version?.id ? String(tlJson.modpack.version.id) : null) ||
+      "1.0.0";
+    let gameVersion = tlJson.modpack.version?.gameVersionDTO?.name || "1.20.1";
+
+    let loader: "fabric" | "forge" | "neoforge" | "quilt" = "forge";
+    const loaderTypes = tlJson.modpack.version?.minecraftVersionTypes;
+    if (Array.isArray(loaderTypes)) {
+      for (const lt of loaderTypes) {
+        const name = (lt.name ?? "").toLowerCase();
+        if (name.includes("fabric")) loader = "fabric";
+        else if (name.includes("neoforge")) loader = "neoforge";
+        else if (name.includes("forge")) loader = "forge";
+        else if (name.includes("quilt")) loader = "quilt";
+      }
+    } else {
+      const lower = cName.toLowerCase();
+      if (lower.includes("fabric")) loader = "fabric";
+      else if (lower.includes("neoforge")) loader = "neoforge";
+      else if (lower.includes("quilt")) loader = "quilt";
+    }
+
+    const cleanId =
+      "tlmods-" +
+      cName
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+
+    const existingProfiles = await this.listProfiles(containerDir);
+    let matched = existingProfiles.find(
+      (p) => p.id === cleanId || p.name.toLowerCase() === modpackName.toLowerCase()
+    );
+
+    const activeInfo = await this.getActiveProfile(containerDir);
+
+    // Cek apakah di folder live container benar-benar ada berkas mod fisik (.jar / .disabled)
+    const modsDir = path.join(containerDir, "mods");
+    let hasLiveMods = false;
+    try {
+      const entries = await readdir(modsDir);
+      hasLiveMods = entries.some((f) => f.endsWith(".jar") || f.endsWith(".disabled"));
+    } catch {}
+
+    if (!matched) {
+      await this.createProfileAfterInstall(containerDir, {
+        id: cleanId,
+        name: modpackName,
+        versionId: String(versionId),
+        loader,
+        gameVersion,
+      });
+
+      if (hasLiveMods) {
+        await this.saveActiveToProfile(containerDir);
+      } else {
+        await this.setActiveProfileInfo(containerDir, {
+          activeProfile: null,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      const updated = await this.listProfiles(containerDir);
+      matched = updated.find((p) => p.id === cleanId);
+    } else {
+      if (!activeInfo?.activeProfile && hasLiveMods) {
+        await this.setActiveProfileInfo(containerDir, {
+          activeProfile: matched.id,
+          name: matched.name,
+          versionId: matched.versionId,
+          loader: matched.loader,
+          gameVersion: matched.gameVersion,
+          updatedAt: new Date().toISOString(),
+        });
+      } else if (activeInfo?.activeProfile && !hasLiveMods) {
+        // Auto-heal: wadah dalam keadaan bersih fisik (misal dinonaktifkan / beralih ke default),
+        // maka status activeProfile wajib disetel ke null agar tidak aktif palsu
+        await this.setActiveProfileInfo(containerDir, {
+          activeProfile: null,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    return matched ?? null;
+  }
+
+  /**
+   * Menyimpan profil modpack TL-Mods TLauncher secara manual.
+   * Fungsi ini KHUSUS dan DIBATASI HANYA untuk wadah modpack TL-Mods.
+   * Akan melempar error jika dipanggil pada wadah modpack reguler LoadModer (mypack) atau folder non-TL-Mods.
+   */
+  static async manualSaveTLModsProfile(
+    containerDir: string,
+    opts?: ProfileSaveOptions,
+  ): Promise<{
+    profile: ModpackProfileSummary;
+    filesCount: number;
+  }> {
+    const isTLMods = await isTLModsModpackFolder(containerDir);
+    if (!isTLMods) {
+      throw new Error(
+        "Operasi Simpan Profil Manual hanya diperuntukkan bagi modpack bawaan TL-Mods TLauncher.",
+      );
+    }
+
+    // Pastikan entitas profil TL-Mods telah terinisialisasi
+    await this.ensureTLModsProfile(containerDir);
+
+    const active = await this.getActiveProfile(containerDir);
+    if (!active || !active.activeProfile) {
+      throw new Error("Tidak ada profil TL-Mods aktif yang dapat disimpan.");
+    }
+
+    // Simpan seluruh berkas aktif ke arsip profil tanpa terkecuali
+    await this.saveActiveToProfile(containerDir, opts);
+
+    const profiles = await this.listProfiles(containerDir);
+    const matched = profiles.find((p) => p.id === active.activeProfile);
+
+    return {
+      profile: matched ?? {
+        id: active.activeProfile,
+        name: active.name ?? path.basename(containerDir),
+        versionId: active.versionId ?? "1.0.0",
+        loader: active.loader,
+        gameVersion: active.gameVersion,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        filesCount: 0,
+        isActive: true,
+      },
+      filesCount: matched?.filesCount ?? 0,
+    };
+  }
+
   static async saveActiveToProfile(
     containerDir: string,
     opts?: ProfileSaveOptions,
@@ -339,18 +536,25 @@ export class ModpackProfileManager {
     try {
       const entries = await readdir(containerDir, {withFileTypes: true});
       const allFilesToCopy: Array<{src: string; dest: string}> = [];
+      const liveRelativePaths = new Set<string>();
 
       for (const entry of entries) {
-        if (this.isPreservedEngineItem(entry.name, containerDir)) continue;
+        if (this.shouldSkipFromProfileSave(entry.name, containerDir)) continue;
 
         const srcPath = path.join(containerDir, entry.name);
         const destPath = path.resolve(filesDir, entry.name);
 
         if (entry.isDirectory()) {
           const collected = await this.collectFilesToCopy(srcPath, destPath);
-          allFilesToCopy.push(...collected);
+          for (const item of collected) {
+            allFilesToCopy.push(item);
+            const rel = path.relative(filesDir, item.dest).replace(/\\/g, "/");
+            liveRelativePaths.add(rel);
+          }
         } else if (entry.isFile()) {
           allFilesToCopy.push({src: srcPath, dest: destPath});
+          const rel = path.relative(filesDir, destPath).replace(/\\/g, "/");
+          liveRelativePaths.add(rel);
         }
       }
 
@@ -370,6 +574,9 @@ export class ModpackProfileManager {
           ),
         );
       }
+
+      // Bersihkan berkas yatim piatu di arsip profil yang sudah dihapus oleh pengguna di wadah aktif
+      await this.pruneOrphanFiles(filesDir, liveRelativePaths);
     } catch {}
 
     const manifestPath = path.join(profileDir, "manifest.json");
@@ -389,6 +596,48 @@ export class ModpackProfileManager {
     } catch {}
 
     await writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+  }
+
+  private static async pruneOrphanFiles(
+    filesDir: string,
+    liveRelativePaths: Set<string>,
+  ): Promise<void> {
+    const scanDir = async (dir: string): Promise<boolean> => {
+      let isEmpty = true;
+      let entries: any[] = [];
+      try {
+        entries = await readdir(dir, {withFileTypes: true});
+      } catch {
+        return true;
+      }
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const relPath = path.relative(filesDir, fullPath).replace(/\\/g, "/");
+
+        if (entry.isDirectory()) {
+          const dirEmpty = await scanDir(fullPath);
+          if (dirEmpty) {
+            try {
+              await rm(fullPath, {recursive: true, force: true});
+            } catch {}
+          } else {
+            isEmpty = false;
+          }
+        } else if (entry.isFile()) {
+          if (!liveRelativePaths.has(relPath)) {
+            try {
+              await rm(fullPath, {force: true});
+            } catch {}
+          } else {
+            isEmpty = false;
+          }
+        }
+      }
+      return isEmpty;
+    };
+
+    await scanDir(filesDir);
   }
 
   static async clearContainerLiveFiles(containerDir: string): Promise<void> {
@@ -439,7 +688,7 @@ export class ModpackProfileManager {
     }
 
     const activeInfo = await this.getActiveProfile(containerDir);
-    if (activeInfo && activeInfo.activeProfile) {
+    if (activeInfo && activeInfo.activeProfile && activeInfo.activeProfile !== profileId) {
       await this.saveActiveToProfile(containerDir);
     }
 

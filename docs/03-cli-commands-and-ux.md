@@ -57,7 +57,7 @@ loadmoder (alias: lm)
 Membuka antarmuka navigasi keyboard berbasis `@inquirer/prompts`:
 
 ```text
-  LOADMODER v2.7.0 • Minecraft Mod & Modpack Manager • Nordic Clean TUI
+  LOADMODER v2.8.0 • Minecraft Mod & Modpack Manager • Nordic Clean TUI
 
   Instance Aktif : [Prism] Fabulously Optimized (1.21.1 / fabric)
   Mod Terpasang  : 14 Mod (14 Aktif) • Ukuran: 28.4 MB

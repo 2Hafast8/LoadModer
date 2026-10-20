@@ -7,7 +7,7 @@ import { ModpackUnpacker } from '../modpack/unpacker.js';
 import { modrinthClient } from '../../api/client.js';
 import { ModpackProfileManager } from '../modpack/profileManager.js';
 import { BaselineManager } from '../modpack/baselineManager.js';
-import { getLauncherCapabilities } from './capabilities.js';
+import { getLauncherCapabilities, isLoadModerModpackContainerName } from './capabilities.js';
 import { detectLauncherFromPath } from './detector.js';
 import { DependencyGraph } from '../dependency/graph.js';
 import { instanceConfig, type InstanceConfigManager } from './config.js';
@@ -34,7 +34,13 @@ async function installMrpackToContainer(
   options?: LocalInstallOptions
 ): Promise<InstalledLocalResult> {
   const effectiveLauncher = options?.launcher ?? detectLauncherFromPath(instanceDir).launcher;
-  const caps = getLauncherCapabilities(effectiveLauncher);
+  const isDirectVersionFolder =
+    path.basename(path.dirname(instanceDir)).toLowerCase() === 'versions' &&
+    !isLoadModerModpackContainerName(path.basename(instanceDir));
+  const caps = getLauncherCapabilities(effectiveLauncher, {
+    rootDir: instanceDir,
+    isTLMods: isDirectVersionFolder,
+  });
   if (!caps.supportsModpack) {
     return {
       file: filePath,

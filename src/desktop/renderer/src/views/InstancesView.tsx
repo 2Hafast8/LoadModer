@@ -17,11 +17,17 @@ import {
   Trash2,
   Settings2,
   Boxes,
+  Save,
+  Home,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 import { RestorePointsPanel } from '../components/RestorePointsPanel.js';
 import { ExportModpackModal } from '../components/ExportModpackModal.js';
 import { EditVersionLoaderModal } from '../components/EditVersionLoaderModal.js';
+import { OperationLoadingOverlay } from '../components/OperationLoadingOverlay.js';
 
 interface InstanceItem {
   id: string;
@@ -40,6 +46,9 @@ interface InstanceItem {
     supportsModeSwitch: boolean;
     modpackStrategy: string;
     incompatibilityReason?: string;
+    isTLMods?: boolean;
+    isLoadModerContainer?: boolean;
+    notes?: string;
   };
 }
 
@@ -79,6 +88,23 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingInstance, setEditingInstance] = useState<InstanceItem | null>(null);
+  const [savingTLMods, setSavingTLMods] = useState(false);
+  const [containerSearch, setContainerSearch] = useState('');
+  const [modpackPage, setModpackPage] = useState(1);
+  const MODPACK_PAGE_SIZE = 6;
+  const [operationBusy, setOperationBusy] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    detail?: string;
+  }>({
+    isOpen: false,
+    title: '',
+  });
+
+  useEffect(() => {
+    setModpackPage(1);
+  }, [activeInstance?.activeContainer, modpackProfiles.length]);
 
   const loadInstances = async () => {
     setLoading(true);
@@ -225,34 +251,95 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
   };
 
   const handleSwitchModpackProfile = async (profileId: string) => {
+    const profObj = modpackProfiles.find((p) => p.id === profileId);
+    const profName = profObj?.name ?? profileId;
+    setOperationBusy({
+      isOpen: true,
+      title: t.loadingOverlay?.activatingModpackTitle || 'Mengaktifkan Profil Modpack',
+      subtitle: t.loadingOverlay?.activatingModpackDesc || 'Mengekstrak dan memulihkan seluruh mod, konfigurasi, dan pengaturan dari brankas...',
+      detail: profName,
+    });
     try {
       const res = await window.api.modpack.switchProfile(profileId);
       if (res.success) {
-        setNotification({ text: t.instances.containerSwitched.replace('{name}', profileId), type: 'success' });
-        loadInstances();
+        setNotification({ text: t.instances.containerSwitched.replace('{name}', profName), type: 'success' });
+        await loadInstances();
       } else {
         setNotification({ text: res.error ?? t.instances.containerSwitchFailed, type: 'error' });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
+    } finally {
+      setOperationBusy({ isOpen: false, title: '' });
     }
   };
 
   const handleDisableModpack = async () => {
+    setOperationBusy({
+      isOpen: true,
+      title: t.loadingOverlay?.disablingModpackTitle || 'Membersihkan Wadah ke Mode Vanilla',
+      subtitle: t.loadingOverlay?.disablingModpackDesc || 'Menyimpan modpack aktif ke brankas dan membersihkan wadah...',
+      detail: activeInstance?.activeContainer ?? 'Modpack',
+    });
     try {
       const res = await window.api.modpack.disableActive();
       if (res.success) {
         setNotification({ text: t.instances.containerDisabled, type: 'success' });
-        loadInstances();
+        await loadInstances();
       } else {
         setNotification({ text: res.error ?? t.instances.containerDisableFailed, type: 'error' });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
+    } finally {
+      setOperationBusy({ isOpen: false, title: '' });
+    }
+  };
+
+  const handleManualSaveTLModsProfile = async () => {
+    setOperationBusy({
+      isOpen: true,
+      title: t.loadingOverlay?.savingModpackTitle || 'Menyimpan Profil Modpack',
+      subtitle: t.loadingOverlay?.savingModpackDesc || 'Menyimpan seluruh mod, konfigurasi, shader, dan pengaturan ke brankas profil...',
+      detail: activeInstance?.activeContainer ?? 'TL-Mods',
+    });
+    try {
+      setSavingTLMods(true);
+      const res = await window.api.modpack.manualSaveProfile();
+      if (res.success) {
+        setNotification({
+          text: (t.instances.manualSaveProfileSuccess || 'Profil modpack berhasil disimpan ({count} berkas diamankan).').replace(
+            '{count}',
+            String(res.filesCount ?? 0)
+          ),
+          type: 'success',
+        });
+        await loadInstances();
+      } else {
+        setNotification({
+          text: (t.instances.manualSaveProfileError || 'Gagal menyimpan profil modpack: {error}').replace(
+            '{error}',
+            res.error || ''
+          ),
+          type: 'error',
+        });
+      }
+    } catch (err: any) {
+      setNotification({ text: err.message, type: 'error' });
+    } finally {
+      setSavingTLMods(false);
+      setOperationBusy({ isOpen: false, title: '' });
     }
   };
 
   const handleSwitchMode = async (mode: 'default' | 'modpack', containerName?: string) => {
+    const detailText = mode === 'default' ? t.instances.modeDefault : `Wadah: ${containerName}`;
+    setOperationBusy({
+      isOpen: true,
+      title: t.loadingOverlay?.switchingModeTitle || 'Memindahkan Mode Launcher',
+      subtitle: t.loadingOverlay?.switchingModeDesc || 'Menyelaraskan direktori wadah dan mengamankan berkas mod. Harap tunggu...',
+      detail: detailText,
+    });
     try {
       const res = await window.api.instances.switchMode(mode, containerName);
       if (res.success) {
@@ -260,17 +347,24 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           text: t.instances.modeSwitched.replace('{mode}', mode === 'default' ? 'Default (.minecraft)' : `Wadah (${containerName})`),
           type: 'success',
         });
-        loadInstances();
+        await loadInstances();
       } else {
         setNotification({ text: res.error || 'Gagal mengubah mode launcher', type: 'error' });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
+    } finally {
+      setOperationBusy({ isOpen: false, title: '' });
     }
   };
 
   const handleRestoreBaseline = async () => {
     if (!window.confirm(t.instances.confirmRestoreBaseline)) return;
+    setOperationBusy({
+      isOpen: true,
+      title: t.loadingOverlay?.restoringBaselineTitle || 'Memulihkan Golden Baseline',
+      subtitle: t.loadingOverlay?.restoringBaselineDesc || 'Mengembalikan berkas instalasi awal yang murni...',
+    });
     try {
       const res = await window.api.baseline.restore();
       if (res.success) {
@@ -278,12 +372,14 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           text: t.instances.baselineRestored.replace('{count}', String(res.restoredCount ?? 0)),
           type: 'success',
         });
-        loadInstances();
+        await loadInstances();
       } else {
         setNotification({ text: res.error || 'Gagal memulihkan baseline', type: 'error' });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
+    } finally {
+      setOperationBusy({ isOpen: false, title: '' });
     }
   };
 
@@ -447,58 +543,192 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         )}
 
         {activeInstance?.capabilities?.supportsModeSwitch && (
-          <div className="border border-obsidian-border bg-obsidian-surface rounded p-3.5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <Boxes className="w-4 h-4 text-emerald-primary" />
-              <div>
+          <div className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center space-x-2">
+                <Boxes className="w-4 h-4 text-emerald-primary" />
                 <span className="text-xs font-bold text-nordic-text font-mono uppercase">
                   {t.instances.modeSelector}
                 </span>
-                <span className="text-[11px] text-nordic-muted ml-2">
-                  (Launcher: {activeInstance.launcher})
+                <span className="text-[11px] text-nordic-muted">
+                  • Launcher: <strong className="text-nordic-text">{activeInstance.launcher}</strong>
                 </span>
+                {containers.length > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-obsidian-card border border-obsidian-border text-emerald-primary">
+                    {(t.instances.containerCount || '{count} Wadah').replace('{count}', String(containers.length))}
+                  </span>
+                )}
               </div>
-            </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleSwitchMode('default')}
-                className={`px-3 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
-                  activeInstance.mode !== 'modpack'
-                    ? 'bg-emerald-primary text-obsidian-bg'
-                    : 'bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text'
-                }`}
-              >
-                {t.instances.modeDefault}
-              </button>
-
-              {containers.length > 0 ? (
-                containers.map((c) => (
-                  <button
-                    key={c.containerName}
-                    onClick={() => handleSwitchMode('modpack', c.containerName)}
-                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
-                      activeInstance.mode === 'modpack' && activeInstance.activeContainer === c.containerName
-                        ? 'bg-emerald-primary text-obsidian-bg'
-                        : 'bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text'
-                    }`}
-                  >
-                    Wadah: {c.containerName}
-                  </button>
-                ))
-              ) : (
-                <button
-                  onClick={() => handleSwitchMode('modpack')}
-                  className={`px-3 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
-                    activeInstance.mode === 'modpack'
-                      ? 'bg-emerald-primary text-obsidian-bg'
-                      : 'bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text'
-                  }`}
-                >
-                  {t.instances.modeModpack}
-                </button>
+              {containers.length > 4 && (
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-nordic-muted pointer-events-none" />
+                  <input
+                    type="text"
+                    value={containerSearch}
+                    onChange={(e) => setContainerSearch(e.target.value)}
+                    placeholder={t.instances.searchContainers || 'Cari wadah client...'}
+                    className="pl-8 pr-3 py-1 bg-obsidian-card border border-obsidian-border rounded text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary/60 w-full sm:w-56 transition-colors"
+                  />
+                </div>
               )}
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {/* 1. Opsi Default Mode (.minecraft) */}
+              <div
+                onClick={() => handleSwitchMode('default')}
+                className={`p-3 rounded border text-xs flex flex-col justify-between transition-all cursor-pointer ${
+                  activeInstance.mode !== 'modpack'
+                    ? 'bg-emerald-dark/20 border-emerald-primary/70 shadow-sm'
+                    : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:border-emerald-primary/40 hover:text-nordic-text'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className={`w-6 h-6 rounded flex items-center justify-center ${
+                        activeInstance.mode !== 'modpack'
+                          ? 'bg-emerald-primary/20 text-emerald-active'
+                          : 'bg-obsidian-surface text-nordic-muted'
+                      }`}
+                    >
+                      <Home className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="font-bold text-nordic-text text-xs">
+                      {t.instances.modeDefault}
+                    </span>
+                  </div>
+                  {activeInstance.mode !== 'modpack' ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-primary text-obsidian-bg">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{t.common.active}</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted">
+                      Standard
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-nordic-muted">
+                  {t.instances.defaultModeDesc || 'Instalasi game standar non-kontainer'}
+                </div>
+              </div>
+
+              {/* 2. Kartu-kartu Wadah Client */}
+              {containers.length > 0 ? (
+                containers
+                  .filter((c) => {
+                    if (!containerSearch.trim()) return true;
+                    const q = containerSearch.toLowerCase().trim();
+                    return (
+                      (c.containerName && c.containerName.toLowerCase().includes(q)) ||
+                      (c.loader && c.loader.toLowerCase().includes(q)) ||
+                      (c.gameVersion && c.gameVersion.toLowerCase().includes(q))
+                    );
+                  })
+                  .map((c) => {
+                    const isSelected =
+                      activeInstance.mode === 'modpack' && activeInstance.activeContainer === c.containerName;
+                    const loaderLower = (c.loader || '').toLowerCase();
+                    const loaderBadgeClass =
+                      loaderLower === 'fabric'
+                        ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
+                        : loaderLower === 'forge'
+                          ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                          : loaderLower === 'neoforge'
+                            ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                            : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+
+                    return (
+                      <div
+                        key={c.containerName}
+                        onClick={() => handleSwitchMode('modpack', c.containerName)}
+                        className={`p-3 rounded border text-xs flex flex-col justify-between transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-dark/20 border-emerald-primary/70 shadow-sm'
+                            : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:border-emerald-primary/40 hover:text-nordic-text'
+                        }`}
+                        title={c.containerName}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                              <span className={`text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${loaderBadgeClass}`}>
+                                {c.loader}
+                              </span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted">
+                                MC {c.gameVersion}
+                              </span>
+                              {c.isTLMods && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/40 text-amber-400 border border-amber-500/30">
+                                  TL-Mods
+                                </span>
+                              )}
+                            </div>
+
+                            {isSelected ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-primary text-obsidian-bg shrink-0">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>{t.common.active}</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-nordic-muted">
+                                {c.profilesCount > 0 ? `${c.profilesCount} profil` : 'Siap'}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="font-semibold text-nordic-text text-xs truncate min-w-0 mb-1" title={c.containerName}>
+                            {c.containerName}
+                          </div>
+                        </div>
+
+                        <div className="text-[10px] font-mono text-nordic-muted truncate min-w-0 mt-1">
+                          {c.activeProfileName ? (
+                            <span className="text-emerald-active truncate block">
+                              Aktif: {c.activeProfileName}
+                            </span>
+                          ) : (
+                            <span>Wadah Client Bersih</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+              ) : (
+                <div
+                  onClick={() => handleSwitchMode('modpack')}
+                  className={`p-3 rounded border text-xs flex flex-col justify-between transition-all cursor-pointer ${
+                    activeInstance.mode === 'modpack'
+                      ? 'bg-emerald-dark/20 border-emerald-primary/70 shadow-sm'
+                      : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:border-emerald-primary/40 hover:text-nordic-text'
+                  }`}
+                >
+                  <div className="font-bold text-nordic-text text-xs mb-1">
+                    {t.instances.modeModpack}
+                  </div>
+                  <div className="text-[11px] text-nordic-muted">
+                    {t.instances.containerModeDesc || 'Wadah versi client terisolasi'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {containers.length > 0 &&
+              containers.filter((c) => {
+                if (!containerSearch.trim()) return true;
+                const q = containerSearch.toLowerCase().trim();
+                return (
+                  (c.containerName && c.containerName.toLowerCase().includes(q)) ||
+                  (c.loader && c.loader.toLowerCase().includes(q)) ||
+                  (c.gameVersion && c.gameVersion.toLowerCase().includes(q))
+                );
+              }).length === 0 && (
+                <div className="py-4 text-center text-xs text-nordic-muted border border-dashed border-obsidian-border rounded">
+                  {t.instances.noMatchingContainers || 'Tidak ada wadah yang cocok dengan pencarian.'}
+                </div>
+              )}
           </div>
         )}
 
@@ -540,7 +770,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           />
         )}
 
-        {modpackProfiles.length > 0 && (
+        {(modpackProfiles.length > 0 || activeInstance?.capabilities?.isTLMods) && (
           <div className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -548,59 +778,138 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                 <span className="text-xs font-bold text-nordic-text uppercase font-mono">
                   {t.instances.modpackContainers.replace('{count}', String(modpackProfiles.length))}
                 </span>
+                {activeInstance?.capabilities?.isTLMods && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-amber-950/40 text-amber-400 border border-amber-500/30">
+                    TL-Mods Modpack
+                  </span>
+                )}
               </div>
-              <button
-                onClick={handleDisableModpack}
-                className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-[11px] text-nordic-muted hover:text-status-warning hover:border-status-warning/40 transition-colors cursor-pointer"
-              >
-                <Undo2 className="w-3 h-3" />
-                <span>{t.instances.vanillaMode}</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                {activeInstance?.capabilities?.isTLMods && (
+                  <button
+                    onClick={handleManualSaveTLModsProfile}
+                    disabled={savingTLMods}
+                    className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-amber-950/40 border border-amber-500/40 text-[11px] text-amber-300 hover:bg-amber-900/50 hover:border-amber-400 transition-colors cursor-pointer disabled:opacity-50"
+                    title={t.instances.manualSaveProfile}
+                  >
+                    <Save className={`w-3.5 h-3.5 ${savingTLMods ? 'animate-spin' : ''}`} />
+                    <span>{t.instances.manualSaveProfile}</span>
+                  </button>
+                )}
+                {modpackProfiles.length > 0 && (
+                  <button
+                    onClick={handleDisableModpack}
+                    className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-[11px] text-nordic-muted hover:text-status-warning hover:border-status-warning/40 transition-colors cursor-pointer"
+                  >
+                    <Undo2 className="w-3 h-3" />
+                    <span>{t.instances.vanillaMode}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {modpackProfiles.map((prof) => (
-                <div
-                  key={prof.id}
-                  className={`p-2.5 rounded border text-xs flex items-center justify-between ${
-                    prof.isActive
-                      ? 'bg-emerald-dark/20 border-emerald-primary/60 text-emerald-active'
-                      : 'bg-obsidian-card border-obsidian-border text-nordic-muted'
-                  }`}
-                >
-                  <div className="truncate min-w-0 mr-2">
-                    <span className="font-semibold block truncate text-nordic-text">
-                      {prof.name}
-                    </span>
-                    <span className="text-[10px] font-mono opacity-70">
-                      {t.instances.filesCount.replace('{count}', String(prof.filesCount ?? 0))} • {prof.loader ?? 'modpack'}
-                    </span>
+            {modpackProfiles.length === 0 ? (
+              <div className="py-4 text-center text-xs text-nordic-muted border border-dashed border-obsidian-border rounded">
+                Belum ada arsip profil tersimpan di wadah ini. Klik &quot;Simpan Profil Manual&quot; untuk mengamankan seluruh isi modpack.
+              </div>
+            ) : (() => {
+              const totalModpackPages = Math.max(1, Math.ceil(modpackProfiles.length / MODPACK_PAGE_SIZE));
+              const validModpackPage = Math.min(Math.max(1, modpackPage), totalModpackPages);
+              const pagedProfiles = modpackProfiles.slice(
+                (validModpackPage - 1) * MODPACK_PAGE_SIZE,
+                validModpackPage * MODPACK_PAGE_SIZE
+              );
+
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {pagedProfiles.map((prof) => (
+                      <div
+                        key={prof.id}
+                        className={`p-2.5 rounded border text-xs flex items-center justify-between ${
+                          prof.isActive
+                            ? 'bg-emerald-dark/20 border-emerald-primary/60 text-emerald-active'
+                            : 'bg-obsidian-card border-obsidian-border text-nordic-muted'
+                        }`}
+                      >
+                        <div className="truncate min-w-0 mr-2">
+                          <span className="font-semibold block truncate text-nordic-text" title={prof.name}>
+                            {prof.name}
+                          </span>
+                          <span className="text-[10px] font-mono opacity-70">
+                            {t.instances.filesCount.replace('{count}', String(prof.filesCount ?? 0))} • {prof.loader ?? 'modpack'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleRemoveModpackProfile(prof.id, prof.name)}
+                            className="p-1 rounded text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
+                            title={t.instances.deleteProfile}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {prof.isActive && (
+                            <button
+                              onClick={() => handleSwitchModpackProfile(prof.id)}
+                              className="p-1 rounded text-zinc-400 hover:text-emerald-400 hover:bg-emerald-950/30 transition-colors cursor-pointer"
+                              title="Pulihkan / Ekstrak ulang berkas profil ini ke wadah"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleSwitchModpackProfile(prof.id)}
+                            disabled={prof.isActive}
+                            className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                              prof.isActive
+                                ? 'bg-emerald-primary text-obsidian-bg cursor-default'
+                                : 'bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary hover:text-emerald-primary'
+                            }`}
+                          >
+                            {prof.isActive ? t.common.active : t.common.install}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleRemoveModpackProfile(prof.id, prof.name)}
-                      className="p-1 rounded text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
-                      title={t.instances.deleteProfile}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      onClick={() => handleSwitchModpackProfile(prof.id)}
-                      disabled={prof.isActive}
-                      className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                        prof.isActive
-                          ? 'bg-emerald-primary text-obsidian-bg cursor-default'
-                          : 'bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary hover:text-emerald-primary'
-                      }`}
-                    >
-                      {prof.isActive ? t.common.active : t.common.install}
-                    </button>
-                  </div>
+                  {totalModpackPages > 1 && (
+                    <div className="flex items-center justify-between pt-3 border-t border-obsidian-border text-xs text-nordic-muted">
+                      <span className="text-[11px]">
+                        {(t.instances.pageOf || 'Halaman {current} dari {total} ({count} item)')
+                          .replace('{current}', String(validModpackPage))
+                          .replace('{total}', String(totalModpackPages))
+                          .replace('{count}', String(modpackProfiles.length))}
+                      </span>
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          onClick={() => setModpackPage((p) => Math.max(1, p - 1))}
+                          disabled={validModpackPage <= 1}
+                          className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-text hover:text-emerald-primary disabled:opacity-40 disabled:hover:text-nordic-text transition-colors cursor-pointer disabled:cursor-not-allowed text-xs font-semibold"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                          <span>{t.instances.previousPage || 'Sebelumnya'}</span>
+                        </button>
+                        <span className="px-2 font-mono text-[11px] text-emerald-primary font-bold">
+                          {validModpackPage} / {totalModpackPages}
+                        </span>
+                        <button
+                          onClick={() => setModpackPage((p) => Math.min(totalModpackPages, p + 1))}
+                          disabled={validModpackPage >= totalModpackPages}
+                          className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-text hover:text-emerald-primary disabled:opacity-40 disabled:hover:text-nordic-text transition-colors cursor-pointer disabled:cursor-not-allowed text-xs font-semibold"
+                        >
+                          <span>{t.instances.nextPage || 'Selanjutnya'}</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </div>
         )}
 
@@ -768,6 +1077,8 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         instance={editingInstance}
         onSaved={loadInstances}
       />
+
+      <OperationLoadingOverlay {...operationBusy} />
     </div>
   );
 };

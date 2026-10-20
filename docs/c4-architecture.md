@@ -203,6 +203,6 @@ flowchart LR
     DesktopDist --> Builder["electron-builder --win"]
     CliDist --> Builder
 
-    Builder --> NSIS["LoadModer-Setup-2.7.0.exe\n(NSIS Installer Wizard)"]
-    Builder --> Portable["LoadModer-2.7.0-Portable.exe\n(Standalone Portable Executable)"]
+    Builder --> NSIS["LoadModer-Setup-2.8.0.exe\n(NSIS Installer Wizard)"]
+    Builder --> Portable["LoadModer-2.8.0-Portable.exe\n(Standalone Portable Executable)"]
 ```

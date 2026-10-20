@@ -8,8 +8,11 @@ import {
   Loader2,
   ArrowRightLeft,
   Save,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
+import { OperationLoadingOverlay } from './OperationLoadingOverlay.js';
 
 interface SnapshotItem {
   snapshotId: string;
@@ -39,6 +42,17 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
   const [saving, setSaving] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 6;
+  const [panelBusy, setPanelBusy] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    detail?: string;
+  }>({
+    isOpen: false,
+    title: '',
+  });
 
   const loadSnapshots = async () => {
     if (!activeInstance) return;
@@ -70,11 +84,17 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
     if (!activeInstance) return;
     setSaving(true);
     setNotice(null);
+    setPanelBusy({
+      isOpen: true,
+      title: t.loadingOverlay?.savingVersionTitle || 'Menyimpan Profil Versi',
+      subtitle: t.loadingOverlay?.savingVersionDesc || 'Menyimpan mod aktif ke arsip profil versi...',
+      detail: `${activeInstance?.loader?.toUpperCase() ?? 'MOD'} ${activeInstance?.gameVersion ?? ''}`,
+    });
     try {
       const res = await window.api.snapshots.saveCurrent();
       if (res.success) {
         setNotice({ text: t.snapshots.createSuccess, type: 'success' });
-        loadSnapshots();
+        await loadSnapshots();
       } else {
         setNotice({ text: res.error || 'Gagal menyimpan profil versi.', type: 'error' });
       }
@@ -82,6 +102,7 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
       setNotice({ text: err.message, type: 'error' });
     } finally {
       setSaving(false);
+      setPanelBusy({ isOpen: false, title: '' });
     }
   };
 
@@ -94,6 +115,12 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
     const snapKey = `${loader}-${gameVersion}`;
     setSwitchingId(snapKey);
     setNotice(null);
+    setPanelBusy({
+      isOpen: true,
+      title: t.loadingOverlay?.switchingVersionTitle || 'Mengalihkan Profil Versi Game',
+      subtitle: t.loadingOverlay?.switchingVersionDesc || 'Mengarsipkan mod versi sebelumnya dan memulihkan mod versi target...',
+      detail: `${loader.toUpperCase()} ${gameVersion}`,
+    });
     try {
       const res = await window.api.snapshots.switchProfile(loader, gameVersion);
       if (res.success) {
@@ -110,6 +137,7 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
       setNotice({ text: err.message, type: 'error' });
     } finally {
       setSwitchingId(null);
+      setPanelBusy({ isOpen: false, title: '' });
     }
   };
 
@@ -194,113 +222,155 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
         <div className="py-4 text-center text-xs text-nordic-muted border border-dashed border-obsidian-border rounded">
           {t.snapshots.emptySnapshots}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
-          {[...snapshots]
-            .sort((a, b) => {
-              const loaderA = (a.loader || '').toLowerCase();
-              const loaderB = (b.loader || '').toLowerCase();
-              if (loaderA !== loaderB) {
-                return loaderA.localeCompare(loaderB);
+      ) : (() => {
+        const sorted = [...snapshots].sort((a, b) => {
+          const loaderA = (a.loader || '').toLowerCase();
+          const loaderB = (b.loader || '').toLowerCase();
+          if (loaderA !== loaderB) {
+            return loaderA.localeCompare(loaderB);
+          }
+
+          const verA = a.gameVersion || '';
+          const verB = b.gameVersion || '';
+          if (verA !== verB) {
+            const partsA = verA.split('.').map((n) => parseInt(n, 10) || 0);
+            const partsB = verB.split('.').map((n) => parseInt(n, 10) || 0);
+            const maxLen = Math.max(partsA.length, partsB.length);
+            for (let i = 0; i < maxLen; i++) {
+              const numA = partsA[i] ?? 0;
+              const numB = partsB[i] ?? 0;
+              if (numA !== numB) {
+                return numB - numA;
               }
+            }
+            return verB.localeCompare(verA);
+          }
 
-              const verA = a.gameVersion || '';
-              const verB = b.gameVersion || '';
-              if (verA !== verB) {
-                const partsA = verA.split('.').map((n) => parseInt(n, 10) || 0);
-                const partsB = verB.split('.').map((n) => parseInt(n, 10) || 0);
-                const maxLen = Math.max(partsA.length, partsB.length);
-                for (let i = 0; i < maxLen; i++) {
-                  const numA = partsA[i] ?? 0;
-                  const numB = partsB[i] ?? 0;
-                  if (numA !== numB) {
-                    return numB - numA;
-                  }
-                }
-                return verB.localeCompare(verA);
-              }
+          const timeA = new Date(a.createdAt || 0).getTime();
+          const timeB = new Date(b.createdAt || 0).getTime();
+          if (timeA !== timeB) {
+            return timeA - timeB;
+          }
+          return a.snapshotId.localeCompare(b.snapshotId);
+        });
 
-              const timeA = new Date(a.createdAt || 0).getTime();
-              const timeB = new Date(b.createdAt || 0).getTime();
-              if (timeA !== timeB) {
-                return timeA - timeB;
-              }
-              return a.snapshotId.localeCompare(b.snapshotId);
-            })
-            .map((snap) => {
-            const snapLoader = (snap.loader || 'fabric').toLowerCase();
-            const snapVersion = snap.gameVersion || 'unknown';
-            const isSwitching = switchingId === `${snapLoader}-${snapVersion}`;
+        const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+        const validPage = Math.min(Math.max(1, currentPage), totalPages);
+        const pagedSnapshots = sorted.slice((validPage - 1) * PAGE_SIZE, validPage * PAGE_SIZE);
 
-            const activeLoader = (activeInstance?.loader || '').toLowerCase();
-            const activeVersion = (activeInstance?.gameVersion || '').toLowerCase();
-            const isActive =
-              activeLoader && activeVersion && snapLoader === activeLoader && snapVersion === activeVersion;
+        return (
+          <div className="space-y-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {pagedSnapshots.map((snap) => {
+                const snapLoader = (snap.loader || 'fabric').toLowerCase();
+                const snapVersion = snap.gameVersion || 'unknown';
+                const isSwitching = switchingId === `${snapLoader}-${snapVersion}`;
 
-            const dateStr = snap.createdAt ? new Date(snap.createdAt).toLocaleDateString() : '-';
+                const activeLoader = (activeInstance?.loader || '').toLowerCase();
+                const activeVersion = (activeInstance?.gameVersion || '').toLowerCase();
+                const isActive =
+                  activeLoader && activeVersion && snapLoader === activeLoader && snapVersion === activeVersion;
 
-            return (
-              <div
-                key={snap.snapshotId}
-                className={`p-3 rounded border text-xs flex items-center justify-between transition-colors ${
-                  isActive
-                    ? 'bg-emerald-dark/20 border-emerald-primary/60 text-emerald-active shadow-sm'
-                    : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:border-obsidian-hover'
-                }`}
-              >
-                <div className="truncate min-w-0 mr-2 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-nordic-text uppercase font-mono text-xs">
-                      {snap.loader || 'Fabric'} {snap.gameVersion}
-                    </span>
-                    {isActive ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-dark/40 border border-emerald-primary/40 text-emerald-active">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>{t.snapshots.currentActiveBadge}</span>
-                      </span>
-                    ) : (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-obsidian-surface border border-obsidian-border text-nordic-muted">
-                        {t.snapshots.savedBadge}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-nordic-muted font-mono flex items-center gap-2">
-                    <span>{t.snapshots.modsCount.replace('{count}', String(snap.modsCount ?? 0))}</span>
-                    <span>•</span>
-                    <span>{dateStr}</span>
-                  </div>
-                </div>
+                const dateStr = snap.createdAt ? new Date(snap.createdAt).toLocaleDateString() : '-';
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {isActive ? (
-                    <span className="px-2.5 py-1 rounded bg-emerald-primary/20 border border-emerald-primary/40 text-emerald-active text-[11px] font-semibold cursor-default">
-                      {t.snapshots.currentInUseBtn}
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleSwitchProfile(snap.loader || 'fabric', snap.gameVersion || '1.20.1')}
-                      disabled={isSwitching}
-                      title={t.snapshots.switchBtn}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded bg-obsidian-surface hover:bg-emerald-dark/30 text-nordic-text hover:text-emerald-primary border border-obsidian-border hover:border-emerald-primary/40 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${isSwitching ? 'animate-spin' : ''}`} />
-                      <span>{isSwitching ? t.snapshots.switching : t.snapshots.switchBtn}</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => handleDelete(snap.snapshotId, `${snap.loader} ${snap.gameVersion}`)}
-                    title={t.snapshots.deleteBtn}
-                    className="p-1.5 rounded text-nordic-muted hover:text-status-danger hover:bg-status-danger/10 transition-colors cursor-pointer"
+                return (
+                  <div
+                    key={snap.snapshotId}
+                    className={`p-3 rounded border text-xs flex items-center justify-between transition-colors ${
+                      isActive
+                        ? 'bg-emerald-dark/20 border-emerald-primary/60 text-emerald-active shadow-sm'
+                        : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:border-obsidian-hover'
+                    }`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <div className="truncate min-w-0 mr-2 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-nordic-text uppercase font-mono text-xs">
+                          {snap.loader || 'Fabric'} {snap.gameVersion}
+                        </span>
+                        {isActive ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-dark/40 border border-emerald-primary/40 text-emerald-active">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>{t.snapshots.currentActiveBadge}</span>
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-obsidian-surface border border-obsidian-border text-nordic-muted">
+                            {t.snapshots.savedBadge}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-nordic-muted font-mono flex items-center gap-2">
+                        <span>{t.snapshots.modsCount.replace('{count}', String(snap.modsCount ?? 0))}</span>
+                        <span>•</span>
+                        <span>{dateStr}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isActive ? (
+                        <span className="px-2.5 py-1 rounded bg-emerald-primary/20 border border-emerald-primary/40 text-emerald-active text-[11px] font-semibold cursor-default">
+                          {t.snapshots.currentInUseBtn}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleSwitchProfile(snap.loader || 'fabric', snap.gameVersion || '1.20.1')}
+                          disabled={isSwitching}
+                          title={t.snapshots.switchBtn}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-obsidian-surface hover:bg-emerald-dark/30 text-nordic-text hover:text-emerald-primary border border-obsidian-border hover:border-emerald-primary/40 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isSwitching ? 'animate-spin' : ''}`} />
+                          <span>{isSwitching ? t.snapshots.switching : t.snapshots.switchBtn}</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleDelete(snap.snapshotId, `${snap.loader} ${snap.gameVersion}`)}
+                        title={t.snapshots.deleteBtn}
+                        className="p-1.5 rounded text-nordic-muted hover:text-status-danger hover:bg-status-danger/10 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-3 border-t border-obsidian-border text-xs text-nordic-muted">
+                <span className="text-[11px]">
+                  {(t.snapshots.pageOf || 'Halaman {current} dari {total} ({count} profil)')
+                    .replace('{current}', String(validPage))
+                    .replace('{total}', String(totalPages))
+                    .replace('{count}', String(sorted.length))}
+                </span>
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={validPage <= 1}
+                    className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-text hover:text-emerald-primary disabled:opacity-40 disabled:hover:text-nordic-text transition-colors cursor-pointer disabled:cursor-not-allowed text-xs font-semibold"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>{t.snapshots.previousPage || 'Sebelumnya'}</span>
+                  </button>
+                  <span className="px-2 font-mono text-[11px] text-emerald-primary font-bold">
+                    {validPage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={validPage >= totalPages}
+                    className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-nordic-text hover:text-emerald-primary disabled:opacity-40 disabled:hover:text-nordic-text transition-colors cursor-pointer disabled:cursor-not-allowed text-xs font-semibold"
+                  >
+                    <span>{t.snapshots.nextPage || 'Selanjutnya'}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
+
+      <OperationLoadingOverlay {...panelBusy} />
     </div>
   );
 };

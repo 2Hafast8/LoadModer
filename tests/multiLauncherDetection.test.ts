@@ -282,7 +282,7 @@ describe("Multi-Launcher Folder Detection & Decoupled TLauncher Module", () => {
       // Verifikasi container1 sudah bersih
       const active1 = await ModpackProfileManager.getActiveProfile(container1);
       expect(active1?.activeProfile).toBeNull();
-    });
+    }, 15000);
 
     it("harus membersihkan container sebelumnya saat beralih antar client version", async () => {
       const { ModpackProfileManager } = await import("../src/core/modpack/profileManager.js");

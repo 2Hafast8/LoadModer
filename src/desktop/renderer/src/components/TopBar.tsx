@@ -9,8 +9,11 @@ import {
   X,
   FolderGit2,
   Languages,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
+import type { AppUpdateInfo } from './UpdateModal.js';
 
 export type NavTab = 'mods' | 'explore' | 'instances' | 'bisect';
 
@@ -19,6 +22,10 @@ interface TopBarProps {
   onTabChange: (tab: NavTab) => void;
   activeInstanceName?: string;
   onOpenInstances: () => void;
+  updateInfo?: AppUpdateInfo | null;
+  onOpenUpdateModal?: () => void;
+  onCheckUpdate?: () => void;
+  isCheckingUpdate?: boolean;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -26,6 +33,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   onTabChange,
   activeInstanceName,
   onOpenInstances,
+  updateInfo,
+  onOpenUpdateModal,
+  onCheckUpdate,
+  isCheckingUpdate,
 }) => {
   const { language, toggleLanguage, t } = useLanguage();
 
@@ -48,9 +59,28 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="font-bold tracking-tight text-nordic-text text-xs uppercase">
             LoadModer
           </span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-card text-nordic-muted border border-obsidian-border">
-            v2.7.0
-          </span>
+          {updateInfo?.updateAvailable ? (
+            <button
+              onClick={onOpenUpdateModal}
+              className="flex items-center space-x-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-tint text-emerald-active border border-emerald-primary/50 hover:bg-emerald-primary/20 transition-all cursor-pointer shadow-sm animate-pulse"
+              title={t.updater.updateAvailable}
+            >
+              <Sparkles className="w-3 h-3 text-emerald-primary" />
+              <span>v{updateInfo.latestVersion}</span>
+            </button>
+          ) : (
+            <button
+              onClick={onCheckUpdate}
+              disabled={isCheckingUpdate}
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-card text-nordic-muted border border-obsidian-border hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer flex items-center space-x-1"
+              title={t.updater.checkForUpdates}
+            >
+              {isCheckingUpdate ? (
+                <RefreshCw className="w-2.5 h-2.5 animate-spin text-emerald-primary" />
+              ) : null}
+              <span>{updateInfo?.currentVersion ? `v${updateInfo.currentVersion}` : 'v2.8.0'}</span>
+            </button>
+          )}
         </div>
       </div>
 

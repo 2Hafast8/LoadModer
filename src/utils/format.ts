@@ -17,3 +17,13 @@ export function formatDate(isoString: string): string {
     return isoString;
   }
 }
+
+/**
+ * Memotong teks jika melebihi batas maksimal karakter,
+ * mempertahankan keterbacaan dengan akhiran elipsis (...).
+ */
+export function truncateText(str: string, maxLength: number): string {
+  if (!str || str.length <= maxLength) return str;
+  const sliced = str.slice(0, Math.max(0, maxLength - 3)).replace(/[\s\-_.]+$/, "");
+  return `${sliced}...`;
+}

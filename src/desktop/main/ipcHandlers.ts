@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readdir, stat, rm, mkdir, readFile, copyFile } from 'node:fs/promises';
 import { instanceConfig } from '../../core/instance/config.js';
 import { instanceDetector, detectLauncherFromPath } from '../../core/instance/detector.js';
-import { getLauncherCapabilities } from '../../core/instance/capabilities.js';
+import { getLauncherCapabilities, isLoadModerModpackContainerName, type InstanceContext } from '../../core/instance/capabilities.js';
 import { toggleModFile } from '../../core/instance/modToggle.js';
 import { BisectRunner } from '../../core/troubleshoot/bisect.js';
 import { logAnalyzer } from '../../core/troubleshoot/logAnalyzer.js';
@@ -23,6 +23,7 @@ import { ModsWatcher } from '../../core/watcher/modsWatcher.js';
 import { InstalledAssetsIndex } from '../../core/instance/installedIndex.js';
 import { installLocalFiles } from '../../core/instance/localInstaller.js';
 import { isTrueUpdate } from '../../utils/versionCompare.js';
+import { desktopUpdater } from './updaterService.js';
 import pLimit from 'p-limit';
 import type { LauncherType, LoaderType, MinecraftInstance } from '../../types/instance.js';
 import type { SearchIndex } from '../../api/client.js';
@@ -141,6 +142,34 @@ export function registerIpcHandlers(getMainWindow?: () => BrowserWindow | null):
     return win?.isMaximized() ?? false;
   });
 
+function formatInstanceWithCaps(inst: any) {
+  if (!inst) return null;
+  let isTLMods = false;
+  if (inst.mode === 'modpack' && inst.activeContainer) {
+    isTLMods = !isLoadModerModpackContainerName(inst.activeContainer);
+  } else if (
+    inst.rootDir &&
+    path.basename(path.dirname(inst.rootDir)).toLowerCase() === 'versions' &&
+    !isLoadModerModpackContainerName(path.basename(inst.rootDir))
+  ) {
+    isTLMods = true;
+  }
+
+  const context: InstanceContext = {
+    rootDir: inst.rootDir,
+    mode: inst.mode ?? 'default',
+    activeContainer: inst.activeContainer,
+    isTLMods,
+  };
+
+  return {
+    ...inst,
+    capabilities: getLauncherCapabilities(inst.launcher, context),
+    mode: inst.mode ?? 'default',
+    activeContainer: inst.activeContainer,
+  };
+}
+
 async function computeInstanceStatus(active: any) {
   if (!active) {
     return null;
@@ -188,7 +217,24 @@ async function computeInstanceStatus(active: any) {
     } catch {}
   }
 
-  const caps = getLauncherCapabilities(active.launcher);
+  let isTLMods = false;
+  if (active.mode === 'modpack' && active.activeContainer) {
+    isTLMods = !isLoadModerModpackContainerName(active.activeContainer);
+  } else if (
+    active.rootDir &&
+    path.basename(path.dirname(active.rootDir)).toLowerCase() === 'versions' &&
+    !isLoadModerModpackContainerName(path.basename(active.rootDir))
+  ) {
+    isTLMods = true;
+  }
+
+  const context: InstanceContext = {
+    rootDir: active.rootDir,
+    mode: active.mode ?? 'default',
+    activeContainer: active.activeContainer,
+    isTLMods,
+  };
+  const caps = getLauncherCapabilities(active.launcher, context);
   const statusText = caps.supportsContainers
     ? activeModpack?.activeProfile
       ? `● Modpack: ${activeModpack.name ?? activeModpack.activeProfile}`
@@ -269,18 +315,11 @@ async function computeInstanceStatus(active: any) {
         }
       }
 
-      const formatInstance = (inst: any) => ({
-        ...inst,
-        capabilities: getLauncherCapabilities(inst.launcher),
-        mode: inst.mode ?? 'default',
-        activeContainer: inst.activeContainer,
-      });
-
       const status = await computeInstanceStatus(active);
 
       return {
-        active: active ? formatInstance(active) : null,
-        list: list.map(formatInstance),
+        active: formatInstanceWithCaps(active),
+        list: list.map(formatInstanceWithCaps),
         status,
       };
     } catch (err: any) {
@@ -358,6 +397,9 @@ async function computeInstanceStatus(active: any) {
         if (!targetContainer) {
           throw new Error(`Wadah modpack "${containerName}" tidak ditemukan.`);
         }
+        if (targetContainer.isTLMods) {
+          await ModpackProfileManager.ensureTLModsProfile(targetContainer.containerDir);
+        }
         for (const c of containers) {
           if (c.containerName !== targetContainer.containerName && c.activeProfileName) {
             await ModpackProfileManager.disableProfile(c.containerDir);
@@ -372,7 +414,7 @@ async function computeInstanceStatus(active: any) {
 
       await instanceConfig.save();
       setupWatcher(active.modsDir, active.rootDir, getMainWindow);
-      return { success: true, active };
+      return { success: true, active: formatInstanceWithCaps(active) };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
@@ -1380,7 +1422,22 @@ async function computeInstanceStatus(active: any) {
         }
 
         if (pType === 'modpack' || slugOrId.endsWith('.mrpack')) {
-          const caps = getLauncherCapabilities(active.launcher);
+          let isTLMods = false;
+          if (active.mode === 'modpack' && active.activeContainer) {
+            isTLMods = !isLoadModerModpackContainerName(active.activeContainer);
+          } else if (
+            active.rootDir &&
+            path.basename(path.dirname(active.rootDir)).toLowerCase() === 'versions' &&
+            !isLoadModerModpackContainerName(path.basename(active.rootDir))
+          ) {
+            isTLMods = true;
+          }
+          const caps = getLauncherCapabilities(active.launcher, {
+            rootDir: active.rootDir,
+            mode: active.mode,
+            activeContainer: active.activeContainer,
+            isTLMods,
+          });
           if (!caps.supportsModpack) {
             throw new Error(
               caps.incompatibilityReason ??
@@ -1856,7 +1913,22 @@ async function computeInstanceStatus(active: any) {
         const active = instanceConfig.getActiveInstance();
         if (!active?.rootDir) throw new Error('Silakan pilih instance aktif terlebih dahulu.');
 
-        const caps = getLauncherCapabilities(active.launcher);
+        let isTLMods = false;
+        if (active.mode === 'modpack' && active.activeContainer) {
+          isTLMods = !isLoadModerModpackContainerName(active.activeContainer);
+        } else if (
+          active.rootDir &&
+          path.basename(path.dirname(active.rootDir)).toLowerCase() === 'versions' &&
+          !isLoadModerModpackContainerName(path.basename(active.rootDir))
+        ) {
+          isTLMods = true;
+        }
+        const caps = getLauncherCapabilities(active.launcher, {
+          rootDir: active.rootDir,
+          mode: active.mode,
+          activeContainer: active.activeContainer,
+          isTLMods,
+        });
         if (!caps.supportsModpack) {
           throw new Error(
             caps.incompatibilityReason ??
@@ -2136,6 +2208,20 @@ async function computeInstanceStatus(active: any) {
     }
   });
 
+  ipcMain.handle('modpack:manualSaveProfile', async () => {
+    try {
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir) throw new Error('Instance belum aktif');
+
+      const targetDir = active.mode === 'modpack' && active.modsDir ? path.dirname(active.modsDir) : active.rootDir;
+      const res = await ModpackProfileManager.manualSaveTLModsProfile(targetDir);
+      return { success: true, profile: res.profile, filesCount: res.filesCount };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle(
     'modpack:export',
     async (
@@ -2399,5 +2485,20 @@ async function computeInstanceStatus(active: any) {
     });
     if (res.canceled || res.filePaths.length === 0) return null;
     return res.filePaths[0];
+  });
+
+  ipcMain.handle('updater:check', async () => {
+    return await desktopUpdater.check();
+  });
+
+  ipcMain.handle('updater:download', async (event, assetUrl: string, fileName: string, expectedSha256?: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender) ?? getMainWindow?.();
+    return await desktopUpdater.download(assetUrl, fileName, expectedSha256, (progress) => {
+      win?.webContents.send('updater:progress', progress);
+    });
+  });
+
+  ipcMain.handle('updater:install', async (_event, filePath: string, silent: boolean = false) => {
+    return await desktopUpdater.install(filePath, silent);
   });
 }

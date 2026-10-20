@@ -2,9 +2,27 @@ import path from "node:path";
 import {mkdir, readdir, readFile, stat} from "node:fs/promises";
 import writeFileAtomic from "write-file-atomic";
 import {isTLauncherPreservedEngineItem} from "./preservedItems.js";
+import {isLoadModerModpackContainerName} from "../../instance/capabilities.js";
 import type {ClientContainerInfo, ResolvedContainer} from "../profileManager.js";
 
-export {isTLauncherPreservedEngineItem};
+export {isTLauncherPreservedEngineItem, isLoadModerModpackContainerName as isLoadModerModpackContainer};
+
+/**
+ * Memeriksa apakah folder merupakan modpack bawaan TL-Mods TLauncher (bukan wadah buatan LoadModer).
+ */
+export async function isTLModsModpackFolder(containerDir: string): Promise<boolean> {
+  const cName = path.basename(containerDir);
+  if (isLoadModerModpackContainerName(cName)) return false;
+
+  const tlJsonPath = path.join(containerDir, "TLauncherAdditional.json");
+  try {
+    const raw = await readFile(tlJsonPath, "utf8");
+    const parsed = JSON.parse(raw);
+    return Boolean(parsed?.modpack);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Menemukan seluruh wadah versi client TLauncher di folder versions (.minecraft/versions).
@@ -14,6 +32,7 @@ export async function discoverTLauncherContainers(
   syncProfilesFromDownloads?: (containerDir: string) => Promise<unknown>,
   listProfiles?: (containerDir: string) => Promise<unknown[]>,
   getActiveProfile?: (containerDir: string) => Promise<{name?: string; activeProfile?: string | null} | null>,
+  ensureTLModsProfile?: (containerDir: string) => Promise<unknown>,
 ): Promise<ClientContainerInfo[]> {
   let versionsDir: string | null = null;
   if (baseDir) {
@@ -51,6 +70,7 @@ export async function discoverTLauncherContainers(
       const cDir = path.join(versionsDir, cName);
       const tlJsonPath = path.join(cDir, "TLauncherAdditional.json");
       let isCandidate = lower.startsWith("mypack");
+      let isTLMods = false;
       let loader: "fabric" | "forge" | "neoforge" | "quilt" = lower.includes("fabric")
         ? "fabric"
         : "forge";
@@ -62,6 +82,9 @@ export async function discoverTLauncherContainers(
         const tlJson = JSON.parse(raw);
         if (tlJson?.modpack) {
           isCandidate = true;
+          if (!isLoadModerModpackContainerName(cName)) {
+            isTLMods = true;
+          }
           if (tlJson.modpack.version?.gameVersionDTO?.name) {
             gameVersion = tlJson.modpack.version.gameVersionDTO.name;
           }
@@ -89,6 +112,9 @@ export async function discoverTLauncherContainers(
       }
 
       if (isCandidate) {
+        if (isTLMods && ensureTLModsProfile) {
+          await ensureTLModsProfile(cDir);
+        }
         if (syncProfilesFromDownloads) {
           await syncProfilesFromDownloads(cDir);
         }
@@ -102,6 +128,8 @@ export async function discoverTLauncherContainers(
           gameVersion,
           profilesCount: profiles.length,
           activeProfileName: activeInfo?.name ?? activeInfo?.activeProfile ?? null,
+          isLoadModerContainer: !isTLMods,
+          isTLMods,
         });
       }
     }

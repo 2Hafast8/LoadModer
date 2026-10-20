@@ -11,7 +11,7 @@ import {resolveAndInstallDependencies} from "../core/dependency/resolver.js";
 import {p, pc, showBanner, exitIfCancel} from "../ui/prompts.js";
 import {formatBytes} from "../utils/format.js";
 import type {ModVersion, ModProject} from "../types/modrinth.js";
-import {getLauncherCapabilities} from "../core/instance/capabilities.js";
+import {getLauncherCapabilities, isLoadModerModpackContainerName} from "../core/instance/capabilities.js";
 import {BaselineManager} from "../core/modpack/baselineManager.js";
 
 interface InstallOptions {
@@ -68,7 +68,22 @@ export async function installCommand(targets: string[], opts: InstallOptions) {
 
   for (const target of targets) {
     if (target.endsWith(".mrpack") || opts.type === "modpack") {
-      const caps = getLauncherCapabilities(activeInst?.launcher);
+      let isTLMods = false;
+      if (activeInst?.mode === "modpack" && activeInst?.activeContainer) {
+        isTLMods = !isLoadModerModpackContainerName(activeInst.activeContainer);
+      } else if (
+        activeInst?.rootDir &&
+        path.basename(path.dirname(activeInst.rootDir)).toLowerCase() === "versions" &&
+        !isLoadModerModpackContainerName(path.basename(activeInst.rootDir))
+      ) {
+        isTLMods = true;
+      }
+      const caps = getLauncherCapabilities(activeInst?.launcher, {
+        rootDir: activeInst?.rootDir,
+        mode: activeInst?.mode,
+        activeContainer: activeInst?.activeContainer,
+        isTLMods,
+      });
       if (!caps.supportsModpack) {
         p.log.error(
           caps.incompatibilityReason ??

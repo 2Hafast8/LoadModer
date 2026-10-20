@@ -6,6 +6,7 @@ import { askInteractiveMenu, ask, type InteractiveChoice } from "../interactive.
 import { formatBadge, theme } from "../theme.js";
 import { instanceConfig } from "../../core/instance/config.js";
 import { ModpackProfileManager } from "../../core/modpack/profileManager.js";
+import { truncateText } from "../../utils/format.js";
 
 export async function runInteractiveModeSwitcher(): Promise<boolean> {
   await instanceConfig.load();
@@ -41,13 +42,14 @@ export async function runInteractiveModeSwitcher(): Promise<boolean> {
     for (const c of containers) {
       const isContainerActive = currentMode === "modpack" && currentContainer === c.containerName;
       const loaderUpper = c.loader.toUpperCase();
-      const statusDesc = c.activeProfileName ? `Profil Aktif: ${c.activeProfileName}` : "Kondisi: Bersih";
+      const statusDesc = c.activeProfileName ? `Profil: ${truncateText(c.activeProfileName, 26)}` : "Bersih";
       const icon = c.loader === "fabric" ? "🟦" : c.loader === "forge" ? "🟧" : "🟪";
+      const shortContainer = truncateText(c.containerName, 24);
 
       choices.push({
-        name: `${icon}  Mode Modpack: ${c.containerName} (MC ${c.gameVersion} ${loaderUpper})`,
+        name: `${icon}  Mode Modpack: ${shortContainer} (${loaderUpper} ${c.gameVersion})`,
         value: `container_${c.containerName}`,
-        hint: `Folder: ${wadahFolder}${c.containerName}/mods • ${c.profilesCount} profil tersimpan • ${statusDesc}`,
+        hint: `Folder: ${wadahFolder}${shortContainer}/mods • ${c.profilesCount} profil • ${statusDesc}`,
         badge: formatBadge(
           isContainerActive ? "Aktif" : `${c.profilesCount} Profil`,
           isContainerActive ? "success" : "info",

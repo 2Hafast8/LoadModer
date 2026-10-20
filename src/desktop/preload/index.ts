@@ -10,6 +10,13 @@ export interface DownloadProgressPayload {
   status: 'downloading' | 'completed' | 'failed';
 }
 
+export interface UpdateProgressPayload {
+  percent: number;
+  speed: string;
+  downloadedBytes: number;
+  totalBytes: number;
+}
+
 export interface DesktopAPI {
   window: {
     minimize: () => Promise<void>;
@@ -163,6 +170,7 @@ export interface DesktopAPI {
     switchProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
     disableActive: () => Promise<{ success: boolean; error?: string }>;
     removeProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
+    manualSaveProfile: () => Promise<{ success: boolean; profile?: any; filesCount?: number; error?: string }>;
     export: (options: {
       format: 'mrpack' | 'zip';
       name: string;
@@ -201,6 +209,16 @@ export interface DesktopAPI {
   };
   dialog: {
     selectMrpack: () => Promise<string | null>;
+  };
+  updater: {
+    check: () => Promise<any>;
+    download: (
+      assetUrl: string,
+      fileName: string,
+      expectedSha256?: string
+    ) => Promise<{ success: boolean; filePath?: string; sha256?: string; error?: string }>;
+    install: (filePath: string, silent?: boolean) => Promise<{ success: boolean; error?: string }>;
+    onProgress: (callback: (payload: UpdateProgressPayload) => void) => () => void;
   };
 }
 
@@ -278,6 +296,7 @@ const api: DesktopAPI = {
     switchProfile: (profileId: string) => ipcRenderer.invoke('modpack:switchProfile', profileId),
     disableActive: () => ipcRenderer.invoke('modpack:disableActive'),
     removeProfile: (profileId: string) => ipcRenderer.invoke('modpack:removeProfile', profileId),
+    manualSaveProfile: () => ipcRenderer.invoke('modpack:manualSaveProfile'),
     export: (options) => ipcRenderer.invoke('modpack:export', options),
   },
   snapshots: {
@@ -309,6 +328,20 @@ const api: DesktopAPI = {
   },
   dialog: {
     selectMrpack: () => ipcRenderer.invoke('dialog:selectMrpack'),
+  },
+  updater: {
+    check: () => ipcRenderer.invoke('updater:check'),
+    download: (assetUrl: string, fileName: string, expectedSha256?: string) =>
+      ipcRenderer.invoke('updater:download', assetUrl, fileName, expectedSha256),
+    install: (filePath: string, silent?: boolean) =>
+      ipcRenderer.invoke('updater:install', filePath, silent),
+    onProgress: (callback: (payload: UpdateProgressPayload) => void) => {
+      const listener = (_event: any, data: UpdateProgressPayload) => callback(data);
+      ipcRenderer.on('updater:progress', listener);
+      return () => {
+        ipcRenderer.removeListener('updater:progress', listener);
+      };
+    },
   },
 };
 
