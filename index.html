@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="id" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoadModer — The Next-Gen Minecraft Mod & Modpack Manager</title>
+  <meta name="description" content="Manajer mod, isolasi profil modpack anti-bentrok, dan pelacakan crash otomatis berkecepatan tinggi via Modrinth API v2. Tersedia dalam antarmuka Desktop GUI & Terminal CLI modern." />
+  <meta name="keywords" content="minecraft, mod manager, modpack, mrpack, modrinth, fabric, forge, neoforge, quilt, cli, desktop app" />
+  
+  <!-- Open Graph / Social Meta -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="LoadModer — Minecraft Mod & Modpack Manager" />
+  <meta property="og:description" content="Manajer modpack berkinerja tinggi dengan isolasi container, pelacak crash binary search, dan auto-update resmi." />
+  <meta property="og:url" content="https://2hafast8.github.io/LoadModer/" />
+  
+  <!-- Fonts & Tailwind -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            obsidian: {
+              bg: '#080C0A',
+              surface: '#0F1513',
+              card: '#131A17',
+              border: '#1E2824',
+              hover: '#19231F',
+            },
+            emerald: {
+              primary: '#10B981',
+              hover: '#059669',
+              active: '#34D399',
+              tint: 'rgba(16, 185, 129, 0.12)',
+            },
+            nordic: {
+              text: '#F1F5F3',
+              muted: '#8A9892',
+              dim: '#576760',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #080C0A;
+      color: #F1F5F3;
+      font-family: 'Inter', sans-serif;
+    }
+    .bg-grid-pattern {
+      background-image: radial-gradient(rgba(16, 185, 129, 0.12) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .glow-emerald {
+      box-shadow: 0 0 45px -10px rgba(16, 185, 129, 0.35);
+    }
+    .glow-emerald-sm {
+      box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.25);
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080C0A;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E2824;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #10B981;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-obsidian-bg antialiased selection:bg-emerald-primary selection:text-black">
+
+  <!-- Background Decorative Gradient -->
+  <div class="fixed inset-0 bg-grid-pattern opacity-40 pointer-events-none z-0"></div>
+  <div class="fixed -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-emerald-500/10 blur-[130px] rounded-full pointer-events-none z-0"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 w-full backdrop-blur-md bg-obsidian-bg/80 border-b border-obsidian-border">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="#" class="flex items-center space-x-3 group">
+        <div class="w-8 h-8 rounded-lg bg-emerald-tint border border-emerald-primary/40 flex items-center justify-center text-emerald-primary group-hover:scale-105 transition-transform duration-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="font-extrabold tracking-tight text-lg text-nordic-text">LoadModer</span>
+          <span class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-tint text-emerald-active border border-emerald-primary/30">
+            v2.8.0
+          </span>
+        </div>
+      </a>
+
+      <!-- Desktop Navigation Menu -->
+      <nav class="hidden md:flex items-center space-x-7 text-xs font-medium text-nordic-muted">
+        <a href="#fitur" class="hover:text-emerald-active transition-colors">Fitur Unggulan</a>
+        <a href="#showcase" class="hover:text-emerald-active transition-colors">Antarmuka</a>
+        <a href="#quickstart" class="hover:text-emerald-active transition-colors">Panduan Cepat</a>
+        <a href="#download" class="hover:text-emerald-active transition-colors">Unduh</a>
+        <a href="https://github.com/2Hafast8/LoadModer#readme" target="_blank" class="hover:text-emerald-active transition-colors">Dokumentasi</a>
+      </nav>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-3">
+        <a href="https://github.com/2Hafast8/LoadModer" target="_blank" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-obsidian-surface border border-obsidian-border text-xs text-nordic-text hover:border-emerald-primary/40 transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+          <span>Star di GitHub</span>
+        </a>
+
+        <a href="#download" class="flex items-center space-x-2 px-4 py-1.5 rounded-lg bg-emerald-primary text-black font-semibold text-xs hover:bg-emerald-hover transition-all duration-150 shadow-sm glow-emerald-sm">
+          <span>Unduh Gratis</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="relative z-10 flex-1">
+    <section class="max-w-6xl mx-auto px-4 pt-16 pb-20 sm:pt-24 sm:pb-28 text-center">
+      
+      <!-- Release Announcement Pill -->
+      <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-obsidian-surface border border-emerald-primary/30 text-xs text-nordic-muted mb-8 hover:border-emerald-primary/60 transition-colors">
+        <span class="flex h-2 w-2 rounded-full bg-emerald-primary animate-pulse"></span>
+        <span class="text-nordic-text font-medium">LoadModer v2.8.0 Kini Rilis</span>
+        <span class="text-nordic-dim">•</span>
+        <span class="text-emerald-active font-mono">In-App Auto Updater & Loading Guard</span>
+      </div>
+
+      <!-- Main Heading -->
+      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">
+        The Next-Generation <br />
+        <span class="bg-gradient-to-r from-emerald-primary via-emerald-active to-teal-200 bg-clip-text text-transparent">
+          Minecraft Mod Manager
+        </span>
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="max-w-2xl mx-auto text-sm sm:text-base text-nordic-muted leading-relaxed mb-10">
+        Kelola ratusan mod dan modpack (<span class="font-mono text-emerald-active">.mrpack</span>) tanpa khawatir tabrakan file. Dilengkapi pendeteksi launcher otomatis, isolasi profil snapshot instan, dan pelacak crash berbasis pencarian biner.
+      </p>
+
+      <!-- CTA Buttons Row -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+        <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-Setup-2.8.0.exe" class="w-full sm:w-auto flex items-center justify-center space-x-2.5 px-6 py-3.5 rounded-xl bg-emerald-primary text-black font-bold text-sm hover:bg-emerald-hover transition-all duration-150 shadow-lg glow-emerald cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>Download Windows Installer (.exe)</span>
+        </a>
+
+        <!-- Copyable CLI Command -->
+        <div class="w-full sm:w-auto flex items-center justify-between space-x-3 px-4 py-3 rounded-xl bg-obsidian-surface border border-obsidian-border text-xs font-mono text-nordic-text">
+          <div class="flex items-center space-x-2">
+            <span class="text-emerald-primary font-bold">$</span>
+            <span id="cli-cmd">npm install -g loadmoder</span>
+          </div>
+          <button id="copy-btn" onclick="copyCliCommand()" class="p-1.5 rounded-md hover:bg-obsidian-hover text-nordic-muted hover:text-emerald-primary transition-colors cursor-pointer" title="Salin Perintah">
+            <svg id="copy-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span id="copied-notice" class="hidden text-[10px] text-emerald-active font-semibold">Tersalin!</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Feature Badges -->
+      <div class="flex flex-wrap items-center justify-center gap-6 text-xs text-nordic-muted">
+        <div class="flex items-center space-x-1.5">
+          <svg class="w-4 h-4 text-emerald-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>Windows 10 / 11 Native (.exe)</span>
+        </div>
+        <div class="flex items-center space-x-1.5">
+          <svg class="w-4 h-4 text-emerald-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>Modrinth API v2 Powered</span>
+        </div>
+        <div class="flex items-center space-x-1.5">
+          <svg class="w-4 h-4 text-emerald-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>100% Open Source & Zero Bloat</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Interactive Showcase Section (Tabs: Desktop vs TUI vs CLI) -->
+    <section id="showcase" class="max-w-6xl mx-auto px-4 py-12">
+      <div class="text-center mb-8">
+        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-nordic-text">Dua Antarmuka Sempurna, Satu Core Andal</h2>
+        <p class="text-xs sm:text-sm text-nordic-muted mt-2">Pilih gaya navigasi sesuai preferensi: visual modern atau kecepatan terminal.</p>
+      </div>
+
+      <!-- Showcase Tab Switcher -->
+      <div class="flex justify-center mb-6">
+        <div class="inline-flex p-1 rounded-xl bg-obsidian-surface border border-obsidian-border text-xs font-medium">
+          <button onclick="switchTab('desktop')" id="tab-desktop-btn" class="px-4 py-2 rounded-lg bg-emerald-tint text-emerald-active border border-emerald-primary/30 transition-all cursor-pointer">
+            🖥️ Desktop GUI (Electron)
+          </button>
+          <button onclick="switchTab('tui')" id="tab-tui-btn" class="px-4 py-2 rounded-lg text-nordic-muted hover:text-nordic-text transition-all cursor-pointer">
+            📟 Terminal TUI Dashboard
+          </button>
+          <button onclick="switchTab('cli')" id="tab-cli-btn" class="px-4 py-2 rounded-lg text-nordic-muted hover:text-nordic-text transition-all cursor-pointer">
+            ⚡ Direct CLI Commands
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content 1: Desktop GUI Preview -->
+      <div id="tab-desktop-view" class="block bg-obsidian-surface border border-obsidian-border rounded-2xl p-4 sm:p-6 shadow-2xl overflow-hidden">
+        <div class="bg-obsidian-bg rounded-xl border border-obsidian-border overflow-hidden">
+          <!-- Window Header Mockup -->
+          <div class="h-9 bg-obsidian-card border-b border-obsidian-border px-4 flex items-center justify-between select-none">
+            <div class="flex items-center space-x-2">
+              <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+              <span class="w-3 h-3 rounded-full bg-emerald-primary/80"></span>
+              <span class="ml-3 font-bold font-mono text-[11px] text-nordic-text">LoadModer Desktop v2.8.0</span>
+            </div>
+            <div class="flex items-center space-x-2 text-[10px] font-mono text-nordic-muted">
+              <span class="px-2 py-0.5 rounded bg-emerald-tint text-emerald-active border border-emerald-primary/30">Official Minecraft</span>
+              <span>FABRIC 1.21.1</span>
+            </div>
+          </div>
+          <!-- Body Content Mockup -->
+          <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-obsidian-card p-4 rounded-xl border border-obsidian-border space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-nordic-text">Sodium</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-tint text-emerald-active">Aktif</span>
+              </div>
+              <p class="text-[11px] text-nordic-muted">Modern rendering engine that drastically improves frame rates and reduces micro-stutter.</p>
+              <div class="text-[10px] font-mono text-nordic-dim">sodium-fabric-0.5.11+mc1.21.1.jar • 1.2 MB</div>
+            </div>
+
+            <div class="bg-obsidian-card p-4 rounded-xl border border-obsidian-border space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-nordic-text">Iris Shaders</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-tint text-emerald-active">Aktif</span>
+              </div>
+              <p class="text-[11px] text-nordic-muted">A modern shaders mod for Minecraft intended to be fully compatible with OptiFine shader packs.</p>
+              <div class="text-[10px] font-mono text-nordic-dim">iris-fabric-1.7.5+mc1.21.1.jar • 3.4 MB</div>
+            </div>
+
+            <div class="bg-obsidian-card p-4 rounded-xl border border-obsidian-border space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-nordic-text">Lithium</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-tint text-emerald-active">Aktif</span>
+              </div>
+              <p class="text-[11px] text-nordic-muted">General-purpose optimization mod for Minecraft which improves physics, mob AI, and world gen.</p>
+              <div class="text-[10px] font-mono text-nordic-dim">lithium-fabric-0.12.7+mc1.21.1.jar • 890 KB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Terminal TUI Preview -->
+      <div id="tab-tui-view" class="hidden bg-obsidian-surface border border-obsidian-border rounded-2xl p-4 sm:p-6 shadow-2xl">
+        <div class="bg-black/90 p-5 rounded-xl border border-obsidian-border font-mono text-xs text-nordic-text overflow-x-auto leading-relaxed">
+          <div class="text-emerald-primary font-bold">LOADMODER v2.8.0 • Minecraft Mod & Modpack Manager • Nordic Clean TUI</div>
+          <div class="text-nordic-muted mt-2">Instance Aktif : [Prism] Fabulously Optimized (1.21.1 / fabric)</div>
+          <div class="text-nordic-muted">Mod Terpasang  : 31 Mod (31 Aktif) • Ukuran: 53.7 MB</div>
+          <div class="border-b border-obsidian-border my-3"></div>
+          <div class="text-emerald-active font-semibold">? PILIH MENU DASHBOARD:</div>
+          <div class="text-emerald-primary mt-1">❯ 🔍  Cari & Eksplorasi Konten Modrinth</div>
+          <div class="text-nordic-muted pl-4">⭐  Mod Esensial & Populer</div>
+          <div class="text-nordic-muted pl-4">📦  Jelajahi Modpack Populer</div>
+          <div class="text-nordic-muted pl-4">🗃️   Kelola Mod Terpasang [31 mod]</div>
+          <div class="text-nordic-muted pl-4">🩺  Diagnostik Crash & Bisect Tool</div>
+          <div class="text-nordic-muted pl-4">🔄  Periksa Pembaruan Mod & App</div>
+        </div>
+      </div>
+
+      <!-- Tab Content 3: Direct CLI Commands Preview -->
+      <div id="tab-cli-view" class="hidden bg-obsidian-surface border border-obsidian-border rounded-2xl p-4 sm:p-6 shadow-2xl">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+          <div class="bg-obsidian-card p-4 rounded-xl border border-obsidian-border">
+            <div class="text-emerald-primary font-bold mb-1"># Pasang mod langsung dengan dependensi</div>
+            <div class="text-nordic-text">$ lm install sodium iris lithium</div>
+          </div>
+          <div class="bg-obsidian-card p-4 rounded-xl border border-obsidian-border">
+            <div class="text-emerald-primary font-bold mb-1"># Analisis crash Minecraft otomatis</div>
+            <div class="text-nordic-text">$ lm diagnose</div>
+          </div>
+          <div class="bg-obsidian-card p-4 rounded-xl border border-obsidian-border">
+            <div class="text-emerald-primary font-bold mb-1"># Cari modpack dengan filter versi & loader</div>
+            <div class="text-nordic-text">$ lm search "optimized" -t modpack -v 1.21.1</div>
+          </div>
+          <div class="bg-obsidian-card p-4 rounded-xl border border-obsidian-border">
+            <div class="text-emerald-primary font-bold mb-1"># Ganti profil modpack seketika</div>
+            <div class="text-nordic-text">$ lm modpack switch "cursed-walking"</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 6 Pillars Bento Grid (Feature Grid) -->
+    <section id="fitur" class="max-w-6xl mx-auto px-4 py-20">
+      <div class="text-center max-w-2xl mx-auto mb-14">
+        <span class="text-xs font-mono uppercase tracking-wider text-emerald-primary font-semibold">Arsitektur Tangguh</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-nordic-text mt-2">Dirancang Tanpa Kompromi untuk Pemain Minecraft</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- Feature 1 -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 transition-colors group">
+          <div class="w-10 h-10 rounded-xl bg-emerald-tint border border-emerald-primary/30 flex items-center justify-center text-emerald-primary mb-4 group-hover:scale-105 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h3 class="text-base font-bold text-nordic-text mb-2">Zero-Conflict Isolation</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            Wadah modpack terisolasi per loader dan versi game. Beralih antar modpack tanpa saling menimpa atau merusak konfigurasi pemain lain.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 transition-colors group">
+          <div class="w-10 h-10 rounded-xl bg-emerald-tint border border-emerald-primary/30 flex items-center justify-center text-emerald-primary mb-4 group-hover:scale-105 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h3 class="text-base font-bold text-nordic-text mb-2">Modrinth API v2 Speed</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            Pencarian dan unduhan super cepat dengan verifikasi checksum streaming SHA-512. Dependensi wajib diselesaikan secara otomatis via DAG resolver.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 transition-colors group">
+          <div class="w-10 h-10 rounded-xl bg-emerald-tint border border-emerald-primary/30 flex items-center justify-center text-emerald-primary mb-4 group-hover:scale-105 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <h3 class="text-base font-bold text-nordic-text mb-2">Binary Search Crash Bisect</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            Game crash dan tidak tahu mod mana penyebabnya? Algoritma bisect melacak mod bermasalah dalam hitungan menit secara otomatis tanpa tebak-tebak.
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 transition-colors group">
+          <div class="w-10 h-10 rounded-xl bg-emerald-tint border border-emerald-primary/30 flex items-center justify-center text-emerald-primary mb-4 group-hover:scale-105 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <h3 class="text-base font-bold text-nordic-text mb-2">Golden Baseline Snapshot</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            Kunci kondisi awal folder Minecraft sebelum memasang modpack. Pulihkan ke Vanilla murni kapan saja dengan kebijakan Zero-Delete yang aman.
+          </p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 transition-colors group">
+          <div class="w-10 h-10 rounded-xl bg-emerald-tint border border-emerald-primary/30 flex items-center justify-center text-emerald-primary mb-4 group-hover:scale-105 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <h3 class="text-base font-bold text-nordic-text mb-2">Native Auto-Update App</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            Pemeriksaan rilis otomatis dari GitHub. Verifikasi hash SHA-256 dan instalasi 1-klik langsung di dalam aplikasi tanpa perlu unduh manual lewat browser.
+          </p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 transition-colors group">
+          <div class="w-10 h-10 rounded-xl bg-emerald-tint border border-emerald-primary/30 flex items-center justify-center text-emerald-primary mb-4 group-hover:scale-105 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+          <h3 class="text-base font-bold text-nordic-text mb-2">Multi-Launcher Support</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            Deteksi otomatis Prism Launcher, Modrinth App, CurseForge, TLauncher, Legacy Launcher, hingga Official Mojang Minecraft.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Quick Start Guide (3 Simple Steps) -->
+    <section id="quickstart" class="max-w-5xl mx-auto px-4 py-16 border-t border-obsidian-border">
+      <div class="text-center mb-12">
+        <span class="text-xs font-mono uppercase tracking-wider text-emerald-primary font-semibold">Mulai Cepat</span>
+        <h2 class="text-3xl font-extrabold text-nordic-text mt-2">Mulai Mainkan dalam 3 Langkah</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border">
+          <div class="w-8 h-8 rounded-full bg-emerald-primary text-black font-bold flex items-center justify-center mx-auto mb-4 text-sm">
+            1
+          </div>
+          <h3 class="font-bold text-sm text-nordic-text mb-2">Unduh LoadModer</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            Unduh installer Windows (<span class="font-mono text-emerald-active">.exe</span>) atau pasang via terminal dengan <span class="font-mono text-emerald-active">npm i -g loadmoder</span>.
+          </p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border">
+          <div class="w-8 h-8 rounded-full bg-emerald-primary text-black font-bold flex items-center justify-center mx-auto mb-4 text-sm">
+            2
+          </div>
+          <h3 class="font-bold text-sm text-nordic-text mb-2">Pilih Instance / Launcher</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            LoadModer otomatis mendeteksi instalasi Minecraft di komputer Anda tanpa konfigurasi manual yang rumit.
+          </p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border">
+          <div class="w-8 h-8 rounded-full bg-emerald-primary text-black font-bold flex items-center justify-center mx-auto mb-4 text-sm">
+            3
+          </div>
+          <h3 class="font-bold text-sm text-nordic-text mb-2">Jelajahi & Mainkan</h3>
+          <p class="text-xs text-nordic-muted leading-relaxed">
+            Cari mod, pasang modpack, atau seret berkas ke aplikasi. Seluruh dependensi terpasang otomatis dan siap dimainkan!
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Download Hub Section -->
+    <section id="download" class="max-w-5xl mx-auto px-4 py-20 border-t border-obsidian-border">
+      <div class="text-center mb-12">
+        <span class="text-xs font-mono uppercase tracking-wider text-emerald-primary font-semibold">Pusat Unduhan</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-nordic-text mt-2">Dapatkan LoadModer Hari Ini</h2>
+        <p class="text-xs sm:text-sm text-nordic-muted mt-2">Tersedia untuk pengguna Windows dan developer Node.js (Semua format gratis & open source).</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Option 1: NSIS Setup -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-emerald-primary/40 flex flex-col justify-between glow-emerald-sm">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-tint text-emerald-active font-semibold">Rekomendasi</span>
+              <span class="text-[11px] font-mono text-nordic-muted">v2.8.0</span>
+            </div>
+            <h3 class="text-base font-bold text-nordic-text mb-1">Windows Setup (.exe)</h3>
+            <p class="text-xs text-nordic-muted mb-4">Installer wizard standar dengan shortcut desktop dan uninstaller bersih.</p>
+          </div>
+          <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-Setup-2.8.0.exe" class="w-full py-2.5 rounded-xl bg-emerald-primary text-black font-bold text-xs text-center hover:bg-emerald-hover transition-colors">
+            Unduh Installer
+          </a>
+        </div>
+
+        <!-- Option 2: Portable -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border flex flex-col justify-between hover:border-emerald-primary/40 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-obsidian-card text-nordic-muted">Portable</span>
+              <span class="text-[11px] font-mono text-nordic-muted">v2.8.0</span>
+            </div>
+            <h3 class="text-base font-bold text-nordic-text mb-1">Windows Portable (.exe)</h3>
+            <p class="text-xs text-nordic-muted mb-4">Executable mandiri tanpa instalasi. Jalankan langsung dari USB atau folder mana pun.</p>
+          </div>
+          <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-2.8.0-Portable.exe" class="w-full py-2.5 rounded-xl bg-obsidian-card border border-obsidian-border text-nordic-text font-bold text-xs text-center hover:border-emerald-primary/40 transition-colors">
+            Unduh Portable
+          </a>
+        </div>
+
+        <!-- Option 3: CLI npm -->
+        <div class="p-6 rounded-2xl bg-obsidian-surface border border-obsidian-border flex flex-col justify-between hover:border-emerald-primary/40 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-obsidian-card text-nordic-muted">Terminal</span>
+              <span class="text-[11px] font-mono text-nordic-muted">Node &ge; 20</span>
+            </div>
+            <h3 class="text-base font-bold text-nordic-text mb-1">CLI Package (npm)</h3>
+            <p class="text-xs text-nordic-muted mb-4">Perintah <span class="font-mono text-emerald-active">lm</span> langsung di terminal untuk skrip otomasi & server.</p>
+          </div>
+          <button onclick="copyCliCommand()" class="w-full py-2.5 rounded-xl bg-obsidian-card border border-obsidian-border text-nordic-text font-mono font-bold text-xs text-center hover:border-emerald-primary/40 transition-colors">
+            Salin: npm i -g loadmoder
+          </button>
+        </div>
+
+      </div>
+
+      <div class="text-center mt-6 text-xs text-nordic-muted">
+        Integritas berkas terjamin via <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/SHA256SUMS.txt" target="_blank" class="text-emerald-active underline underline-offset-4">SHA256SUMS.txt</a>.
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="relative z-10 border-t border-obsidian-border bg-obsidian-surface/60 py-10">
+    <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between text-xs text-nordic-muted gap-4">
+      <div class="flex items-center space-x-2">
+        <span class="font-bold text-nordic-text">LoadModer</span>
+        <span>•</span>
+        <span>Dibuat oleh <a href="https://github.com/2Hafast8" target="_blank" class="text-emerald-active hover:underline">Hafiz Noval Rianto (@2Hafast8)</a></span>
+      </div>
+      <div class="flex items-center space-x-6">
+        <a href="https://github.com/2Hafast8/LoadModer/blob/main/LICENSE" target="_blank" class="hover:text-emerald-active transition-colors">Lisensi MIT</a>
+        <a href="https://github.com/2Hafast8/LoadModer/blob/main/CHANGELOG.md" target="_blank" class="hover:text-emerald-active transition-colors">Changelog</a>
+        <a href="https://github.com/2Hafast8/LoadModer" target="_blank" class="hover:text-emerald-active transition-colors">GitHub Repository</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script>
+    function copyCliCommand() {
+      const cmd = "npm install -g loadmoder";
+      navigator.clipboard.writeText(cmd).then(() => {
+        const copyIcon = document.getElementById("copy-icon");
+        const copiedNotice = document.getElementById("copied-notice");
+        if (copyIcon && copiedNotice) {
+          copyIcon.classList.add("hidden");
+          copiedNotice.classList.remove("hidden");
+          setTimeout(() => {
+            copyIcon.classList.remove("hidden");
+            copiedNotice.classList.add("hidden");
+          }, 2000);
+        }
+      });
+    }
+
+    function switchTab(tab) {
+      const desktopView = document.getElementById("tab-desktop-view");
+      const tuiView = document.getElementById("tab-tui-view");
+      const cliView = document.getElementById("tab-cli-view");
+
+      const desktopBtn = document.getElementById("tab-desktop-btn");
+      const tuiBtn = document.getElementById("tab-tui-btn");
+      const cliBtn = document.getElementById("tab-cli-btn");
+
+      // Reset all views
+      desktopView.classList.add("hidden");
+      tuiView.classList.add("hidden");
+      cliView.classList.add("hidden");
+
+      // Reset button styles
+      [desktopBtn, tuiBtn, cliBtn].forEach(btn => {
+        btn.className = "px-4 py-2 rounded-lg text-nordic-muted hover:text-nordic-text transition-all cursor-pointer";
+      });
+
+      const activeClass = "px-4 py-2 rounded-lg bg-emerald-tint text-emerald-active border border-emerald-primary/30 transition-all cursor-pointer";
+
+      if (tab === "desktop") {
+        desktopView.classList.remove("hidden");
+        desktopBtn.className = activeClass;
+      } else if (tab === "tui") {
+        tuiView.classList.remove("hidden");
+        tuiBtn.className = activeClass;
+      } else if (tab === "cli") {
+        cliView.classList.remove("hidden");
+        cliBtn.className = activeClass;
+      }
+    }
+  </script>
+</body>
+</html>
