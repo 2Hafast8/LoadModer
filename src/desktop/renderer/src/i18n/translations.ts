@@ -274,6 +274,8 @@ export const translations = {
       readyTitle: 'Start Crash Investigation',
       readyDesc: 'If Minecraft crashes during launch and you have dozens of mods, avoid testing them one by one manually. LoadModer automatically halves the mod list until the offending mod is isolated in just a few steps.',
       startBtn: 'Start Bisect Diagnostic',
+      guidanceTitle: 'Crash Testing Guidance & Interlocking Conflicts',
+      guidanceDesc: 'Test Minecraft thoroughly under real gameplay conditions. If the crash is non-deterministic (e.g., JVM out-of-memory or world-loading race condition), play for several minutes before reporting "Launched Successfully". If the crash only happens when two specific mods interact, use the Crash Log Analyzer tab to pinpoint cross-mod stack traces.',
     },
     logs: {
       tabCrashLogs: 'Crash Log Analyzer',
@@ -364,6 +366,8 @@ export const translations = {
       savingVersionTitle: 'Saving Version Profile',
       savingVersionDesc: 'Saving current active mods to version snapshot...',
       inProgressNotice: 'Operation in progress • Please do not close the application',
+      takingLonger: 'Operation is taking longer than expected.',
+      emergencyUnlock: 'Emergency Unlock (Cancel Screen Lock)',
     },
     dropZone: {
       title: 'Drop Files to Install',
@@ -399,6 +403,10 @@ export const translations = {
       checkFailed: 'Failed to check for updates',
       verifyingIntegrity: 'Verifying integrity checksum...',
       later: 'Later',
+      openDownloadFolder: 'Open Download Folder',
+      portableReadyDesc: 'Portable executable has been downloaded. You can move this .exe to your desired folder (e.g. Desktop).',
+      smartScreenTitle: 'SmartScreen Notice:',
+      smartScreenDesc: 'If Windows shows "Windows protected your PC", click "More info" ➔ "Run anyway" to continue installation.',
     },
   },
   id: {
@@ -674,6 +682,8 @@ export const translations = {
       readyTitle: 'Mulai Investigasi Crash',
       readyDesc: 'Jika Minecraft mengalami crash saat loading dan Anda memiliki puluhan mod, jangan uji coba satu per satu secara manual. LoadModer akan otomatis membagi dua daftar mod hingga mod penyebab crash terisolasi dalam hitungan langkah.',
       startBtn: 'Mulai Diagnostik Bisect',
+      guidanceTitle: 'Panduan Pengujian Crash & Konflik Ganda',
+      guidanceDesc: 'Uji Minecraft hingga kondisi gameplay sesungguhnya. Jika crash bersifat acak (misal kehabisan memori JVM atau saat render dunia), mainkan beberapa menit sebelum memilih "Berhasil Masuk". Jika crash hanya muncul saat dua mod tertentu aktif bersamaan (konflik ganda), gunakan tab Penganalisis Crash Log untuk memeriksa jejak error tumpukan.',
     },
     logs: {
       tabCrashLogs: 'Penganalisis Crash Log',
@@ -764,6 +774,8 @@ export const translations = {
       savingVersionTitle: 'Menyimpan Profil Versi',
       savingVersionDesc: 'Menyimpan mod aktif ke arsip profil versi...',
       inProgressNotice: 'Proses sedang berjalan • Mohon jangan menutup aplikasi',
+      takingLonger: 'Operasi memakan waktu lebih lama dari biasanya.',
+      emergencyUnlock: 'Buka Kunci Layar (Batalkan Kunci)',
     },
     dropZone: {
       title: 'Lepaskan Berkas untuk Memasang',
@@ -799,6 +811,10 @@ export const translations = {
       checkFailed: 'Gagal memeriksa pembaruan',
       verifyingIntegrity: 'Memverifikasi checksum integritas...',
       later: 'Nanti Saja',
+      openDownloadFolder: 'Buka Folder Unduhan',
+      portableReadyDesc: 'Berkas Portable berhasil diunduh. Anda dapat memindahkan berkas .exe baru ini ke lokasi yang diinginkan (misal Desktop).',
+      smartScreenTitle: 'Catatan SmartScreen:',
+      smartScreenDesc: 'Jika Windows memunculkan "Windows protected your PC", klik "More info" ➔ "Run anyway" untuk melanjutkan instalasi.',
     },
   },
 } as const;

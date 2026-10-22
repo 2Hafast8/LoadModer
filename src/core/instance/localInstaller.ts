@@ -11,6 +11,7 @@ import { getLauncherCapabilities, isLoadModerModpackContainerName } from './capa
 import { detectLauncherFromPath } from './detector.js';
 import { DependencyGraph } from '../dependency/graph.js';
 import { instanceConfig, type InstanceConfigManager } from './config.js';
+import { assertMinecraftNotRunning } from './processGuard.js';
 
 export interface InstalledLocalResult {
   file: string;
@@ -168,6 +169,7 @@ export async function installLocalFiles(
   unpackerInstance?: ModpackUnpacker,
   options?: LocalInstallOptions
 ): Promise<InstalledLocalResult[]> {
+  await assertMinecraftNotRunning("memasang berkas mod/modpack");
   const results: InstalledLocalResult[] = [];
   const unpacker = unpackerInstance ?? new ModpackUnpacker(modrinthClient);
 
@@ -214,7 +216,16 @@ export async function installLocalFiles(
               zipJarEntries.push(entry);
             }
           }
-        } catch {}
+        } catch (zipErr: any) {
+          const errMsg = zipErr?.message?.toLowerCase() || '';
+          if (errMsg.includes('encrypted') || errMsg.includes('password')) {
+            throw new Error(`Berkas arsip "${fileName}" dilindungi kata sandi dan tidak dapat diekstrak.`);
+          }
+          if (errMsg.includes('invalid') || errMsg.includes('signature') || errMsg.includes('corrupt') || errMsg.includes('end of central directory')) {
+            throw new Error(`Berkas arsip "${fileName}" rusak atau terpotong saat diunduh.`);
+          }
+          throw zipErr;
+        }
 
         if (zipHasModrinthIndex) {
           const mrpackRes = await installMrpackToContainer(

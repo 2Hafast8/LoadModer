@@ -9,6 +9,8 @@ import {
   Loader2,
   ShieldCheck,
   Package,
+  FolderOpen,
+  Info,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 import { MarkdownViewer } from './MarkdownViewer.js';
@@ -135,6 +137,13 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ isOpen, onClose, updat
     }
   };
 
+  const handleOpenDownloadFolder = () => {
+    if (downloadedFilePath) {
+      const folder = downloadedFilePath.substring(0, Math.max(downloadedFilePath.lastIndexOf('\\'), downloadedFilePath.lastIndexOf('/')));
+      window.api.instances.openFolder(folder || downloadedFilePath);
+    }
+  };
+
   const publishedDateFormatted = updateInfo.publishedAt
     ? new Date(updateInfo.publishedAt).toLocaleDateString(undefined, {
         year: 'numeric',
@@ -203,16 +212,36 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ isOpen, onClose, updat
           {downloadedFilePath && !errorMessage && (
             <div className="p-3.5 bg-emerald-tint border border-emerald-primary/40 rounded-lg flex items-start space-x-3 text-xs text-emerald-active">
               <CheckCircle2 className="w-5 h-5 text-emerald-primary shrink-0 mt-0.5" />
-              <div>
+              <div className="flex-1">
                 <div className="font-bold text-sm text-nordic-text">
                   {t.updater.readyToInstall}
                 </div>
                 <div className="text-[11px] text-nordic-muted mt-0.5">
-                  {t.updater.readyToInstallDesc}
+                  {downloadedFilePath.toLowerCase().includes('portable')
+                    ? t.updater.portableReadyDesc
+                    : t.updater.readyToInstallDesc}
                 </div>
+                {downloadedFilePath.toLowerCase().includes('portable') && (
+                  <button
+                    onClick={handleOpenDownloadFolder}
+                    className="mt-2.5 flex items-center space-x-1.5 px-3 py-1 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-emerald-primary" />
+                    <span>{t.updater.openDownloadFolder}</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
+
+          {/* SmartScreen guidance notice */}
+          <div className="p-3 bg-obsidian-card/60 border border-obsidian-border rounded-lg text-[11px] text-nordic-muted flex items-start space-x-2">
+            <Info className="w-4 h-4 text-emerald-primary shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-nordic-text">{t.updater.smartScreenTitle}</span>{' '}
+              {t.updater.smartScreenDesc}
+            </div>
+          </div>
 
           {/* Download Progress Bar */}
           {downloading && downloadProgress && (

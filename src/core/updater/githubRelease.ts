@@ -95,6 +95,7 @@ export async function checkForAppUpdate(
   try {
     const url = `https://api.github.com/repos/${repo}/releases/latest`;
     const response = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
       headers: {
         "User-Agent": USER_AGENT,
         Accept: "application/vnd.github.v3+json",
@@ -102,6 +103,12 @@ export async function checkForAppUpdate(
     });
 
     if (!response.ok) {
+      if (response.status === 403) {
+        return {
+          ...fallbackResult,
+          error: "Batas kuota pemeriksaan GitHub API tercapai (Rate Limit 60 req/jam). Silakan coba lagi beberapa saat lagi.",
+        };
+      }
       return {
         ...fallbackResult,
         error: `GitHub API responded with status ${response.status}`,
@@ -172,9 +179,12 @@ export async function checkForAppUpdate(
       checksumsAsset,
     };
   } catch (err: any) {
+    const isTimeout = err?.name === "TimeoutError" || err?.name === "AbortError";
     return {
       ...fallbackResult,
-      error: err?.message || "Failed to check GitHub releases",
+      error: isTimeout
+        ? "Koneksi ke GitHub melebihi batas waktu (timeout). Periksa jaringan internet Anda."
+        : err?.message || "Failed to check GitHub releases",
     };
   }
 }

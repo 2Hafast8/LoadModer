@@ -370,7 +370,10 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
         );
       })()}
 
-      <OperationLoadingOverlay {...panelBusy} />
+      <OperationLoadingOverlay
+        {...panelBusy}
+        onEmergencyUnlock={() => setPanelBusy({ isOpen: false, title: '' })}
+      />
     </div>
   );
 };

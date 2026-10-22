@@ -3,11 +3,11 @@
 > **CLI, TUI, dan Desktop GUI package manager untuk mod, modpack (.mrpack), shader, dan resource pack Minecraft berbasis Modrinth API v2.**  
 > Ditulis menggunakan TypeScript (ESM) dengan arsitektur DAG dependency resolution, isolasi profil snapshot, pendeteksi multi-launcher otomatis, dan distribusi standalone Windows executable (`.exe`).
 
-[![Version](https://img.shields.io/badge/version-2.8.0-38bdf8.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.9.0-38bdf8.svg)](package.json)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-276%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-281%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 [![Releases](https://img.shields.io/github/v/release/2Hafast8/LoadModer?color=a855f7&label=Windows%20App)](https://github.com/2Hafast8/LoadModer/releases)
@@ -16,21 +16,26 @@
 
 ## ⚡ Fitur Utama
 
-* **🔄 Native In-App Auto Updater (Desktop & CLI) (v2.8.0)**:
+* **🛡️ Anti-File Lock & Process Guard (v2.9.0)**:
+  - Deteksi otomatis proses aktif game Minecraft (`javaw.exe`, `java.exe`, `minecraft`) sebelum operasi file disk dieksekusi.
+  - Memblokir perpindahan profil/mode, toggle status mod, penghapusan mod, dan instalasi jika game sedang terbuka guna mencegah korupsi data disk dan error `EBUSY`/`EPERM`.
+* **🎨 Official App Branding & Logo Integration (v2.9.0)**:
+  - Integrasi icon dan logo resmi LoadModer pada executable Windows installer, taskbar & window frame Electron, browser renderer favicon, dan TopBar navigasi aplikasi.
+* **🔄 Native In-App Auto Updater (Desktop & CLI)**:
   - **Pemeriksaan Otomatis GitHub Releases**: Aplikasi secara otomatis mengecek rilis resmi GitHub saat diluncurkan secara asinkron tanpa memperlambat startup.
-  - **Modal Pembaruan Interaktif**: Tampilan catatan rilis (changelog markdown), bilah unduhan berkecepatan tinggi dengan estimasi kecepatan (MB/s), serta verifikasi integritas checksum SHA-256 otomatis sebelum instalasi.
+  - **Modal Pembaruan Interaktif**: Tampilan catatan rilis (changelog markdown), bilah unduhan berkecepatan tinggi dengan estimasi kecepatan (MB/s), verifikasi integritas checksum SHA-256 otomatis sebelum instalasi, tombol "Buka Folder Unduhan" untuk versi Portable, serta petunjuk ramah Windows SmartScreen.
   - **1-Click Auto Install & Restart**: Menjalankan installer Windows (`.exe`) secara aman dan menutup aplikasi lama dengan mulus.
   - **TopBar Badge & Manual Trigger**: Badge berkilau `✨ vX.Y.Z` saat ada pembaruan dan tombol klik untuk cek manual sewaktu-waktu.
   - **Terminal Update Notifier**: Notifikasi non-blocking saat menggunakan CLI jika versi npm terbaru telah tersedia.
 * **🔒 Operation Loading Overlay (Screen Lock Guard)**:
-  - Pelindung layar penuh selama proses berat (perpindahan mode, simpan profil, disable modpack, restore baseline) yang memblokir klik liar demi mencegah kerusakan data.
+  - Pelindung layar penuh selama proses berat (perpindahan mode, simpan profil, disable modpack, restore baseline) dengan timer keselamatan darurat 45 detik (*Emergency Unlock*) dan kontrol jendela yang tetap dapat diakses.
 * **📦 Launcher Mode Card Grid & 6-Item Pagination**:
   - Antarmuka kartu wadah modpack responsif (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`) dengan badge loader berwarna, versi Minecraft, status aktif, dan filter pencarian real-time.
   - Sistem paginasi 6 item per halaman pada Saved Modpack Containers dan Profile Versions.
 * **💾 TL-Mods Manual Profile Save & Clean State Auto-Healing**:
   - Pencadangan instan profil modpack TL-Mods dan auto-healing status profil aktif ketika folder wadah dalam kondisi bersih dari mod.
 * **🖥️ Standalone Windows Desktop GUI & Drag-and-Drop Installer**:
-  - **Aplikasi Windows Mandiri (.exe)**: Tersedia dalam bentuk **NSIS Setup Wizard** (`LoadModer-Setup-2.8.0.exe`) dan **Portable Executable** (`LoadModer-2.8.0-Portable.exe`) di [GitHub Releases](https://github.com/2Hafast8/LoadModer/releases).
+  - **Aplikasi Windows Mandiri (.exe)**: Tersedia dalam bentuk **NSIS Setup Wizard** (`LoadModer-Setup-2.9.0.exe`) dan **Portable Executable** (`LoadModer-2.9.0-Portable.exe`) di [GitHub Releases](https://github.com/2Hafast8/LoadModer/releases).
   - **Drag-and-Drop Installer**: Cukup seret dan lepaskan berkas `.jar`, `.mrpack`, atau `.zip` ke jendela aplikasi untuk langsung memasangnya ke instance aktif.
   - **Smart Archive Inspection**: Secara otomatis membedakan apakah berkas ZIP adalah Shaderpack (folder `shaders/`), Resourcepack (`pack.mcmeta`), atau Modpack (`modrinth.index.json`).
   - **Bilingual Interface**: Dukungan penuh bahasa Indonesia dan bahasa Inggris dengan peralihan instan.

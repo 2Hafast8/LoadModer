@@ -14,6 +14,7 @@ import {isLegacyPreservedItem} from "./legacy/preservedItems.js";
 import {discoverLegacyContainers, resolveLegacyContainerForLoader} from "./legacy/legacyStrategy.js";
 import {BaselineManager} from "./baselineManager.js";
 import {isLoadModerModpackContainerName} from "../instance/capabilities.js";
+import {assertMinecraftNotRunning} from "../instance/processGuard.js";
 
 export {
   isTLauncherPreservedEngineItem,
@@ -490,6 +491,8 @@ export class ModpackProfileManager {
       );
     }
 
+    await assertMinecraftNotRunning("menyimpan profil modpack");
+
     // Pastikan entitas profil TL-Mods telah terinisialisasi
     await this.ensureTLModsProfile(containerDir);
 
@@ -641,6 +644,7 @@ export class ModpackProfileManager {
   }
 
   static async clearContainerLiveFiles(containerDir: string): Promise<void> {
+    await assertMinecraftNotRunning("membersihkan berkas wadah modpack");
     const rootResolved = path.resolve(containerDir);
 
     try {
@@ -681,6 +685,7 @@ export class ModpackProfileManager {
     containerDir: string,
     profileId: string,
   ): Promise<ModpackProfileSummary> {
+    await assertMinecraftNotRunning("mengaktifkan profil modpack");
     const profiles = await this.listProfiles(containerDir);
     const targetProfile = profiles.find((p) => p.id === profileId);
     if (!targetProfile) {
@@ -746,6 +751,7 @@ export class ModpackProfileManager {
   }
 
   static async disableProfile(containerDir: string): Promise<string | null> {
+    await assertMinecraftNotRunning("menonaktifkan modpack");
     const activeInfo = await this.getActiveProfile(containerDir);
     const disabledName = activeInfo?.name ?? activeInfo?.activeProfile ?? null;
 

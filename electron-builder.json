@@ -19,6 +19,7 @@
     "main": "dist-desktop/main.js"
   },
   "win": {
+    "icon": "assets/icon.ico",
     "target": [
       {
         "target": "nsis",

@@ -55,7 +55,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     <header className="h-11 bg-obsidian-surface border-b border-obsidian-border flex items-center justify-between px-3 select-none app-drag text-sm">
       <div className="flex items-center space-x-3 app-no-drag">
         <div className="flex items-center space-x-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-primary" />
+          <img src="./favicon-32x32.png" alt="LoadModer" className="w-4 h-4 rounded-sm object-contain" />
           <span className="font-bold tracking-tight text-nordic-text text-xs uppercase">
             LoadModer
           </span>

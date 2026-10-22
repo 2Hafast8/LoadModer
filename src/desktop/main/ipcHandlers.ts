@@ -24,6 +24,7 @@ import { InstalledAssetsIndex } from '../../core/instance/installedIndex.js';
 import { installLocalFiles } from '../../core/instance/localInstaller.js';
 import { isTrueUpdate } from '../../utils/versionCompare.js';
 import { desktopUpdater } from './updaterService.js';
+import { assertMinecraftNotRunning } from '../../core/instance/processGuard.js';
 import pLimit from 'p-limit';
 import type { LauncherType, LoaderType, MinecraftInstance } from '../../types/instance.js';
 import type { SearchIndex } from '../../api/client.js';
@@ -381,6 +382,7 @@ async function computeInstanceStatus(active: any) {
 
   ipcMain.handle('instances:switchMode', async (_event, mode: 'default' | 'modpack', containerName?: string) => {
     try {
+      await assertMinecraftNotRunning("berpindah mode instance");
       await instanceConfig.load();
       const active = instanceConfig.getActiveInstance();
       if (!active?.rootDir) throw new Error('Tidak ada instance launcher yang aktif');
@@ -506,6 +508,7 @@ async function computeInstanceStatus(active: any) {
 
   ipcMain.handle('baseline:restore', async () => {
     try {
+      await assertMinecraftNotRunning("memulihkan baseline");
       await instanceConfig.load();
       const active = instanceConfig.getActiveInstance();
       if (!active?.rootDir) throw new Error('Tidak ada instance aktif');
@@ -740,6 +743,7 @@ async function computeInstanceStatus(active: any) {
       type: 'mod' | 'shader' | 'resourcepack' = 'mod'
     ) => {
       try {
+        await assertMinecraftNotRunning("menghapus berkas");
         await instanceConfig.load();
         const active = instanceConfig.getActiveInstance();
         if (!active?.rootDir) throw new Error('Instance belum ditentukan');
@@ -2374,6 +2378,7 @@ async function computeInstanceStatus(active: any) {
 
   ipcMain.handle('snapshots:switchProfile', async (_event, loader: string, gameVersion: string) => {
     try {
+      await assertMinecraftNotRunning("berpindah profil versi");
       await instanceConfig.load();
       const cfg = instanceConfig.get();
       const activeKey = cfg.activeInstance;

@@ -29,6 +29,14 @@ if (!gotSingleInstanceLock) {
     const cjsPath = path.resolve(__dirname, 'preload.cjs');
     const preloadPath = existsSync(cjsPath) ? cjsPath : path.resolve(__dirname, 'preload.js');
 
+    const iconCandidates = [
+      path.resolve(__dirname, 'renderer/favicon.ico'),
+      path.resolve(__dirname, 'renderer/favicon-32x32.png'),
+      path.resolve(app.getAppPath(), 'assets/icon.ico'),
+      path.resolve(process.cwd(), 'assets/icon.ico'),
+    ];
+    const appIcon = iconCandidates.find((p) => existsSync(p));
+
     mainWindow = new BrowserWindow({
       width: 1140,
       height: 740,
@@ -37,6 +45,7 @@ if (!gotSingleInstanceLock) {
       frame: false,
       titleBarStyle: 'hidden',
       backgroundColor: '#090D0B',
+      icon: appIcon,
       webPreferences: {
         preload: preloadPath,
         contextIsolation: true,

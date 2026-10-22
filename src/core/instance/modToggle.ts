@@ -1,7 +1,10 @@
 import path from "node:path";
 import { readdir, rename } from "node:fs/promises";
+import { assertMinecraftNotRunning } from "./processGuard.js";
 
 export async function toggleModFile(modsDir: string, modQuery: string, enable: boolean): Promise<string> {
+  await assertMinecraftNotRunning("mengubah status aktif/nonaktif mod");
+
   const files = await readdir(modsDir);
   const targetSuffix = enable ? ".jar.disabled" : ".jar";
   const replaceSuffix = enable ? ".jar" : ".jar.disabled";

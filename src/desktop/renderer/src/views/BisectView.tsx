@@ -7,6 +7,7 @@ import {
   XCircle,
   AlertTriangle,
   FileSearch,
+  Info,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 import { CrashLogViewer } from '../components/CrashLogViewer.js';
@@ -204,6 +205,14 @@ export const BisectView: React.FC = () => {
                 </button>
               </div>
             )}
+
+            <div className="border border-obsidian-border bg-obsidian-card/60 rounded p-4 flex items-start space-x-3 text-xs text-nordic-muted">
+              <Info className="w-4 h-4 text-emerald-primary shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-semibold text-nordic-text block">{t.bisect.guidanceTitle}</span>
+                <p className="leading-relaxed">{t.bisect.guidanceDesc}</p>
+              </div>
+            </div>
 
             {message && (
               <div className="p-3 rounded bg-obsidian-surface border border-obsidian-border text-[11px] font-mono text-nordic-muted">

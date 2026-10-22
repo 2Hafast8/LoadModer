@@ -5,6 +5,35 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.9.0] - 2026-10-22
+
+### Added
+- **Official App Branding & Logo Integration**:
+  - Pemasangan logo dan icon resmi LoadModer pada executable Windows installer & portable (`assets/icon.ico` via `electron-builder.json`).
+  - Penambahan window & taskbar icon pada jendela utama Electron (`BrowserWindow` icon fallback resolver).
+  - Integrasi favicon lengkap (`favicon.ico`, `favicon-32x32.png`, `favicon-16x16.png`, `apple-touch-icon.png`, `site.webmanifest`) pada desktop renderer.
+  - Tampilan brand icon resmi pada header bar navigasi aplikasi Desktop (`TopBar.tsx`).
+- **Anti-File Lock & Process Guard (`src/core/instance/processGuard.ts`)**:
+  - Deteksi otomatis proses Minecraft (`javaw.exe`, `java.exe`, `minecraft`) di Windows via `tasklist` dan Unix via `pgrep`.
+  - Proteksi integritas file disk: Mencegah operasi mutasi file (`switchMode`, `activateProfile`, `clearContainerLiveFiles`, `saveActiveToProfile`, `toggleMod`, `mods:remove`, `baseline:restore`, dan `snapshots:switchProfile`) saat game Minecraft sedang aktif guna mencegah korupsi data disk dan error `EBUSY`/`EPERM`.
+- **Auto Updater Resilience & SmartScreen Guidance**:
+  - Tombol **"Buka Folder Unduhan"** (`FolderOpen`) pada modal pembaruan untuk pengguna versi Portable sehingga file `.exe` yang baru diunduh langsung dapat dipindahkan ke folder permanen.
+  - Banner panduan Windows SmartScreen pada modal pembaruan untuk membantu pengguna jika Windows menampilkan prompt keamanan "Windows protected your PC".
+  - Proteksi network timeout (10 detik via `AbortSignal.timeout`) dan penanganan khusus pesan kesalahan saat batas kuota GitHub API rate limit (HTTP 403) tercapai.
+- **Operation Loading Overlay Screen Guard & Emergency Unlock**:
+  - Tombol **"Buka Kunci Layar / Batalkan"** darurat dengan timer 45 detik untuk mencegah antarmuka terkunci permanen saat disk I/O lambat atau hang.
+  - Penyesuaian layout overlay (`top-11 fixed inset-x-0 bottom-0 z-40`) agar tombol kontrol jendela (Minimize, Maximize, Close) tetap dapat diakses selama operasi berlangsung.
+- **Drag-and-Drop Local Installer Error Classification**:
+  - Klasifikasi spesifik untuk kegagalan ekstraksi berkas ZIP yang terenkripsi / ber-password atau berkas rusak / terpotong saat diunduh.
+- **BisectView Crash Diagnostic Testing Tips**:
+  - Kartu panduan pengujian crash non-deterministik (memory leak / race conditions) dan panduan investigasi crash konflik ganda menggunakan Crash Log Analyzer.
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.9.0` secara konsisten pada `package.json`, `package-lock.json`, dan `src/constants.ts`.
+- **Error Handling Profil**: Penggantian blok `catch` kosong dengan penanganan error eksplisit saat penyalinan berkas arsip modpack profile.
+
+---
+
 ## [2.8.0] - 2026-10-20
 
 ### Added

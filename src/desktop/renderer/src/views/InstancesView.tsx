@@ -1078,7 +1078,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         onSaved={loadInstances}
       />
 
-      <OperationLoadingOverlay {...operationBusy} />
+      <OperationLoadingOverlay
+        {...operationBusy}
+        onEmergencyUnlock={() => setOperationBusy({ isOpen: false, title: '' })}
+      />
     </div>
   );
 };
