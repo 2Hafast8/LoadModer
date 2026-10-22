@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LoadModer — Mod & Modpack Manager for Minecraft</title>
+  <!-- Favicon & App Icons -->
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+  <link rel="manifest" href="/assets/site.webmanifest" />
   <meta name="description" content="Fast package manager and desktop client for Minecraft mods, modpacks (.mrpack), shaders, and resource packs via Modrinth API v2. Available for Windows and CLI." />
   <meta name="keywords" content="minecraft, mod manager, modpack, mrpack, modrinth, fabric, forge, neoforge, quilt, cli, desktop app" />
 
@@ -12,6 +18,9 @@
   <meta property="og:title" content="LoadModer — Mod & Modpack Manager for Minecraft" />
   <meta property="og:description" content="Discover, install, and manage mods, modpacks, shaders, and resource packs with automatic dependency resolution and crash diagnostics." />
   <meta property="og:url" content="https://loadmoder.crft.my.id/" />
+  <meta property="og:image" content="https://loadmoder.crft.my.id/assets/logo-dark.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://loadmoder.crft.my.id/assets/logo-dark.png" />
 
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -118,15 +127,11 @@
       
       <!-- Brand Logo -->
       <a href="#" class="flex items-center space-x-2.5 group">
-        <div class="w-7 h-7 rounded-md bg-emerald-subtle border border-emerald-borderSubtle flex items-center justify-center text-emerald-brand group-hover:border-emerald-brand transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-        </div>
+        <img src="/assets/favicon-32x32.png" alt="LoadModer" class="w-7 h-7 rounded-md group-hover:scale-105 transition-transform duration-200 object-contain shadow-sm" />
         <div class="flex items-center space-x-2">
           <span class="font-bold tracking-tight text-sm text-nordic-text">LoadModer</span>
           <span class="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-obsidian-elevated text-nordic-muted border border-obsidian-border">
-            v2.8.0
+            v2.9.0
           </span>
         </div>
       </a>
@@ -194,11 +199,11 @@
 
       <!-- Action Bar -->
       <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-        <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-Setup-2.8.0.exe" class="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-emerald-brand text-black font-semibold text-xs hover:bg-emerald-brandLight transition-all glow-brand-subtle">
+        <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-Setup-2.9.0.exe" class="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-emerald-brand text-black font-semibold text-xs hover:bg-emerald-brandLight transition-all glow-brand-subtle">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          <span>Download Windows Setup (v2.8.0)</span>
+          <span>Download Windows Setup (v2.9.0)</span>
         </a>
 
         <!-- Copyable CLI Command -->
@@ -660,7 +665,7 @@
       
       <div class="text-center mb-10">
         <span class="text-xs font-mono font-semibold text-emerald-brand uppercase tracking-wider">Official Distribution Hub</span>
-        <h2 class="text-3xl font-extrabold text-nordic-text mt-1.5">Download LoadModer v2.8.0</h2>
+        <h2 class="text-3xl font-extrabold text-nordic-text mt-1.5">Download LoadModer v2.9.0</h2>
         <p class="text-xs sm:text-sm text-nordic-muted mt-2">Zero advertising, no third-party telemetry, 100% open-source under the MIT License.</p>
       </div>
 
@@ -685,12 +690,12 @@
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div class="flex items-center space-x-2">
-                <span class="font-bold text-sm text-nordic-text">LoadModer-Setup-2.8.0.exe</span>
+                <span class="font-bold text-sm text-nordic-text">LoadModer-Setup-2.9.0.exe</span>
                 <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-subtle text-emerald-brand font-semibold">Recommended</span>
               </div>
               <p class="text-xs text-nordic-muted mt-1">Standard Windows NSIS setup wizard with desktop shortcut and clean uninstaller.</p>
             </div>
-            <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-Setup-2.8.0.exe" class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-brand text-black font-semibold text-xs hover:bg-emerald-brandLight transition-colors">
+            <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-Setup-2.9.0.exe" class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-brand text-black font-semibold text-xs hover:bg-emerald-brandLight transition-colors">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
@@ -702,7 +707,7 @@
           <div class="p-3.5 rounded-xl bg-obsidian border border-obsidian-border text-xs font-mono space-y-1.5">
             <div class="flex items-center justify-between text-nordic-dim text-[11px]">
               <span>SHA-256 Checksum:</span>
-              <button onclick="copyCommand('LoadModer-Setup-2.8.0.exe', 'copy-hash-btn')" id="copy-hash-btn" class="text-emerald-brand hover:underline">
+              <button onclick="copyCommand('LoadModer-Setup-2.9.0.exe', 'copy-hash-btn')" id="copy-hash-btn" class="text-emerald-brand hover:underline">
                 Copy Filename
               </button>
             </div>
@@ -717,12 +722,12 @@
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div class="flex items-center space-x-2">
-                <span class="font-bold text-sm text-nordic-text">LoadModer-2.8.0-Portable.exe</span>
+                <span class="font-bold text-sm text-nordic-text">LoadModer-2.9.0-Portable.exe</span>
                 <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-elevated text-nordic-muted">Portable</span>
               </div>
               <p class="text-xs text-nordic-muted mt-1">Single standalone executable requiring no installation. Run directly from USB drives or any directory.</p>
             </div>
-            <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-2.8.0-Portable.exe" class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-obsidian-elevated border border-obsidian-borderStrong text-nordic-text font-semibold text-xs hover:border-emerald-borderSubtle transition-colors">
+            <a href="https://github.com/2Hafast8/LoadModer/releases/latest/download/LoadModer-2.9.0-Portable.exe" class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-obsidian-elevated border border-obsidian-borderStrong text-nordic-text font-semibold text-xs hover:border-emerald-borderSubtle transition-colors">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
@@ -752,12 +757,12 @@
         <!-- Changelog Expander -->
         <div class="mt-8 pt-6 border-t border-obsidian-border">
           <button onclick="toggleChangelogDrawer()" class="w-full flex items-center justify-between text-xs font-mono text-nordic-muted hover:text-nordic-text transition-colors">
-            <span>Official Release Notes (v2.8.0)</span>
+            <span>Official Release Notes (v2.9.0)</span>
             <span id="changelog-indicator" class="transition-transform duration-200">&darr;</span>
           </button>
           
           <div id="changelog-drawer" class="hidden mt-4 p-4 rounded-xl bg-obsidian border border-obsidian-border text-xs font-mono space-y-3 text-nordic-muted">
-            <div class="font-bold text-nordic-text">Release Highlights in Version 2.8.0:</div>
+            <div class="font-bold text-nordic-text">Release Highlights in Version 2.9.0:</div>
             <ul class="list-disc list-inside space-y-1.5 text-[11px] leading-relaxed">
               <li><strong class="text-nordic-text">In-App Auto-Updater</strong>: Automated release checks against GitHub API with streaming SHA-256 validation and 1-click restart execution.</li>
               <li><strong class="text-nordic-text">Operation Loading Overlay</strong>: Fullscreen UI lock preventing file corruption from conflicting actions during profile saves or mode switches.</li>
