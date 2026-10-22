@@ -31,13 +31,14 @@ export function setProcessCheckerForTest(checker: ProcessChecker | null): void {
  * Detects whether a Minecraft client process (javaw.exe / Minecraft) is currently active.
  */
 export async function isMinecraftRunning(
-  executor: (cmd: string, args: string[]) => Promise<string> = defaultExec
+  executor: (cmd: string, args: string[]) => Promise<string> = defaultExec,
+  platform: NodeJS.Platform = process.platform
 ): Promise<boolean> {
   if (customChecker) {
     return customChecker();
   }
 
-  const isWindows = process.platform === "win32";
+  const isWindows = platform === "win32";
 
   try {
     if (isWindows) {
@@ -57,9 +58,34 @@ export async function isMinecraftRunning(
 
       return false;
     } else {
-      // Unix / macOS
+      // Unix / macOS: Check for Minecraft client process
       const stdout = await executor("pgrep", ["-l", "-f", "minecraft"]);
-      return stdout.trim().length > 0;
+      const lines = stdout
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      return lines.some((line) => {
+        const lower = line.toLowerCase();
+        // Ignore test runners, development tools, editors, or loadmoder itself
+        if (
+          lower.includes("vitest") ||
+          lower.includes("jest") ||
+          lower.includes("node") ||
+          lower.includes("loadmoder") ||
+          lower.includes(".test.") ||
+          lower.includes(".spec.")
+        ) {
+          return false;
+        }
+
+        // Must be actual Minecraft client process (Java game or official launcher)
+        return (
+          lower.includes("net.minecraft") ||
+          (lower.includes("java") && lower.includes("minecraft")) ||
+          lower.includes("minecraft-launcher")
+        );
+      });
     }
   } catch {
     // If process listing fails, fail-safe to false to avoid blocking legitimate operations
