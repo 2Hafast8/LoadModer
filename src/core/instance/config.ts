@@ -64,6 +64,13 @@ export class InstanceConfigManager {
   }
 
   saveInstance(key: string, instance: SavedInstanceConfig, makeActive = true): void {
+    if (this.config.deletedInstances) {
+      const normRoot = instance.rootDir ? path.resolve(instance.rootDir).toLowerCase() : undefined;
+      this.config.deletedInstances = this.config.deletedInstances.filter(
+        (id) => id.toLowerCase() !== key.toLowerCase() && id !== normRoot
+      );
+    }
+
     if (instance.rootDir) {
       const normRoot = path.resolve(instance.rootDir).toLowerCase();
       for (const [existingKey, existingCfg] of Object.entries(this.config.instances)) {
@@ -82,10 +89,45 @@ export class InstanceConfigManager {
   }
 
   deleteInstance(key: string): void {
+    const existing = this.config.instances[key];
+    const normRoot = existing?.rootDir ? path.resolve(existing.rootDir).toLowerCase() : undefined;
+
     delete this.config.instances[key];
-    if (this.config.activeInstance === key) {
-      delete this.config.activeInstance;
+
+    if (!this.config.deletedInstances) {
+      this.config.deletedInstances = [];
     }
+    const keyLower = key.toLowerCase();
+    if (!this.config.deletedInstances.some((d) => d.toLowerCase() === keyLower)) {
+      this.config.deletedInstances.push(key);
+    }
+    if (normRoot && !this.config.deletedInstances.includes(normRoot)) {
+      this.config.deletedInstances.push(normRoot);
+    }
+
+    if (this.config.activeInstance === key) {
+      const remainingKeys = Object.keys(this.config.instances);
+      this.config.activeInstance = remainingKeys.length > 0 ? remainingKeys[0] : undefined;
+    }
+  }
+
+  updateCustomPaths(
+    key: string,
+    paths: {
+      modsDir?: string;
+      resourcepacksDir?: string;
+      shaderpacksDir?: string;
+      modpacksDir?: string;
+    }
+  ): void {
+    const inst = this.config.instances[key];
+    if (!inst) {
+      throw new InstanceNotFoundError(key);
+    }
+    if (paths.modsDir !== undefined) inst.modsDir = paths.modsDir;
+    if (paths.resourcepacksDir !== undefined) inst.resourcepacksDir = paths.resourcepacksDir;
+    if (paths.shaderpacksDir !== undefined) inst.shaderpacksDir = paths.shaderpacksDir;
+    if (paths.modpacksDir !== undefined) inst.modpacksDir = paths.modpacksDir;
   }
 
   set<K extends keyof GlobalConfig>(key: K, value: GlobalConfig[K]): void {

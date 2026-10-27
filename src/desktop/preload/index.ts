@@ -36,6 +36,9 @@ export interface DesktopAPI {
     getContainers: () => Promise<any[]>;
     switchVersionAndLoader: (loader: string, gameVersion: string) => Promise<{ success: boolean; savedCount?: number; restoredCount?: number; error?: string }>;
     updateConfig: (instanceId: string, updates: { name?: string; loader?: string; gameVersion?: string }) => Promise<{ success: boolean; error?: string }>;
+    delete: (id: string) => Promise<{ success: boolean; error?: string }>;
+    updateCustomPaths: (instanceId: string, paths: { modsDir?: string; resourcepacksDir?: string; shaderpacksDir?: string; modpacksDir?: string }) => Promise<{ success: boolean; error?: string }>;
+    selectFolder: (title?: string) => Promise<{ success: boolean; path?: string }>;
     onChanged: (callback: () => void) => () => void;
   };
   minecraft: {
@@ -244,6 +247,10 @@ const api: DesktopAPI = {
       ipcRenderer.invoke('instances:switchVersionAndLoader', loader, gameVersion),
     updateConfig: (instanceId: string, updates: { name?: string; loader?: string; gameVersion?: string }) =>
       ipcRenderer.invoke('instances:updateConfig', instanceId, updates),
+    delete: (id: string) => ipcRenderer.invoke('instances:delete', id),
+    updateCustomPaths: (instanceId: string, paths: { modsDir?: string; resourcepacksDir?: string; shaderpacksDir?: string; modpacksDir?: string }) =>
+      ipcRenderer.invoke('instances:updateCustomPaths', instanceId, paths),
+    selectFolder: (title?: string) => ipcRenderer.invoke('instances:selectFolder', title),
     onChanged: (callback: () => void) => {
       const listener = () => callback();
       ipcRenderer.on('instances:changed', listener);

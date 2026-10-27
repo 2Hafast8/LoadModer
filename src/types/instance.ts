@@ -17,6 +17,9 @@ export interface MinecraftInstance {
   launcher: LauncherType;
   rootDir: string;
   modsDir: string;
+  resourcepacksDir?: string;
+  shaderpacksDir?: string;
+  modpacksDir?: string;
   gameVersion?: string;
   loader?: LoaderType;
   mode?: 'default' | 'modpack';
@@ -28,10 +31,14 @@ export interface SavedInstanceConfig {
   launcher: string;
   rootDir: string;
   modsDir: string;
+  resourcepacksDir?: string;
+  shaderpacksDir?: string;
+  modpacksDir?: string;
   gameVersion?: string;
   loader?: LoaderType | string;
   mode?: 'default' | 'modpack';
   activeContainer?: string;
+  isDefault?: boolean;
 }
 
 export interface GlobalConfig {
@@ -40,4 +47,5 @@ export interface GlobalConfig {
   defaultLoader?: string;
   defaultEnvironment?: 'client' | 'server';
   instances: Record<string, SavedInstanceConfig>;
+  deletedInstances?: string[];
 }

@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
 import path from 'node:path';
 import { readdir, stat, rm, mkdir, readFile, copyFile } from 'node:fs/promises';
 import { instanceConfig } from '../../core/instance/config.js';
-import { instanceDetector, detectLauncherFromPath } from '../../core/instance/detector.js';
+import { instanceDetector, detectLauncherFromPath, detectLauncherFromFolder } from '../../core/instance/detector.js';
 import { getLauncherCapabilities, isLoadModerModpackContainerName, type InstanceContext } from '../../core/instance/capabilities.js';
 import { toggleModFile } from '../../core/instance/modToggle.js';
 import { BisectRunner } from '../../core/troubleshoot/bisect.js';
@@ -263,11 +263,18 @@ async function computeInstanceStatus(active: any) {
       const detected = await instanceDetector.scanAll();
 
       const savedInstances = instanceConfig.get().instances ?? {};
+      const deletedSet = new Set(
+        (instanceConfig.get().deletedInstances ?? []).map((x) => x.toLowerCase())
+      );
       const list: any[] = [];
       const handledSavedKeys = new Set<string>();
 
       for (const d of detected) {
         const normRoot = path.resolve(d.rootDir).toLowerCase();
+        if (deletedSet.has(d.id.toLowerCase()) || deletedSet.has(normRoot)) {
+          continue;
+        }
+
         const savedEntry = Object.entries(savedInstances).find(
           ([sId, sCfg]) => sId === d.id || (sCfg.rootDir && path.resolve(sCfg.rootDir).toLowerCase() === normRoot)
         );
@@ -281,6 +288,9 @@ async function computeInstanceStatus(active: any) {
             launcher: (savedCfg.launcher ?? d.launcher) as LauncherType,
             rootDir: savedCfg.rootDir ?? d.rootDir,
             modsDir: savedCfg.modsDir ?? d.modsDir,
+            resourcepacksDir: savedCfg.resourcepacksDir ?? d.resourcepacksDir,
+            shaderpacksDir: savedCfg.shaderpacksDir ?? d.shaderpacksDir,
+            modpacksDir: savedCfg.modpacksDir ?? d.modpacksDir,
             gameVersion: savedCfg.gameVersion ?? d.gameVersion,
             loader: (savedCfg.loader ?? d.loader) as LoaderType | undefined,
             mode: savedCfg.mode ?? d.mode ?? 'default',
@@ -297,6 +307,9 @@ async function computeInstanceStatus(active: any) {
       for (const [id, cfg] of Object.entries(savedInstances)) {
         if (!handledSavedKeys.has(id)) {
           const normRoot = cfg.rootDir ? path.resolve(cfg.rootDir).toLowerCase() : '';
+          if (deletedSet.has(id.toLowerCase()) || (normRoot && deletedSet.has(normRoot))) {
+            continue;
+          }
           const alreadyInList = list.some(
             (i) => i.id === id || (i.rootDir && path.resolve(i.rootDir).toLowerCase() === normRoot)
           );
@@ -307,6 +320,9 @@ async function computeInstanceStatus(active: any) {
               launcher: (cfg.launcher ?? 'Custom') as LauncherType,
               rootDir: cfg.rootDir,
               modsDir: cfg.modsDir,
+              resourcepacksDir: cfg.resourcepacksDir,
+              shaderpacksDir: cfg.shaderpacksDir,
+              modpacksDir: cfg.modpacksDir,
               gameVersion: cfg.gameVersion,
               loader: cfg.loader as LoaderType | undefined,
               mode: cfg.mode ?? 'default',
@@ -427,7 +443,8 @@ async function computeInstanceStatus(active: any) {
       await instanceConfig.load();
       const active = instanceConfig.getActiveInstance();
       if (!active?.rootDir) return [];
-      return await ModpackProfileManager.discoverClientContainers(active.rootDir, active.launcher);
+      const targetDir = active.modpacksDir || active.rootDir;
+      return await ModpackProfileManager.discoverClientContainers(targetDir, active.launcher);
     } catch {
       return [];
     }
@@ -569,9 +586,15 @@ async function computeInstanceStatus(active: any) {
       const selected = res.filePaths[0];
       const valid = await resolveManualMinecraftPath(selected);
       const rootDir = valid.ok ? valid.rootDir : path.resolve(selected);
-      const info = detectLauncherFromPath(rootDir);
+      const info = await detectLauncherFromFolder(rootDir);
       const modsDir = path.join(rootDir, 'mods');
       await mkdir(modsDir, { recursive: true });
+
+      const inspected = await instanceDetector.inspectGameDir(rootDir, {
+        id: info.id,
+        name: info.name,
+        launcher: info.launcher,
+      });
 
       await instanceConfig.load();
       instanceConfig.saveInstance(
@@ -581,6 +604,8 @@ async function computeInstanceStatus(active: any) {
           launcher: info.launcher,
           rootDir,
           modsDir,
+          gameVersion: inspected.gameVersion,
+          loader: inspected.loader,
         },
         true
       );
@@ -595,8 +620,83 @@ async function computeInstanceStatus(active: any) {
           launcher: info.launcher,
           rootDir,
           modsDir,
+          gameVersion: inspected.gameVersion,
+          loader: inspected.loader,
         },
       };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('instances:delete', async (_event, id: string) => {
+    try {
+      await assertMinecraftNotRunning("menghapus profil instance");
+      await instanceConfig.load();
+      instanceConfig.deleteInstance(id);
+      await instanceConfig.save();
+
+      const active = instanceConfig.getActiveInstance();
+      if (active?.modsDir && active?.rootDir) {
+        setupWatcher(active.modsDir, active.rootDir, getMainWindow);
+      } else if (activeWatcher) {
+        activeWatcher.stop();
+        activeWatcher = null;
+      }
+
+      const win = getMainWindow?.();
+      win?.webContents.send('instances:changed');
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(
+    'instances:updateCustomPaths',
+    async (
+      _event,
+      instanceId: string,
+      paths: {
+        modsDir?: string;
+        resourcepacksDir?: string;
+        shaderpacksDir?: string;
+        modpacksDir?: string;
+      }
+    ) => {
+      try {
+        await assertMinecraftNotRunning("memperbarui jalur direktori");
+        await instanceConfig.load();
+        instanceConfig.updateCustomPaths(instanceId, paths);
+        await instanceConfig.save();
+
+        const active = instanceConfig.getActiveInstance();
+        if (active && instanceId === instanceConfig.get().activeInstance) {
+          if (active.modsDir && active.rootDir) {
+            setupWatcher(active.modsDir, active.rootDir, getMainWindow);
+          }
+        }
+
+        const win = getMainWindow?.();
+        win?.webContents.send('instances:changed');
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    }
+  );
+
+  ipcMain.handle('instances:selectFolder', async (event, title?: string) => {
+    try {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const res = await dialog.showOpenDialog(win!, {
+        properties: ['openDirectory'],
+        title: title ?? 'Pilih Direktori',
+      });
+      if (res.canceled || res.filePaths.length === 0) {
+        return { success: false };
+      }
+      return { success: true, path: res.filePaths[0] };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
@@ -685,7 +785,10 @@ async function computeInstanceStatus(active: any) {
       const active = instanceConfig.getActiveInstance();
       if (!active?.rootDir) return [];
 
-      const folder = path.join(active.rootDir, type);
+      const folder =
+        type === 'shaderpacks'
+          ? active.shaderpacksDir || path.join(active.rootDir, 'shaderpacks')
+          : active.resourcepacksDir || path.join(active.rootDir, 'resourcepacks');
       let entries: string[] = [];
       try {
         entries = await readdir(folder);
@@ -751,9 +854,9 @@ async function computeInstanceStatus(active: any) {
         const safeName = path.basename(fileName);
         let targetDir = customDir ?? active.modsDir;
         if (type === 'shader') {
-          targetDir = path.join(active.rootDir, 'shaderpacks');
+          targetDir = active.shaderpacksDir || path.join(active.rootDir, 'shaderpacks');
         } else if (type === 'resourcepack') {
-          targetDir = path.join(active.rootDir, 'resourcepacks');
+          targetDir = active.resourcepacksDir || path.join(active.rootDir, 'resourcepacks');
         }
 
         const targetPath = path.join(targetDir, safeName);

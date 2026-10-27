@@ -19,12 +19,20 @@ function defaultExec(command: string, args: string[]): Promise<string> {
 }
 
 let customChecker: ProcessChecker | null = null;
+let lastCheckTime = 0;
+let cachedResult = false;
+const CACHE_TTL_MS = 1000;
+
+export function invalidateProcessCache(): void {
+  lastCheckTime = 0;
+}
 
 /**
  * Allows overriding process checker for unit tests.
  */
 export function setProcessCheckerForTest(checker: ProcessChecker | null): void {
   customChecker = checker;
+  lastCheckTime = 0;
 }
 
 /**
@@ -36,6 +44,11 @@ export async function isMinecraftRunning(
 ): Promise<boolean> {
   if (customChecker) {
     return customChecker();
+  }
+
+  const now = Date.now();
+  if (now - lastCheckTime < CACHE_TTL_MS) {
+    return cachedResult;
   }
 
   const isWindows = platform === "win32";
@@ -52,11 +65,9 @@ export async function isMinecraftRunning(
       ]);
 
       const lower = stdout.toLowerCase();
-      if (lower.includes("javaw.exe")) {
-        return true;
-      }
-
-      return false;
+      cachedResult = lower.includes("javaw.exe");
+      lastCheckTime = Date.now();
+      return cachedResult;
     } else {
       // Unix / macOS: Check for Minecraft client process
       const stdout = await executor("pgrep", ["-l", "-f", "minecraft"]);
@@ -65,7 +76,7 @@ export async function isMinecraftRunning(
         .map((l) => l.trim())
         .filter(Boolean);
 
-      return lines.some((line) => {
+      cachedResult = lines.some((line) => {
         const lower = line.toLowerCase();
         // Ignore test runners, development tools, editors, or loadmoder itself
         if (
@@ -86,9 +97,13 @@ export async function isMinecraftRunning(
           lower.includes("minecraft-launcher")
         );
       });
+      lastCheckTime = Date.now();
+      return cachedResult;
     }
   } catch {
     // If process listing fails, fail-safe to false to avoid blocking legitimate operations
+    cachedResult = false;
+    lastCheckTime = Date.now();
     return false;
   }
 }

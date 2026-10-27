@@ -3,11 +3,11 @@
 > **CLI, TUI, dan Desktop GUI package manager untuk mod, modpack (.mrpack), shader, dan resource pack Minecraft berbasis Modrinth API v2.**  
 > Ditulis menggunakan TypeScript (ESM) dengan arsitektur DAG dependency resolution, isolasi profil snapshot, pendeteksi multi-launcher otomatis, dan distribusi standalone Windows executable (`.exe`).
 
-[![Version](https://img.shields.io/badge/version-2.9.0-38bdf8.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.10.0-38bdf8.svg)](package.json)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-281%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-289%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 [![Releases](https://img.shields.io/github/v/release/2Hafast8/LoadModer?color=a855f7&label=Windows%20App)](https://github.com/2Hafast8/LoadModer/releases)
@@ -16,6 +16,17 @@
 
 ## ⚡ Fitur Utama
 
+* **🔍 Content-Based Launcher Signatures & Smart Path Resolution (v2.10.0)**:
+  - Deteksi launcher Minecraft berbasis berkas signature unik (`tlauncher-2.0.properties`, `TlauncherProfiles.json`, `TLauncherAdditional.json`, dll.) mengacu pada dokumentasi arsitektur resmi.
+  - Memperbaiki pengenalan custom root TLauncher di drive mana pun dan navigasi pintar otomatis saat memilih folder `versions` atau `versions/<modpack>`.
+* **📁 Custom Folder Paths Mapping (v2.10.0)**:
+  - Fleksibilitas pemetaan direktori kustom mandiri untuk folder `mods`, `resourcepacks`, `shaderpacks`, dan `modpacks` (wadah client) via antarmuka modal dialog dengan tombol telusuri folder dan tombol reset.
+* **🗑️ Hapus Profil Launcher untuk Semua Launcher dengan 2 Validasi Ketat (v2.10.0)**:
+  - Kemampuan menghapus profil launcher apa pun dari LoadModer tanpa terkecuali, dilengkapi modal keamanan 2 langkah (Persetujuan Sadar Risiko + Pengetikan manual kalimat panjang tanpa copy-paste) untuk mencegah salah klik.
+* **📖 Panduan Struktur Folder Launcher di UI (v2.10.0)**:
+  - Modal panduan komprehensif langsung di aplikasi yang menyajikan arsitektur dan pohon berkas resmi untuk Official Minecraft, TLauncher, Legacy Launcher, Prism Launcher, MultiMC, Modrinth App, CurseForge, dan SKLauncher.
+* **⚡ Process Guard Caching Optimization (v2.10.0)**:
+  - Caching 1000ms pada pengecekan proses Windows `javaw.exe` guna mengeliminasi latensi I/O saat eksekusi operasi beruntun.
 * **🛡️ Anti-File Lock & Process Guard (v2.9.0)**:
   - Deteksi otomatis proses aktif game Minecraft (`javaw.exe`, `java.exe`, `minecraft`) sebelum operasi file disk dieksekusi.
   - Memblokir perpindahan profil/mode, toggle status mod, penghapusan mod, dan instalasi jika game sedang terbuka guna mencegah korupsi data disk dan error `EBUSY`/`EPERM`.

@@ -22,11 +22,15 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  BookOpen,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 import { RestorePointsPanel } from '../components/RestorePointsPanel.js';
 import { ExportModpackModal } from '../components/ExportModpackModal.js';
 import { EditVersionLoaderModal } from '../components/EditVersionLoaderModal.js';
+import { ConfigurePathsModal } from '../components/ConfigurePathsModal.js';
+import { LauncherStructureModal } from '../components/LauncherStructureModal.js';
+import { DeleteInstanceModal } from '../components/DeleteInstanceModal.js';
 import { OperationLoadingOverlay } from '../components/OperationLoadingOverlay.js';
 
 interface InstanceItem {
@@ -35,6 +39,9 @@ interface InstanceItem {
   launcher: string;
   rootDir: string;
   modsDir: string;
+  resourcepacksDir?: string;
+  shaderpacksDir?: string;
+  modpacksDir?: string;
   gameVersion?: string;
   loader?: string;
   mode?: 'default' | 'modpack';
@@ -88,6 +95,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingInstance, setEditingInstance] = useState<InstanceItem | null>(null);
+  const [pathsModalOpen, setPathsModalOpen] = useState(false);
+  const [pathsInstance, setPathsInstance] = useState<InstanceItem | null>(null);
+  const [structureModalOpen, setStructureModalOpen] = useState(false);
+  const [instanceToDelete, setInstanceToDelete] = useState<InstanceItem | null>(null);
   const [savingTLMods, setSavingTLMods] = useState(false);
   const [containerSearch, setContainerSearch] = useState('');
   const [modpackPage, setModpackPage] = useState(1);
@@ -398,6 +409,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
     }
   };
 
+  const handleDeleteInstance = (inst: InstanceItem) => {
+    setInstanceToDelete(inst);
+  };
+
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
       <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-wrap items-center justify-between gap-3">
@@ -449,6 +464,15 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           >
             <FolderSearch className={`w-3.5 h-3.5 ${deepScanning ? 'animate-spin' : ''}`} />
             <span>{t.instances.scanDrives}</span>
+          </button>
+
+          <button
+            onClick={() => setStructureModalOpen(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+            title={t.instances.structureGuideTooltip}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-emerald-primary" />
+            <span className="hidden sm:inline">{t.instances.structureGuide}</span>
           </button>
 
           <button
@@ -1004,6 +1028,25 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                           {inst.rootDir}
                         </span>
                       </div>
+                      {(inst.resourcepacksDir || inst.shaderpacksDir || inst.modpacksDir) && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {inst.resourcepacksDir && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-obsidian-surface border border-obsidian-border text-emerald-muted">
+                              RP: Kustom
+                            </span>
+                          )}
+                          {inst.shaderpacksDir && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-obsidian-surface border border-obsidian-border text-emerald-muted">
+                              Shader: Kustom
+                            </span>
+                          )}
+                          {inst.modpacksDir && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-obsidian-surface border border-obsidian-border text-emerald-muted">
+                              Wadah: Kustom
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {isActive && instanceStatus && (
                         <div className="pt-1 border-t border-obsidian-border/50 flex items-center justify-between text-[10px]">
                           <span className="text-emerald-active font-semibold flex items-center space-x-1">
@@ -1034,6 +1077,25 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                         title={t.instances.editVersionLoader}
                       >
                         <Settings2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setPathsInstance(inst);
+                          setPathsModalOpen(true);
+                        }}
+                        className="flex items-center space-x-1 px-2 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
+                        title={t.instances.configurePathsTooltip}
+                      >
+                        <Folder className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteInstance(inst)}
+                        className="flex items-center space-x-1 px-2 py-1.5 rounded bg-obsidian-surface border border-obsidian-border text-xs text-red-400/80 hover:text-red-400 hover:border-red-500/40 hover:bg-red-950/20 transition-colors cursor-pointer"
+                        title={t.instances.deleteInstance}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
@@ -1076,6 +1138,36 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         }}
         instance={editingInstance}
         onSaved={loadInstances}
+      />
+
+      <ConfigurePathsModal
+        isOpen={pathsModalOpen}
+        onClose={() => {
+          setPathsModalOpen(false);
+          setPathsInstance(null);
+        }}
+        instance={pathsInstance}
+        onSaved={loadInstances}
+      />
+
+      <LauncherStructureModal
+        isOpen={structureModalOpen}
+        onClose={() => setStructureModalOpen(false)}
+      />
+
+      <DeleteInstanceModal
+        isOpen={Boolean(instanceToDelete)}
+        onClose={() => setInstanceToDelete(null)}
+        instance={instanceToDelete}
+        onDeleted={() => {
+          if (instanceToDelete) {
+            setNotification({
+              text: (t.instances.instanceDeleted || 'Profil launcher "{name}" berhasil dihapus.').replace('{name}', instanceToDelete.name),
+              type: 'success',
+            });
+          }
+          loadInstances();
+        }}
       />
 
       <OperationLoadingOverlay

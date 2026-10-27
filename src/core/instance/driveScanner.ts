@@ -12,6 +12,11 @@ export const GAME_DIR_MARKERS = [
   "saves",
   "options.txt",
   "launcher_profiles.json",
+  "TlauncherProfiles.json",
+  "tlauncher-2.0.properties",
+  "prismlauncher.cfg",
+  "multimc.cfg",
+  "instance.cfg",
 ] as const;
 
 const SKIPPED_DIR_NAMES: ReadonlySet<string> = new Set([
@@ -239,9 +244,29 @@ export async function resolveManualMinecraftPath(
     };
   }
 
-  if (path.basename(resolved).toLowerCase() === "mods") {
-    const parent = path.dirname(resolved);
-    if (await isMinecraftGameDir(parent)) return {ok: true, rootDir: parent, adjusted: true};
+  const baseName = path.basename(resolved).toLowerCase();
+  const parentDir = path.dirname(resolved);
+  const parentBase = path.basename(parentDir).toLowerCase();
+
+  // 1. Jika pengguna memilih folder "mods"
+  if (baseName === "mods") {
+    if (await isMinecraftGameDir(parentDir)) return {ok: true, rootDir: parentDir, adjusted: true};
+  }
+
+  // 2. Jika pengguna memilih folder "versions"
+  if (baseName === "versions") {
+    if (await isMinecraftGameDir(parentDir)) return {ok: true, rootDir: parentDir, adjusted: true};
+  }
+
+  // 3. Jika pengguna memilih subfolder wadah di dalam "versions" (misal: versions/mypack atau versions/TLModsPack)
+  if (parentBase === "versions") {
+    const grandParent = path.dirname(parentDir);
+    if (await isMinecraftGameDir(grandParent)) return {ok: true, rootDir: grandParent, adjusted: true};
+  }
+
+  // 4. Jika pengguna memilih folder "instances"
+  if (baseName === "instances") {
+    if (await isMinecraftGameDir(parentDir)) return {ok: true, rootDir: parentDir, adjusted: true};
   }
 
   if (await isMinecraftGameDir(resolved)) return {ok: true, rootDir: resolved, adjusted: false};

@@ -233,6 +233,198 @@ export function detectLauncherFromPath(targetPath: string): DetectedLauncherInfo
   };
 }
 
+export async function inspectFolderSignature(targetDir: string): Promise<LauncherType | null> {
+  const norm = path.resolve(targetDir);
+
+  // 1. Cek Legacy Launcher (tl.properties atau struktur dual-path versions + home)
+  try {
+    const sTlProp = await stat(path.join(norm, "tl.properties"));
+    if (sTlProp.isFile()) return "Legacy";
+  } catch {}
+  try {
+    const parentTlProp = await stat(path.join(path.dirname(norm), "tl.properties"));
+    if (parentTlProp.isFile()) return "Legacy";
+  } catch {}
+  try {
+    const sHome = await stat(path.join(norm, "home"));
+    const sVers = await stat(path.join(norm, "versions"));
+    if (sHome.isDirectory() && sVers.isDirectory()) {
+      return "Legacy";
+    }
+  } catch {}
+
+  // 2. Cek TLauncher (tlauncher-2.0.properties, TlauncherProfiles.json, logs/tlauncher, exe, atau TLauncherAdditional.json)
+  try {
+    const s = await stat(path.join(norm, "tlauncher-2.0.properties"));
+    if (s.isFile()) return "TLauncher";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "tlauncher.properties"));
+    if (s.isFile()) return "TLauncher";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "TlauncherProfiles.json"));
+    if (s.isFile()) return "TLauncher";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "TLauncher.exe"));
+    if (s.isFile()) return "TLauncher";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "TLauncher32bit.exe"));
+    if (s.isFile()) return "TLauncher";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "logs", "tlauncher"));
+    if (s.isDirectory()) return "TLauncher";
+  } catch {}
+
+  // Cek subfolder versions untuk TLauncherAdditional.json
+  const vDir = path.join(norm, "versions");
+  try {
+    const vEntries = await readdir(vDir, { withFileTypes: true });
+    for (const vEntry of vEntries) {
+      if (vEntry.isDirectory()) {
+        try {
+          const s = await stat(path.join(vDir, vEntry.name, "TLauncherAdditional.json"));
+          if (s.isFile()) return "TLauncher";
+        } catch {}
+      }
+    }
+  } catch {}
+
+  // 3. Cek Prism & MultiMC
+  try {
+    const s = await stat(path.join(norm, "prismlauncher.cfg"));
+    if (s.isFile()) return "Prism";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "multimc.cfg"));
+    if (s.isFile()) return "MultiMC";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "MultiMC.exe"));
+    if (s.isFile()) return "MultiMC";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "mmc-pack.json"));
+    if (s.isFile()) {
+      return norm.toLowerCase().includes("multimc") ? "MultiMC" : "Prism";
+    }
+  } catch {}
+
+  // 4. Cek CurseForge (minecraftinstance.json)
+  try {
+    const s = await stat(path.join(norm, "minecraftinstance.json"));
+    if (s.isFile()) return "CurseForge";
+  } catch {}
+
+  // 5. Cek Modrinth App (profile.json)
+  try {
+    const s = await stat(path.join(norm, "profile.json"));
+    if (s.isFile()) return "Modrinth";
+  } catch {}
+
+  // 6. Cek SKLauncher
+  try {
+    const s = await stat(path.join(norm, ".sklauncher"));
+    if (s.isDirectory()) return "SKLauncher";
+  } catch {}
+
+  // 7. Cek Vanilla / Official (launcher_profiles.json / launcher_settings.json)
+  try {
+    const s = await stat(path.join(norm, "launcher_profiles.json"));
+    if (s.isFile()) return "Vanilla";
+  } catch {}
+  try {
+    const s = await stat(path.join(norm, "launcher_settings.json"));
+    if (s.isFile()) return "Vanilla";
+  } catch {}
+
+  return null;
+}
+
+export async function detectLauncherFromFolder(targetPath: string): Promise<DetectedLauncherInfo> {
+  const norm = path.resolve(targetPath);
+  const sub = extractBasename(targetPath);
+
+  // 1. Prioritas utama: Cek file signature langsung di direktori
+  const sig = await inspectFolderSignature(norm);
+  if (sig) {
+    if (sig === "Vanilla") {
+      const driveMatch = targetPath.match(/^([a-zA-Z]:)/);
+      const rootLetter = driveMatch
+        ? driveMatch[1]
+        : (path.parse(norm).root.replace(/[\\/]+$/, "") || "/");
+      const isOfficialDefault = norm.toLowerCase().includes(".minecraft");
+      return {
+        launcher: "Vanilla",
+        name: isOfficialDefault ? "Official Minecraft (Default)" : `Minecraft (${rootLetter})`,
+        id: isOfficialDefault ? "vanilla-default" : instanceIdFromPath(norm),
+      };
+    }
+
+    if (sig === "TLauncher") {
+      return {
+        launcher: "TLauncher",
+        name: `TLauncher (${sub})`,
+        id: instanceIdFromPath(norm),
+      };
+    }
+
+    if (sig === "Legacy") {
+      return {
+        launcher: "Legacy",
+        name: `Legacy Launcher (${sub})`,
+        id: instanceIdFromPath(norm),
+      };
+    }
+
+    if (sig === "Prism") {
+      return {
+        launcher: "Prism",
+        name: `Prism (${sub})`,
+        id: instanceIdFromPath(norm),
+      };
+    }
+
+    if (sig === "MultiMC") {
+      return {
+        launcher: "MultiMC",
+        name: `MultiMC (${sub})`,
+        id: instanceIdFromPath(norm),
+      };
+    }
+
+    if (sig === "Modrinth") {
+      return {
+        launcher: "Modrinth",
+        name: `Modrinth (${sub})`,
+        id: instanceIdFromPath(norm),
+      };
+    }
+
+    if (sig === "CurseForge") {
+      return {
+        launcher: "CurseForge",
+        name: `CurseForge (${sub})`,
+        id: instanceIdFromPath(norm),
+      };
+    }
+
+    if (sig === "SKLauncher") {
+      return {
+        launcher: "SKLauncher",
+        name: `SKLauncher (${sub})`,
+        id: instanceIdFromPath(norm),
+      };
+    }
+  }
+
+  // 2. Fallback ke deteksi berbasis pola path string
+  return detectLauncherFromPath(targetPath);
+}
+
 export class InstanceDetector {
   private readonly isWin = process.platform === "win32";
   private readonly isMac = process.platform === "darwin";
@@ -765,7 +957,7 @@ export class InstanceDetector {
       known.add(parentKey);
       known.add(candidateModsKey);
 
-      const detected = detectLauncherFromPath(dir);
+      const detected = await detectLauncherFromFolder(dir);
       instances.push(
         await this.inspectGameDir(dir, {
           id: detected.id,

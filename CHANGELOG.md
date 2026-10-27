@@ -5,6 +5,36 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.10.0] - 2026-10-27
+
+### Added
+- **Content-Based Launcher Signatures & Smart Path Resolution (`src/core/instance/detector.ts`, `src/core/instance/driveScanner.ts`)**:
+  - Deteksi launcher Minecraft berbasis berkas signature resmi (`inspectFolderSignature` dan `detectLauncherFromFolder`) mengacu pada `docs/struktur-folder-launcaher-minecraft.md`.
+  - Mengatasi masalah direktori kustom TLauncher (misal `D:\Games\Minecraft`) yang sebelumnya salah dideteksi sebagai "Vanilla" atau "Custom", dengan membaca keberadaan file signature `tlauncher-2.0.properties`, `TlauncherProfiles.json`, `TLauncher.exe`, atau `TLauncherAdditional.json` di dalam subfolder `versions/`.
+  - Fungsi `resolveManualMinecraftPath` secara otomatis mengarahkan ke root folder Minecraft jika pengguna memilih folder `versions` atau subfolder modpack `versions/<pack>`.
+- **Penyempurnaan Penemuan Wadah Modpack TL-Mods (`src/core/modpack/tlauncher/tlauncherStrategy.ts`)**:
+  - Menghapus pembatasan nama wadah `mypack`. Seluruh subfolder di dalam `versions/` yang memiliki folder fisik `mods/` atau berkas metadata versi kini otomatis diakui sebagai wadah modpack TL-Mods dengan deteksi loader dan versi game otomatis.
+- **Pemetaan Jalur Folder Kustom / Custom Paths Mapping (`src/desktop/renderer/src/components/ConfigurePathsModal.tsx`)**:
+  - Fitur bagi pengguna untuk mengarahkan direktori penyimpanan `mods`, `resourcepacks`, `shaderpacks`, dan `modpacks` (wadah/versions/instances) secara mandiri ke drive atau folder lain.
+  - Komponen modal dialog `ConfigurePathsModal` dengan tombol *Browse* folder dan *Reset ke Default Launcher*.
+  - Penyimpanan jalur kustom secara atomik di `config.json` dan badge indikator status jalur kustom pada kartu instance.
+- **Fitur Hapus Profil Launcher untuk Semua Launcher (`src/desktop/renderer/src/components/DeleteInstanceModal.tsx`)**:
+  - Dukungan penghapusan profil launcher apa pun dari LoadModer tanpa terkecuali (termasuk instance vanilla).
+  - Penyimpanan riwayat instance yang dihapus ke array `deletedInstances` di `config.json` agar pemindai otomatis tidak memunculkan kembali profil yang sengaja dihapus pengguna.
+  - **Dua Langkah Validasi Keamanan Ketat (Membuat Pengguna Berpikir Dua Kali):**
+    - Validasi 1: Checkbox persetujuan sadar risiko bahwa data di disk tidak terhapus.
+    - Validasi 2: Pengetikan manual kalimat konfirmasi panjang (`SAYA BENAR-BENAR YAKIN INGIN MENGHAPUS PROFIL <NAMA> DARI LOADMODER`) dengan fitur paste dinonaktifkan (`anti-copy-paste`) dan penghitung progres karakter.
+- **Panduan Struktur Folder Launcher di UI (`src/desktop/renderer/src/components/LauncherStructureModal.tsx`)**:
+  - Tombol pintasan di header antarmuka untuk membuka panduan arsitektur folder dan pohon berkas resmi untuk setiap launcher Minecraft langsung dari aplikasi.
+- **Optimasi Caching Process Guard (`src/core/instance/processGuard.ts`)**:
+  - Menambahkan caching 1000ms pada pengecekan proses Windows `javaw.exe` untuk mengeliminasi bottleneck pemanggilan `tasklist.exe` berulang-ulang saat operasi disk beruntun.
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.10.0` secara konsisten pada `package.json`, `package-lock.json`, dan `src/constants.ts`.
+- **Dukungan Path Kustom pada Aset**: `mods:listPacks`, `mods:remove`, dan `instances:getContainers` kini memanfaatkan jalur override kustom `resourcepacksDir`, `shaderpacksDir`, dan `modpacksDir` jika ditentukan.
+
+---
+
 ## [2.9.0] - 2026-10-22
 
 ### Added

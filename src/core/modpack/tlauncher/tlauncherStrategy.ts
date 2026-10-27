@@ -38,6 +38,8 @@ export async function discoverTLauncherContainers(
   if (baseDir) {
     if (path.basename(path.dirname(baseDir)).toLowerCase() === "versions") {
       versionsDir = path.dirname(baseDir);
+    } else if (path.basename(baseDir).toLowerCase() === "versions") {
+      versionsDir = baseDir;
     } else {
       const candidate = path.join(baseDir, "versions");
       try {
@@ -73,9 +75,19 @@ export async function discoverTLauncherContainers(
       let isTLMods = false;
       let loader: "fabric" | "forge" | "neoforge" | "quilt" = lower.includes("fabric")
         ? "fabric"
+        : lower.includes("neoforge")
+        ? "neoforge"
+        : lower.includes("quilt")
+        ? "quilt"
         : "forge";
 
       let gameVersion = "1.20.1";
+
+      let hasModsDir = false;
+      try {
+        const ms = await stat(path.join(cDir, "mods"));
+        if (ms.isDirectory()) hasModsDir = true;
+      } catch {}
 
       try {
         const raw = await readFile(tlJsonPath, "utf8");
@@ -101,6 +113,16 @@ export async function discoverTLauncherContainers(
         }
       } catch {}
 
+      // Jika folder memiliki direktori mods/ di dalamnya, maka folder ini adalah wadah modpack yang valid (TL-Mods atau modpack versi terpisah)
+      if (hasModsDir) {
+        isCandidate = true;
+        if (!isLoadModerModpackContainerName(cName)) {
+          isTLMods = true;
+        }
+      }
+
+      if (!isCandidate) continue;
+
       if (gameVersion === "1.20.1") {
         try {
           const verRaw = await readFile(path.join(cDir, `${cName}.json`), "utf8");
@@ -108,7 +130,17 @@ export async function discoverTLauncherContainers(
           if (verJson?.inheritsFrom) {
             gameVersion = verJson.inheritsFrom;
           }
+          const mainClass = verJson?.mainClass ?? "";
+          if (mainClass.includes("fabricmc") || lower.includes("fabric")) loader = "fabric";
+          else if (mainClass.includes("neoforged") || lower.includes("neoforge")) loader = "neoforge";
+          else if (mainClass.includes("minecraftforge") || lower.includes("forge")) loader = "forge";
+          else if (mainClass.includes("quiltmc") || lower.includes("quilt")) loader = "quilt";
         } catch {}
+
+        if (gameVersion === "1.20.1") {
+          const stdMatch = cName.match(/(1\.\d+(?:\.\d+)?)/);
+          if (stdMatch) gameVersion = stdMatch[1];
+        }
       }
 
       if (isCandidate) {
