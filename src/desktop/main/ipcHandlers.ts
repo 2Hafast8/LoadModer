@@ -1,6 +1,8 @@
 import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
 import path from 'node:path';
-import { readdir, stat, rm, mkdir, readFile, copyFile } from 'node:fs/promises';
+import os from 'node:os';
+import { readdir, stat, rm, mkdir, readFile, copyFile, writeFile } from 'node:fs/promises';
+import { USER_AGENT } from '../../constants.js';
 import { instanceConfig } from '../../core/instance/config.js';
 import { instanceDetector, detectLauncherFromPath, detectLauncherFromFolder } from '../../core/instance/detector.js';
 import { getLauncherCapabilities, isLoadModerModpackContainerName, type InstanceContext } from '../../core/instance/capabilities.js';
@@ -924,6 +926,107 @@ async function computeInstanceStatus(active: any) {
       const results = await installLocalFiles(filePaths, active.rootDir, active.modsDir, undefined, {
         launcher: active.launcher,
       });
+      const anySuccess = results.some((r) => r.success);
+      if (anySuccess) {
+        await profileSnapshotManager.syncActiveProfile();
+        const win = getMainWindow?.();
+        win?.webContents.send('mods:changed');
+        win?.webContents.send('instances:changed');
+      }
+
+      return {
+        success: anySuccess,
+        results,
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message, results: [] };
+    }
+  });
+
+  ipcMain.handle('mods:installDroppedBuffers', async (_event, files: Array<{ name: string; buffer: Uint8Array }>) => {
+    try {
+      if (!Array.isArray(files) || files.length === 0) {
+        return { success: false, error: 'Tidak ada berkas yang diterima' };
+      }
+
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir || !active?.modsDir) {
+        return { success: false, error: 'Tidak ada instance Minecraft aktif yang dipilih' };
+      }
+
+      const tempDropDir = path.join(os.tmpdir(), 'loadmoder-dropped');
+      await mkdir(tempDropDir, { recursive: true });
+
+      const tempFilePaths: string[] = [];
+      for (const item of files) {
+        const safeName = path.basename(item.name);
+        const tempPath = path.join(tempDropDir, `${Date.now()}-${safeName}`);
+        await writeFile(tempPath, Buffer.from(item.buffer));
+        tempFilePaths.push(tempPath);
+      }
+
+      const results = await installLocalFiles(tempFilePaths, active.rootDir, active.modsDir, undefined, {
+        launcher: active.launcher,
+      });
+
+      for (const p of tempFilePaths) {
+        await rm(p, { force: true }).catch(() => {});
+      }
+
+      const anySuccess = results.some((r) => r.success);
+      if (anySuccess) {
+        await profileSnapshotManager.syncActiveProfile();
+        const win = getMainWindow?.();
+        win?.webContents.send('mods:changed');
+        win?.webContents.send('instances:changed');
+      }
+
+      return {
+        success: anySuccess,
+        results,
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message, results: [] };
+    }
+  });
+
+  ipcMain.handle('mods:installDroppedUrl', async (_event, url: string) => {
+    try {
+      if (!url || typeof url !== 'string') {
+        return { success: false, error: 'Tautan URL tidak valid' };
+      }
+
+      await instanceConfig.load();
+      const active = instanceConfig.getActiveInstance();
+      if (!active?.rootDir || !active?.modsDir) {
+        return { success: false, error: 'Tidak ada instance Minecraft aktif yang dipilih' };
+      }
+
+      const parsedUrl = new URL(url);
+      let rawName = path.basename(parsedUrl.pathname);
+      if (!rawName || (!rawName.endsWith('.jar') && !rawName.endsWith('.mrpack') && !rawName.endsWith('.zip'))) {
+        rawName = 'downloaded-mod.jar';
+      }
+
+      const tempDropDir = path.join(os.tmpdir(), 'loadmoder-dropped');
+      await mkdir(tempDropDir, { recursive: true });
+      const tempPath = path.join(tempDropDir, `${Date.now()}-${rawName}`);
+
+      const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+      if (!resp.ok || !resp.body) {
+        throw new Error(`Gagal mengunduh berkas dari URL (HTTP ${resp.status})`);
+      }
+
+      const arrayBuf = await resp.arrayBuffer();
+      await writeFile(tempPath, Buffer.from(arrayBuf));
+
+      const results = await installLocalFiles([tempPath], active.rootDir, active.modsDir, undefined, {
+        launcher: active.launcher,
+      });
+
+      await rm(tempPath, { force: true }).catch(() => {});
+
       const anySuccess = results.some((r) => r.success);
       if (anySuccess) {
         await profileSnapshotManager.syncActiveProfile();

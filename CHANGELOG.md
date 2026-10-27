@@ -5,6 +5,28 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.10.2] - 2026-10-27
+
+### Fixed
+- **Perbaikan Menyeluruh Sistem Drag & Drop Berkas Mod / Modpack (`src/desktop/renderer/src/App.tsx`, `src/desktop/preload/index.ts`)**:
+  - Mengatasi masalah di mana berkas mod/modpack yang ditarik (*drag & drop*) dari Windows Explorer maupun peramban web (*download shelf/bubble*) tidak masuk atau tidak memberikan respons apa pun.
+  - Memperbaiki ketiadaan pembacaan jalur fisik berkas akibat penghapusan properti `File.path` pada Chromium 128 / Electron 32 dengan bermigrasi ke modul resmi `webUtils.getPathForFile(file)` di preload script.
+  - Menghilangkan perilaku *silent return* saat berkas dijatuhkan, menggantikannya dengan penanganan galat dan umpan balik visual yang informatif di antarmuka `DropZoneOverlay`.
+
+### Added
+- **Dukungan Berkas Virtual & Buffer In-Memory (`src/desktop/main/ipcHandlers.ts`)**:
+  - Handler IPC baru `mods:installDroppedBuffers` untuk memproses berkas yang ditarik dari web atau aplikasi lain dalam bentuk *in-memory blob* via `file.arrayBuffer()`, menuliskannya ke direktori aman `%TEMP%\loadmoder-dropped` dan menginstalnya ke instance aktif.
+- **Dukungan Drag & Drop Tautan/URL Web Langsung (`src/desktop/main/ipcHandlers.ts`)**:
+  - Handler IPC baru `mods:installDroppedUrl` untuk mendeteksi penarikan tautan unduhan langsung (`.jar`, `.mrpack`, `.zip`) dari situs web seperti Modrinth atau CurseForge, mengunduhnya secara otomatis dan memasangnya ke instance aktif.
+- **Lokalisasi Umpan Balik Drag & Drop (`src/desktop/renderer/src/i18n/translations.ts`)**:
+  - Menambahkan string `invalidFiles` untuk pesan kegagalan berkas tidak valid atau jalur tidak dapat diakses (ID & EN).
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.10.2` secara konsisten pada `package.json`, `package-lock.json`, dan `src/constants.ts`.
+- **Pengujian Instalasi Berkas Lokal (`tests/localInstaller.test.ts`)**: Menambahkan pengujian otomatis untuk pemasangan berkas drop dari direktori sementara.
+
+---
+
 ## [2.10.1] - 2026-10-27
 
 ### Fixed

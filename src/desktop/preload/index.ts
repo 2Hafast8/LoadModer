@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 export interface DownloadProgressPayload {
   id: string;
@@ -18,6 +18,9 @@ export interface UpdateProgressPayload {
 }
 
 export interface DesktopAPI {
+  utils: {
+    getPathForFile: (file: File) => string;
+  };
   window: {
     minimize: () => Promise<void>;
     maximize: () => Promise<void>;
@@ -105,6 +108,28 @@ export interface DesktopAPI {
       versionMap: Record<string, string>;
     }>;
     installDroppedFiles: (filePaths: string[]) => Promise<{
+      success: boolean;
+      results: Array<{
+        file: string;
+        fileName: string;
+        type: 'mod' | 'mrpack' | 'shader' | 'resourcepack' | 'unknown';
+        success: boolean;
+        error?: string;
+      }>;
+      error?: string;
+    }>;
+    installDroppedBuffers: (files: Array<{ name: string; buffer: Uint8Array }>) => Promise<{
+      success: boolean;
+      results: Array<{
+        file: string;
+        fileName: string;
+        type: 'mod' | 'mrpack' | 'shader' | 'resourcepack' | 'unknown';
+        success: boolean;
+        error?: string;
+      }>;
+      error?: string;
+    }>;
+    installDroppedUrl: (url: string) => Promise<{
       success: boolean;
       results: Array<{
         file: string;
@@ -227,6 +252,18 @@ export interface DesktopAPI {
 }
 
 const api: DesktopAPI = {
+  utils: {
+    getPathForFile: (file: File): string => {
+      try {
+        if (webUtils && typeof webUtils.getPathForFile === 'function') {
+          return webUtils.getPathForFile(file);
+        }
+      } catch (err) {
+        console.warn('Failed to get path via webUtils:', err);
+      }
+      return (file as any).path || '';
+    },
+  },
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),
     maximize: () => ipcRenderer.invoke('window:maximize'),
@@ -280,6 +317,10 @@ const api: DesktopAPI = {
     getInstalledIndex: () => ipcRenderer.invoke('mods:getInstalledIndex'),
     installDroppedFiles: (filePaths: string[]) =>
       ipcRenderer.invoke('mods:installDroppedFiles', filePaths),
+    installDroppedBuffers: (files: Array<{ name: string; buffer: Uint8Array }>) =>
+      ipcRenderer.invoke('mods:installDroppedBuffers', files),
+    installDroppedUrl: (url: string) =>
+      ipcRenderer.invoke('mods:installDroppedUrl', url),
     onChanged: (callback: () => void) => {
       const listener = () => callback();
       ipcRenderer.on('mods:changed', listener);

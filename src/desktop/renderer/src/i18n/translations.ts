@@ -416,6 +416,7 @@ export const translations = {
       successMessage: 'Successfully installed {count} file(s)',
       errorTitle: 'Installation Failed',
       noInstance: 'Please select an active Minecraft instance first',
+      invalidFiles: 'Invalid file format or inaccessible file path',
     },
     updater: {
       updateAvailable: 'Update Available',
@@ -862,6 +863,7 @@ export const translations = {
       successMessage: 'Berhasil memasang {count} berkas',
       errorTitle: 'Pemasangan Gagal',
       noInstance: 'Silakan pilih instance Minecraft aktif terlebih dahulu',
+      invalidFiles: 'Format berkas tidak valid atau jalur berkas tidak dapat diakses',
     },
     updater: {
       updateAvailable: 'Pembaruan Tersedia',

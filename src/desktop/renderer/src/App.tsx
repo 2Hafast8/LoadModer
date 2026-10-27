@@ -102,18 +102,65 @@ export const App: React.FC = () => {
     dragCounter.current = 0;
     setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    const filePaths = files
-      .map((f: any) => f.path)
-      .filter((p): p is string => typeof p === 'string' && p.length > 0);
+    const rawFiles = Array.from(e.dataTransfer.files);
+    const droppedUrl = (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || '').trim();
 
-    if (filePaths.length === 0) return;
+    if (rawFiles.length === 0 && !droppedUrl) {
+      return;
+    }
 
     setIsInstalling(true);
     setInstallResult(null);
 
     try {
-      const res = await window.api.mods.installDroppedFiles(filePaths);
+      const diskPaths: string[] = [];
+      const memoryFiles: Array<{ name: string; buffer: Uint8Array }> = [];
+
+      for (const f of rawFiles) {
+        let filePath = '';
+        if (window.api?.utils?.getPathForFile) {
+          try {
+            filePath = window.api.utils.getPathForFile(f);
+          } catch {
+            filePath = (f as any).path || '';
+          }
+        } else {
+          filePath = (f as any).path || '';
+        }
+
+        if (filePath && filePath.length > 0) {
+          diskPaths.push(filePath);
+        } else {
+          try {
+            const arrayBuf = await f.arrayBuffer();
+            if (arrayBuf.byteLength > 0) {
+              memoryFiles.push({
+                name: f.name,
+                buffer: new Uint8Array(arrayBuf),
+              });
+            }
+          } catch (readErr) {
+            console.error('Failed to read dropped file buffer:', readErr);
+          }
+        }
+      }
+
+      let res: any = null;
+      if (diskPaths.length > 0) {
+        res = await window.api.mods.installDroppedFiles(diskPaths);
+      } else if (memoryFiles.length > 0) {
+        res = await window.api.mods.installDroppedBuffers(memoryFiles);
+      } else if (droppedUrl && (droppedUrl.startsWith('http://') || droppedUrl.startsWith('https://'))) {
+        res = await window.api.mods.installDroppedUrl(droppedUrl);
+      } else {
+        setInstallResult({
+          success: false,
+          count: 0,
+          error: t.dropZone.invalidFiles,
+        });
+        return;
+      }
+
       const successfulCount = res.results?.filter((r: { success: boolean }) => r.success).length ?? 0;
       setInstallResult({
         success: res.success,
@@ -124,7 +171,7 @@ export const App: React.FC = () => {
       setInstallResult({
         success: false,
         count: 0,
-        error: err.message,
+        error: err.message || t.dropZone.errorTitle,
       });
     } finally {
       setIsInstalling(false);

@@ -3,11 +3,11 @@
 > **CLI, TUI, dan Desktop GUI package manager untuk mod, modpack (.mrpack), shader, dan resource pack Minecraft berbasis Modrinth API v2.**  
 > Ditulis menggunakan TypeScript (ESM) dengan arsitektur DAG dependency resolution, isolasi profil snapshot, pendeteksi multi-launcher otomatis, dan distribusi standalone Windows executable (`.exe`).
 
-[![Version](https://img.shields.io/badge/version-2.10.1-38bdf8.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.10.2-38bdf8.svg)](package.json)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-296%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-297%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 [![Releases](https://img.shields.io/github/v/release/2Hafast8/LoadModer?color=a855f7&label=Windows%20App)](https://github.com/2Hafast8/LoadModer/releases)
@@ -16,6 +16,9 @@
 
 ## ⚡ Fitur Utama
 
+* **🎯 Seamless Drag & Drop & Web URL Auto-Install (v2.10.2)**:
+  - Migrasi ke `webUtils.getPathForFile` di Electron 32, mengatasi isu berkas drop yang terabaikan akibat penghapusan `File.path`.
+  - Dukungan penarikan berkas virtual/in-memory blob dan penarikan tautan download URL langsung dari web browser ke dalam aplikasi.
 * **🛡️ Auto-Updater Binary Integrity & Anti-Corruption Guard (v2.10.1)**:
   - Sistem pertahanan integritas biner 5 lapis (`Content-Length` byte matching, metadata `expectedSize` GitHub Release, threshold 30 MB, SHA-256 validation, dan header PE `MZ` validation).
   - Mengeliminasi popup `NSIS Error: Installer integrity check has failed` akibat unduhan terputus, sinkronisasi event `close` buffer disk, dan pembersihan otomatis berkas korup di folder `%TEMP%\loadmoder-update`.

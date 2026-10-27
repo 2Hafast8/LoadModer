@@ -178,5 +178,27 @@ describe('Local File Installer domain logic', () => {
     const containerModExists = await stat(path.join(instanceDir, 'versions', 'mypack-fabric', 'mods', 'sodium.jar')).catch(() => null);
     expect(containerModExists).not.toBeNull();
   });
+
+  it('installs dropped files from temporary paths and handles batch installations', async () => {
+    const tempDropDir = path.join(testDir, 'temp-drop');
+    await mkdir(tempDropDir, { recursive: true });
+
+    const mod1 = path.join(tempDropDir, 'iris-1.7.0.jar');
+    const mod2 = path.join(tempDropDir, 'indium-1.0.30.jar');
+    await writeFile(mod1, 'iris content');
+    await writeFile(mod2, 'indium content');
+
+    const results = await installLocalFiles([mod1, mod2], instanceDir, modsDir);
+    expect(results).toHaveLength(2);
+    expect(results[0].success).toBe(true);
+    expect(results[1].success).toBe(true);
+    expect(results[0].fileName).toBe('iris-1.7.0.jar');
+    expect(results[1].fileName).toBe('indium-1.0.30.jar');
+
+    const stat1 = await stat(path.join(modsDir, 'iris-1.7.0.jar'));
+    const stat2 = await stat(path.join(modsDir, 'indium-1.0.30.jar'));
+    expect(stat1.isFile()).toBe(true);
+    expect(stat2.isFile()).toBe(true);
+  });
 });
 
