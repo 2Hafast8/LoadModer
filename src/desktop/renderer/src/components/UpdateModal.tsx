@@ -101,7 +101,8 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ isOpen, onClose, updat
       const res = await window.api.updater.download(
         targetAsset.downloadUrl,
         targetAsset.name,
-        targetAsset.sha256
+        targetAsset.sha256,
+        targetAsset.size
       );
 
       if (res.success && res.filePath) {

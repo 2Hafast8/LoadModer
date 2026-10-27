@@ -218,7 +218,8 @@ export interface DesktopAPI {
     download: (
       assetUrl: string,
       fileName: string,
-      expectedSha256?: string
+      expectedSha256?: string,
+      expectedSize?: number
     ) => Promise<{ success: boolean; filePath?: string; sha256?: string; error?: string }>;
     install: (filePath: string, silent?: boolean) => Promise<{ success: boolean; error?: string }>;
     onProgress: (callback: (payload: UpdateProgressPayload) => void) => () => void;
@@ -338,8 +339,8 @@ const api: DesktopAPI = {
   },
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),
-    download: (assetUrl: string, fileName: string, expectedSha256?: string) =>
-      ipcRenderer.invoke('updater:download', assetUrl, fileName, expectedSha256),
+    download: (assetUrl: string, fileName: string, expectedSha256?: string, expectedSize?: number) =>
+      ipcRenderer.invoke('updater:download', assetUrl, fileName, expectedSha256, expectedSize),
     install: (filePath: string, silent?: boolean) =>
       ipcRenderer.invoke('updater:install', filePath, silent),
     onProgress: (callback: (payload: UpdateProgressPayload) => void) => {

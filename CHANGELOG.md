@@ -5,6 +5,30 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.10.1] - 2026-10-27
+
+### Fixed
+- **Pencegahan Korupsi Unduhan Auto-Updater & Eliminasi NSIS Error (`src/core/updater/downloader.ts`, `src/desktop/main/updaterService.ts`)**:
+  - Mengatasi masalah popup Windows `NSIS Error: Installer integrity check has failed` yang terjadi ketika unduhan pembaruan installer terpotong beberapa byte sebelum transfer selesai sempurna pada jaringan berlatensi tinggi atau terganggu proteksi antivirus pihak ketiga.
+  - Menghapus celah kode di mana berkas sementara `.part` langsung di-*rename* menjadi `.exe` meskipun stream transfer data terputus di tengah jalan.
+  - Memastikan seluruh buffer disk Windows OS dan antivirus selesai di-flush secara tuntas dengan menunggu sinkronisasi event `close` pada file descriptor sebelum pemindahan biner.
+  - Pembersihan proaktif berkas sementara `.part` dan berkas installer lama yang rusak di direktori `%TEMP%\loadmoder-update` setiap kali unduhan baru dimulai atau gagal.
+
+### Security
+- **Sistem Pertahanan Integritas Biner 5 Lapis (5-Layer Defense-in-Depth)**:
+  - **Lapis 1 (`Content-Length` Matching)**: Memvalidasi bahwa jumlah byte yang terunduh sama persis dengan header HTTP `Content-Length`. Selisih 1 byte pun langsung menggagalkan proses dan menghapus berkas cacat.
+  - **Lapis 2 (Metadata `expectedSize` GitHub Release API)**: Menggunakan ukuran byte mutlak dari API resmi GitHub sebagai acuan validasi ukuran primer.
+  - **Lapis 3 (Guard Ukuran Biner Minimum)**: Menolak berkas installer `.exe` di bawah 30 MB untuk mencegah eksekusi respons error HTML atau biner terpotong parah.
+  - **Lapis 4 (Verifikasi SHA-256 Wajib)**: Membandingkan hash kalkulasi streaming dengan hash checksum resmi dari `SHA256SUMS.txt`.
+  - **Lapis 5 (Validasi Header Eksekutabel Windows `MZ`)**: Memeriksa keberadaan *magic bytes* Windows PE (`MZ`, `0x4D, 0x5A`) pada berkas sebelum di-rename dan sebelum peluncuran `spawn()` di `updaterService.ts`.
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.10.1` secara konsisten pada `package.json`, `package-lock.json`, dan `src/constants.ts`.
+- **Integrasi Metadata Ukuran Aset**: Handler IPC `updater:download` dan antarmuka Desktop `UpdateModal.tsx` kini meneruskan ukuran `targetAsset.size` ke modul downloader untuk validasi ukuran otomatis.
+- **Test Suite Integritas Unduhan (`tests/updaterDownloader.test.ts`)**: Menambahkan 7 skenario pengujian komprehensif untuk memverifikasi penolakan unduhan terpotong, mismatch ukuran, threshold minimum, validasi header `MZ`, kecocokan SHA-256, dan pembersihan berkas usang.
+
+---
+
 ## [2.10.0] - 2026-10-27
 
 ### Added

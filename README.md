@@ -3,11 +3,11 @@
 > **CLI, TUI, dan Desktop GUI package manager untuk mod, modpack (.mrpack), shader, dan resource pack Minecraft berbasis Modrinth API v2.**  
 > Ditulis menggunakan TypeScript (ESM) dengan arsitektur DAG dependency resolution, isolasi profil snapshot, pendeteksi multi-launcher otomatis, dan distribusi standalone Windows executable (`.exe`).
 
-[![Version](https://img.shields.io/badge/version-2.10.0-38bdf8.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.10.1-38bdf8.svg)](package.json)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-289%20passed-34d399.svg)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/tests-296%20passed-34d399.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
 [![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
 [![Releases](https://img.shields.io/github/v/release/2Hafast8/LoadModer?color=a855f7&label=Windows%20App)](https://github.com/2Hafast8/LoadModer/releases)
@@ -16,6 +16,9 @@
 
 ## ⚡ Fitur Utama
 
+* **🛡️ Auto-Updater Binary Integrity & Anti-Corruption Guard (v2.10.1)**:
+  - Sistem pertahanan integritas biner 5 lapis (`Content-Length` byte matching, metadata `expectedSize` GitHub Release, threshold 30 MB, SHA-256 validation, dan header PE `MZ` validation).
+  - Mengeliminasi popup `NSIS Error: Installer integrity check has failed` akibat unduhan terputus, sinkronisasi event `close` buffer disk, dan pembersihan otomatis berkas korup di folder `%TEMP%\loadmoder-update`.
 * **🔍 Content-Based Launcher Signatures & Smart Path Resolution (v2.10.0)**:
   - Deteksi launcher Minecraft berbasis berkas signature unik (`tlauncher-2.0.properties`, `TlauncherProfiles.json`, `TLauncherAdditional.json`, dll.) mengacu pada dokumentasi arsitektur resmi.
   - Memperbaiki pengenalan custom root TLauncher di drive mana pun dan navigasi pintar otomatis saat memilih folder `versions` atau `versions/<modpack>`.
