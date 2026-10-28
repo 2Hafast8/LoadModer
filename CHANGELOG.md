@@ -5,6 +5,30 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.10.3] - 2026-10-28
+
+### Fixed
+- **Perbaikan Pembuatan Checksum CI/CD GitHub Actions (`.github/workflows/release.yml`)**:
+  - Mengoreksi penulisan `SHA256SUMS.txt` di PowerShell CI yang sebelumnya menggunakan `Format-Table -AutoSize` sehingga memotong path panjang dengan elipsis (`…`). Diganti dengan looping `ForEach-Object` format standar `<sha256>  <filename>`.
+  - Mengembalikan validasi integritas SHA-256 yang sempat terlewat akibat hilangnya ekstensi biner pada file checksum rilis.
+- **Eksekusi Installer UAC Windows (`src/desktop/main/updaterService.ts`)**:
+  - Mengganti `spawn()` mentah dengan `shell.openPath(filePath)` yang memanggil API native Windows `ShellExecuteExW` untuk memicu dialog elevasi hak akses UAC (User Account Control) secara andal tanpa galat `ERROR_ELEVATION_REQUIRED` (Win32 Error 740).
+  - Melepaskan kunci *single instance lock* sebelum aplikasi ditutup agar proses installer NSIS dapat menimpa berkas eksekutabel tanpa konflik file lock.
+
+### Added
+- **Sistem Notifikasi Update Unambigu & Floating Toast Banner (`src/desktop/renderer/src/App.tsx`, `src/desktop/renderer/src/components/TopBar.tsx`)**:
+  - Penambahan banner notifikasi melayang (*floating card*) di pojok kanan bawah yang muncul otomatis saat aplikasi mendeteksi versi baru, lengkap dengan tombol `[Lihat & Perbarui]` dan `[Nanti]`.
+  - Indikator status TopBar yang tegas: `v2.10.3 • Terkini ✓` saat aplikasi sudah versi terbaru, dan `✨ Update vX.Y.Z Tersedia` dengan efek denyut lembut saat update siap dipasang.
+- **Pemisahan Layar Modal Update (Strict State Separation) (`src/desktop/renderer/src/components/UpdateModal.tsx`)**:
+  - Tampilan khusus "Aplikasi Sudah Versi Terbaru" dengan kartu konfirmasi hijau (`ShieldCheck`), status terkini, tombol periksa ulang (`Periksa Ulang`), dan menu lipat catatan rilis. Menghilangkan total tombol unduh saat aplikasi sudah mutakhir untuk mencegah kebingungan pengguna.
+  - Tautan darurat *"Kendala jaringan atau firewall? Unduh manual via GitHub"* pada modal update untuk memudahkan pengunduhan langsung via peramban web.
+  - Tombol *"Buka Folder"* (`FolderOpen`) di File Explorer saat berkas installer selesai diunduh.
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.10.3` secara konsisten pada `package.json`, `package-lock.json`, `src/constants.ts`, dan dokumentasi proyek.
+
+---
+
 ## [2.10.2] - 2026-10-27
 
 ### Fixed

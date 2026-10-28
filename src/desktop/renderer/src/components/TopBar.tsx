@@ -62,23 +62,29 @@ export const TopBar: React.FC<TopBarProps> = ({
           {updateInfo?.updateAvailable ? (
             <button
               onClick={onOpenUpdateModal}
-              className="flex items-center space-x-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-tint text-emerald-active border border-emerald-primary/50 hover:bg-emerald-primary/20 transition-all cursor-pointer shadow-sm animate-pulse"
+              className="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1 rounded bg-emerald-tint text-emerald-active border border-emerald-primary/40 hover:bg-emerald-primary/20 transition-all cursor-pointer shadow-sm animate-pulse"
               title={t.updater.updateAvailable}
             >
-              <Sparkles className="w-3 h-3 text-emerald-primary" />
-              <span>v{updateInfo.latestVersion}</span>
+              <Sparkles className="w-3.5 h-3.5 text-emerald-primary" />
+              <span>{t.updater.updateAvailableBadge.replace('{version}', updateInfo.latestVersion)}</span>
             </button>
           ) : (
             <button
-              onClick={onCheckUpdate}
+              onClick={onOpenUpdateModal || onCheckUpdate}
               disabled={isCheckingUpdate}
-              className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-card text-nordic-muted border border-obsidian-border hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer flex items-center space-x-1"
-              title={t.updater.checkForUpdates}
+              className="text-xs font-mono px-2 py-1 rounded bg-obsidian-card text-nordic-muted border border-obsidian-border hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer flex items-center space-x-1.5"
+              title={updateInfo ? t.updater.upToDate : t.updater.checkForUpdates}
             >
               {isCheckingUpdate ? (
-                <RefreshCw className="w-2.5 h-2.5 animate-spin text-emerald-primary" />
-              ) : null}
-              <span>{updateInfo?.currentVersion ? `v${updateInfo.currentVersion}` : 'v2.8.0'}</span>
+                <>
+                  <RefreshCw className="w-3 h-3 animate-spin text-emerald-primary" />
+                  <span>{t.updater.checking}</span>
+                </>
+              ) : updateInfo ? (
+                <span>{t.updater.upToDateBadge.replace('{version}', updateInfo.currentVersion)}</span>
+              ) : (
+                <span>v2.10.3</span>
+              )}
             </button>
           )}
         </div>

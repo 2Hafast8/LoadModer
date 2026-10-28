@@ -50,7 +50,7 @@ jobs:
       - name: Generate SHA-256 Checksums
         shell: pwsh
         run: |
-          Get-FileHash release/*.exe -Algorithm SHA256 | Format-Table -AutoSize | Out-File -FilePath release/SHA256SUMS.txt -Encoding utf8
+          Get-FileHash release/*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([System.IO.Path]::GetFileName($_.Path))" } | Out-File -FilePath release/SHA256SUMS.txt -Encoding utf8
           Get-Content release/SHA256SUMS.txt
 
       - name: Extract Release Notes from CHANGELOG.md

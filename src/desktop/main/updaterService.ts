@@ -1,4 +1,4 @@
-import { app } from "electron";
+import { app, shell } from "electron";
 import { spawn } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
 import { checkForAppUpdate, type AppUpdateInfo } from "../../core/updater/githubRelease.js";
@@ -82,18 +82,37 @@ export class DesktopUpdaterService {
     }
 
     try {
+      if (!silent) {
+        // Preferred Windows method: shell.openPath uses ShellExecuteExW which natively handles UAC elevation prompts
+        const openError = await shell.openPath(filePath);
+        if (!openError) {
+          try {
+            app.releaseSingleInstanceLock();
+          } catch {}
+          setTimeout(() => {
+            app.quit();
+          }, 800);
+          return { success: true };
+        }
+      }
+
       const args = silent ? ["/S"] : [];
       const child = spawn(filePath, args, {
         detached: true,
         stdio: "ignore",
+        windowsHide: false,
       });
 
       child.unref();
 
+      try {
+        app.releaseSingleInstanceLock();
+      } catch {}
+
       // Gracefully terminate the current application after spawning installer
       setTimeout(() => {
         app.quit();
-      }, 500);
+      }, 800);
 
       return { success: true };
     } catch (err: any) {

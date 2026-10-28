@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Sparkles, X } from 'lucide-react';
 import { TopBar, type NavTab } from './components/TopBar.js';
 import { ModsView } from './views/ModsView.js';
 import { ExploreView } from './views/ExploreView.js';
@@ -24,6 +25,7 @@ export const App: React.FC = () => {
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
 
   const dragCounter = useRef(0);
 
@@ -48,6 +50,9 @@ export const App: React.FC = () => {
         const info = await window.api.updater?.check?.();
         if (info) {
           setUpdateInfo(info);
+          if (info.updateAvailable) {
+            setShowUpdateBanner(true);
+          }
         }
       } catch (err) {
         console.error('Failed to auto-check update:', err);
@@ -226,7 +231,52 @@ export const App: React.FC = () => {
         isOpen={isUpdateModalOpen}
         onClose={() => setIsUpdateModalOpen(false)}
         updateInfo={updateInfo}
+        onCheckUpdate={handleCheckUpdate}
+        isCheckingUpdate={isCheckingUpdate}
       />
+
+      {/* Floating Update Notification Banner */}
+      {showUpdateBanner && updateInfo?.updateAvailable && !isUpdateModalOpen && (
+        <div className="fixed bottom-4 right-4 z-40 max-w-sm bg-obsidian-surface/95 border border-emerald-primary/40 rounded-xl shadow-2xl backdrop-blur-md p-4 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-start space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-tint border border-emerald-primary/30 flex items-center justify-center text-emerald-primary shrink-0 mt-0.5">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-bold text-nordic-text">
+                {t.updater.bannerTitle}
+              </h4>
+              <p className="text-[11px] text-nordic-muted mt-0.5 leading-snug">
+                {t.updater.bannerDesc.replace('{version}', updateInfo.latestVersion)}
+              </p>
+              <div className="flex items-center space-x-2 mt-3">
+                <button
+                  onClick={() => {
+                    setShowUpdateBanner(false);
+                    setIsUpdateModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-emerald-primary text-black font-bold text-xs rounded hover:bg-emerald-hover transition-colors cursor-pointer shadow-sm"
+                >
+                  {t.updater.bannerAction}
+                </button>
+                <button
+                  onClick={() => setShowUpdateBanner(false)}
+                  className="px-2.5 py-1.5 text-xs text-nordic-muted hover:text-nordic-text transition-colors cursor-pointer"
+                >
+                  {t.updater.later}
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowUpdateBanner(false)}
+              className="text-nordic-muted hover:text-nordic-text p-0.5 cursor-pointer"
+              title={t.common.close}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
