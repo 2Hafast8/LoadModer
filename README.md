@@ -1,146 +1,216 @@
-# 📦 LoadModer (`lm`)
+<div align="center">
 
-> **CLI, TUI, dan Desktop GUI package manager untuk mod, modpack (.mrpack), shader, dan resource pack Minecraft berbasis Modrinth API v2.**  
-> Ditulis menggunakan TypeScript (ESM) dengan arsitektur DAG dependency resolution, isolasi profil snapshot, pendeteksi multi-launcher otomatis, dan distribusi standalone Windows executable (`.exe`).
+<img src="docs/assets/banner.png" alt="LoadModer Banner" width="100%" />
 
-[![Version](https://img.shields.io/badge/version-2.10.2-38bdf8.svg)](package.json)
-[![Node Version](https://img.shields.io/badge/node-%3E%3D20.0.0-38bdf8.svg)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
+<br/>
+<br/>
+
+<a href="https://loadmoder.crft.my.id">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.png">
+    <img src="docs/assets/logo.png" alt="LoadModer Logo" width="280" />
+  </picture>
+</a>
+
+# LoadModer (`lm`)
+
+**High-Performance Minecraft Mod & Modpack Manager**  
+*Desktop GUI • Interactive TUI • Automated CLI*
+
+[![npm version](https://img.shields.io/npm/v/loadmoder?color=cb3837&logo=npm)](https://www.npmjs.com/package/loadmoder)
+[![npm downloads](https://img.shields.io/npm/dm/loadmoder?color=blue&logo=npm)](https://www.npmjs.com/package/loadmoder)
+[![Releases](https://img.shields.io/github/v/release/2Hafast8/LoadModer?color=a855f7&label=Windows%20App&logo=windows)](https://github.com/2Hafast8/LoadModer/releases)
 [![CI](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml/badge.svg)](https://github.com/2Hafast8/LoadModer/actions/workflows/ci.yml)
-[![Vitest](https://img.shields.io/badge/tests-297%20passed-34d399.svg)](https://vitest.dev/)
-[![License](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
-[![Modrinth API](https://img.shields.io/badge/API-Modrinth%20v2-00af5c.svg)](https://docs.modrinth.com/api-spec/)
-[![Releases](https://img.shields.io/github/v/release/2Hafast8/LoadModer?color=a855f7&label=Windows%20App)](https://github.com/2Hafast8/LoadModer/releases)
+[![Vitest](https://img.shields.io/badge/tests-297%20passed-34d399.svg?logo=vitest)](https://vitest.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg?logo=typescript)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/license-MIT-34d399.svg)](https://github.com/2Hafast8/LoadModer/blob/main/LICENSE)
+[![Website](https://img.shields.io/badge/website-loadmoder.crft.my.id-0284c7)](https://loadmoder.crft.my.id)
+
+<p align="center">
+  <a href="#-tampilan-antarmuka--demo-showcase">Demo & Preview</a> •
+  <a href="#-fitur-unggulan">Fitur Unggulan</a> •
+  <a href="#-instalasi--memulai-cepat">Instalasi</a> •
+  <a href="#-ringkasan-perintah-cli">Perintah CLI</a> •
+  <a href="#-arsitektur-sistem">Arsitektur</a> •
+  <a href="#-dokumentasi-teknis">Dokumentasi</a> •
+  <a href="#-pengujian">Pengujian</a>
+</p>
 
 ---
 
-## ⚡ Fitur Utama
+</div>
 
-* **🎯 Seamless Drag & Drop & Web URL Auto-Install (v2.10.2)**:
-  - Migrasi ke `webUtils.getPathForFile` di Electron 32, mengatasi isu berkas drop yang terabaikan akibat penghapusan `File.path`.
-  - Dukungan penarikan berkas virtual/in-memory blob dan penarikan tautan download URL langsung dari web browser ke dalam aplikasi.
-* **🛡️ Auto-Updater Binary Integrity & Anti-Corruption Guard (v2.10.1)**:
-  - Sistem pertahanan integritas biner 5 lapis (`Content-Length` byte matching, metadata `expectedSize` GitHub Release, threshold 30 MB, SHA-256 validation, dan header PE `MZ` validation).
-  - Mengeliminasi popup `NSIS Error: Installer integrity check has failed` akibat unduhan terputus, sinkronisasi event `close` buffer disk, dan pembersihan otomatis berkas korup di folder `%TEMP%\loadmoder-update`.
-* **🔍 Content-Based Launcher Signatures & Smart Path Resolution (v2.10.0)**:
-  - Deteksi launcher Minecraft berbasis berkas signature unik (`tlauncher-2.0.properties`, `TlauncherProfiles.json`, `TLauncherAdditional.json`, dll.) mengacu pada dokumentasi arsitektur resmi.
-  - Memperbaiki pengenalan custom root TLauncher di drive mana pun dan navigasi pintar otomatis saat memilih folder `versions` atau `versions/<modpack>`.
-* **📁 Custom Folder Paths Mapping (v2.10.0)**:
-  - Fleksibilitas pemetaan direktori kustom mandiri untuk folder `mods`, `resourcepacks`, `shaderpacks`, dan `modpacks` (wadah client) via antarmuka modal dialog dengan tombol telusuri folder dan tombol reset.
-* **🗑️ Hapus Profil Launcher untuk Semua Launcher dengan 2 Validasi Ketat (v2.10.0)**:
-  - Kemampuan menghapus profil launcher apa pun dari LoadModer tanpa terkecuali, dilengkapi modal keamanan 2 langkah (Persetujuan Sadar Risiko + Pengetikan manual kalimat panjang tanpa copy-paste) untuk mencegah salah klik.
-* **📖 Panduan Struktur Folder Launcher di UI (v2.10.0)**:
-  - Modal panduan komprehensif langsung di aplikasi yang menyajikan arsitektur dan pohon berkas resmi untuk Official Minecraft, TLauncher, Legacy Launcher, Prism Launcher, MultiMC, Modrinth App, CurseForge, dan SKLauncher.
-* **⚡ Process Guard Caching Optimization (v2.10.0)**:
-  - Caching 1000ms pada pengecekan proses Windows `javaw.exe` guna mengeliminasi latensi I/O saat eksekusi operasi beruntun.
-* **🛡️ Anti-File Lock & Process Guard (v2.9.0)**:
-  - Deteksi otomatis proses aktif game Minecraft (`javaw.exe`, `java.exe`, `minecraft`) sebelum operasi file disk dieksekusi.
-  - Memblokir perpindahan profil/mode, toggle status mod, penghapusan mod, dan instalasi jika game sedang terbuka guna mencegah korupsi data disk dan error `EBUSY`/`EPERM`.
-* **🎨 Official App Branding & Logo Integration (v2.9.0)**:
-  - Integrasi icon dan logo resmi LoadModer pada executable Windows installer, taskbar & window frame Electron, browser renderer favicon, dan TopBar navigasi aplikasi.
-* **🔄 Native In-App Auto Updater (Desktop & CLI)**:
-  - **Pemeriksaan Otomatis GitHub Releases**: Aplikasi secara otomatis mengecek rilis resmi GitHub saat diluncurkan secara asinkron tanpa memperlambat startup.
-  - **Modal Pembaruan Interaktif**: Tampilan catatan rilis (changelog markdown), bilah unduhan berkecepatan tinggi dengan estimasi kecepatan (MB/s), verifikasi integritas checksum SHA-256 otomatis sebelum instalasi, tombol "Buka Folder Unduhan" untuk versi Portable, serta petunjuk ramah Windows SmartScreen.
-  - **1-Click Auto Install & Restart**: Menjalankan installer Windows (`.exe`) secara aman dan menutup aplikasi lama dengan mulus.
-  - **TopBar Badge & Manual Trigger**: Badge berkilau `✨ vX.Y.Z` saat ada pembaruan dan tombol klik untuk cek manual sewaktu-waktu.
-  - **Terminal Update Notifier**: Notifikasi non-blocking saat menggunakan CLI jika versi npm terbaru telah tersedia.
-* **🔒 Operation Loading Overlay (Screen Lock Guard)**:
-  - Pelindung layar penuh selama proses berat (perpindahan mode, simpan profil, disable modpack, restore baseline) dengan timer keselamatan darurat 45 detik (*Emergency Unlock*) dan kontrol jendela yang tetap dapat diakses.
-* **📦 Launcher Mode Card Grid & 6-Item Pagination**:
-  - Antarmuka kartu wadah modpack responsif (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`) dengan badge loader berwarna, versi Minecraft, status aktif, dan filter pencarian real-time.
-  - Sistem paginasi 6 item per halaman pada Saved Modpack Containers dan Profile Versions.
-* **💾 TL-Mods Manual Profile Save & Clean State Auto-Healing**:
-  - Pencadangan instan profil modpack TL-Mods dan auto-healing status profil aktif ketika folder wadah dalam kondisi bersih dari mod.
-* **🖥️ Standalone Windows Desktop GUI & Drag-and-Drop Installer**:
-  - **Aplikasi Windows Mandiri (.exe)**: Tersedia dalam bentuk **NSIS Setup Wizard** (`LoadModer-Setup-2.9.0.exe`) dan **Portable Executable** (`LoadModer-2.9.0-Portable.exe`) di [GitHub Releases](https://github.com/2Hafast8/LoadModer/releases).
-  - **Drag-and-Drop Installer**: Cukup seret dan lepaskan berkas `.jar`, `.mrpack`, atau `.zip` ke jendela aplikasi untuk langsung memasangnya ke instance aktif.
-  - **Smart Archive Inspection**: Secara otomatis membedakan apakah berkas ZIP adalah Shaderpack (folder `shaders/`), Resourcepack (`pack.mcmeta`), atau Modpack (`modrinth.index.json`).
-  - **Bilingual Interface**: Dukungan penuh bahasa Indonesia dan bahasa Inggris dengan peralihan instan.
-  - **Diagnostics & Modpack Exporter GUI**: Visualisasi Bisect binary search, Crash Log Analyzer, Restore Points Panel, dan ekspor modpack ke `.mrpack`/`.zip`.
-* **🩺 CLI Diagnostics Parity & Crash Log Analyzer (`lm diagnose`)**:
-  - Perintah CLI mandiri untuk memindai berkas log dan crash report secara otomatis, mendeteksi mod penyebab crash, missing dependencies, dan rekomendasi solusi cepat.
-* **⚡ Bulk Updates & Enhanced Explore Navigation**:
-  - Pembaruan serentak semua mod ("Update All") dengan resolusi dependensi otomatis.
-  - Toolbar jelajah 2-tingkat dengan selector versi, loader, filter dinamis, dan sistem paginasi responsif hingga 4 kolom grid.
-* **👑 Official Minecraft Vanilla Priority & Koeksistensi Aditif**:
-  - Menetapkan Official Minecraft (`vanilla-default`) sebagai launcher resmi standar saat inisialisasi awal.
-  - Pengenalan pintar wadah bersama `%APPDATA%\.minecraft` (memprioritaskan file executable/profil TLauncher sebelum mengasumsikan instalasi resmi Mojang).
-  - Kebijakan aditif murni: penambahan launcher baru tidak akan pernah menimpa atau menghapus konfigurasi instance yang sudah disimpan pengguna di `config.json`.
-* **🎯 Operasi Multi-Interface (Desktop GUI, Nordic Clean TUI & Direct CLI)**:
-  - **Desktop GUI**: Antarmuka visual native Windows berbasis Electron 32 dan React 19 dengan live updates.
-  - **Interactive TUI Dashboard**: Header adaptif Figlet ASCII + 4-line Nordic Cyber Status Box, Live Badges navigasi instan, dan kontrol keyboard panah (`↑`/`↓` atau `j`/`k`).
-  - **Direct CLI**: Jalankan `lm install`, `lm search`, `lm update` langsung dengan flag dan argumen untuk skrip otomasi maupun terminal.
-* **🏰 Legacy Launcher Dual-Path Modpack Architecture**:
-  - **Pemisahan Engine & Wadah**: Engine jar & json disimpan di `game/versions/<version>/`, sedangkan modpack dan mods diisolasi di `game/home/<profile>/mods`.
-  - **Auto-Sync tl.properties**: Membaca profil aktif dari konfigurasi launcher Legacy secara otomatis.
-* **🛡️ One-Time Golden Baseline Snapshot & Permanent Restore**:
-  - **Pencadangan Satu Kali (`.loadmoder/baseline/`)**: Mengunci setelan dasar dan konfigurasi awal launcher (`options.txt`, dsb.) sebelum modpack pertama dipasang.
-  - **Restorasi Bersih Permanen (Zero-Delete Policy)**: Saat modpack dinonaktifkan (`lm modpack disable` / Clean State), setelan asli pemain langsung dipulihkan dari master baseline yang tersimpan permanen.
-* **🚫 Zero-Overwrite Active Modpack Guard**:
-  - Menghapus fitur penimpaan langsung saat modpack aktif untuk mencegah tabrakan berkas.
-  - Pilihan tegas: `❌ Cancel` (batalkan tanpa sentuh disk) atau `🧹 Clean Install` (arsipkan modpack aktif ke brankas profil `.loadmoder/profiles/<id>`, bersihkan live files, pasang modpack baru secara bersih).
-* **📦 TLauncher Modpack Profile Vault & Multi-Client Isolation**:
-  - **Wadah Client Terisolasi**: Pemisahan wadah client TLauncher per loader (`fabric`, `forge`) dan versi game.
-  - **Brankas Profil Lokal (`.loadmoder/profiles/`)**: Beralih antar-modpack secara instan tanpa unduh ulang (`lm modpack switch`).
-  - **Clean State & Global Disable**: Mengarsipkan seluruh modpack aktif ke brankas dan membersihkan wadah kerja kembali ke kondisi Vanilla awal (`lm modpack disable`).
-* **🏷️ Browser Cepat & Horizontal Filter Chips**:
-  - Filter chip bar 2 baris ringkas menggantikan tabel vertikal, menampilkan hasil pencarian pertama langsung di layar tanpa scroll.
-* **⚡ Validasi Status Terpasang Konkuren**:
-  - Pengecekan paralel aset terpasang (via `loadmoder.lock.json` dan pemindaian disk) saat proses pencarian berlangsung (`lm search` dan TUI Browser) tanpa latensi tambahan.
-* **🗃️ Mod Manager Canggih (Segmented Tabs & Batch Operations)**:
-  - Tab segmen status: `● Semua Mod`, `✔ Aktif`, `○ Nonaktif`, dan pengukur kapasitas penyimpanan (*storage gauge*).
-  - Operasi massal (*batch toggle*) untuk mengaktifkan, menonaktifkan, atau menghapus banyak mod sekaligus dalam satu aksi.
-* **♿ Aksesibilitas Penuh (WCAG 2.2 AA & `NO_COLOR`)**:
-  - Seluruh token warna memenuhi rasio kontras $\ge 4.5:1$ pada dark mode maupun light mode.
-  - Standar `NO_COLOR` dan mode `ACCESSIBLE=true` (preservasi buffer *scrollback* terminal).
-* **🎮 Multi-Drive Launcher Locator**:
-  - Mendeteksi launcher pihak ketiga (Prism, MultiMC, Modrinth App, CurseForge, TLauncher, Vanilla) di seluruh partisi drive Windows (`C:`, `D:`, `E:`, dll.) secara otomatis.
-* **🧩 Resolusi Dependensi Otomatis & Lockfile DAG**:
-  - Membaca dependensi wajib dari metadata API Modrinth dan membuat Directed Acyclic Graph (DAG) di `loadmoder.lock.json`.
-  - Pelacakan referensi (`dependedBy`) dan pembersihan otomatis dependensi yatim (*orphan pruning*) saat mod induk dihapus via `lm remove --prune`.
-* **🌐 Versi Minecraft Dinamis**:
-  - Mengambil daftar versi resmi Minecraft ($\ge$ 1.16) langsung dari Modrinth API dengan cache lokal (TTL 1 jam) dan fallback offline.
-* **💾 Isolasi Profil & Snapshot**:
-  - Menyimpan file mod per versi game dan loader ke snapshot lokal (`.loadmoder/snapshots/`), mencegah bentrok file saat berganti konfigurasi via `lm profile switch`.
-* **👀 Pemantau Folder Real-Time (`lm watch`)**:
-  - Memantau folder `mods/` menggunakan Node.js native `fs.watch` dengan debouncing untuk mendeteksi penambahan, penghapusan, atau perubahan nama file manual.
-* **🩺 Diagnostik Crash ($O(\log_2 N)$) & Crash Log Analyzer**:
-  - Melacak mod penyebab crash menggunakan algoritma pencarian biner otomatis (`lm bisect`) dan pemindai crash log regex.
+**LoadModer (`lm`)** adalah package manager mandiri berkinerja tinggi untuk mengelola mod, modpack (`.mrpack`), shaderpack, dan resource pack Minecraft berbasis **Modrinth API v2**.
+
+Dirancang dengan arsitektur **Directed Acyclic Graph (DAG)** untuk resolusi dependensi otomatis, isolasi snapshot profil versi game, pendeteksi tanda tangan launcher lintas drive, serta pelindung proses disk terintegrasi. LoadModer hadir dalam bentuk aplikasi desktop native Windows (`.exe`), antarmuka terminal interaktif (TUI), dan perintah baris CLI langsung.
 
 ---
 
-## 🚀 Panduan Memulai
+## 📸 Tampilan Antarmuka & Demo (Showcase)
 
-### Prasyarat
-- **Node.js**: Versi `20.0.0` atau lebih baru.
-- **npm**: Bawaan Node.js.
+LoadModer menghadirkan pengalaman visual ganda yang dirancang untuk kebutuhan berbeda: **Desktop GUI Modern** untuk eksplorasi visual interaktif, dan **Nordic Clean TUI / CLI** untuk efisiensi kecepatan di terminal.
 
-### 1. Unduh Aplikasi Desktop Windows Mandiri (.exe)
-Bagi pengguna yang menginginkan tampilan grafis tanpa perlu instalasi Node.js:
-- Kunjungi halaman **[LoadModer Releases](https://github.com/2Hafast8/LoadModer/releases)**.
-- Unduh **`LoadModer-Setup-2.7.0.exe`** untuk instalasi dengan wizard desktop shortcut, atau
-- Unduh **`LoadModer-2.7.0-Portable.exe`** untuk menjalankan aplikasi langsung tanpa instalasi.
+### 🖥️ 1. Desktop GUI Application (Windows Standalone)
+Antarmuka visual native berbasis Electron 32 dan React 19. Dilengkapi penjelajah modpack dengan kartu responsif, *drag-and-drop installer* (`.jar`, `.zip`, `.mrpack`, atau tautan URL web), pemetaan folder kustom, dan penganalisis crash report visual.
 
-### 2. Instalasi CLI via NPM
+<div align="center">
+  <img src="docs/assets/desktop-preview.png" alt="LoadModer Desktop GUI Preview" width="100%" />
+  <p><em>Tampilan Desktop GUI: Penjelajah Modpack, Status Instance Aktif, dan Live Operation Guard.</em></p>
+</div>
+
+---
+
+### ⚡ 2. Interactive Terminal UI (TUI) Dashboard
+Dijalankan via perintah `lm` atau `lm home`. Menyajikan kontrol keyboard ergonomis (`↑`/`↓`/`Enter`), chip filter horizontal real-time, status box Nordic Cyber, dan indikator kapasitas disk tanpa perlu meninggalkan terminal.
+
+<div align="center">
+  <img src="docs/assets/tui-preview.png" alt="LoadModer Interactive TUI Preview" width="100%" />
+</div>
+
+```text
+  _                     _ __  __           _           
+ | |    ___   __ _   __| |  \/  | ___   __| | ___ _ __ 
+ | |   / _ \ / _` | / _` | |\/| |/ _ \ / _` |/ _ \ '__|
+ | |__| (_) | (_| || (_| | |  | | (_) | (_| |  __/ |   
+ |_____\___/ \__,_| \__,_|_|  |_|\___/ \__,_|\___|_|   
+  v2.10.2  •  Minecraft Mod & Modpack Manager  •  Nordic Clean TUI
+
+┌────────────────────────────────────────────────────────────────────────┐
+│  Instance Aktif : Prism Launcher (Fabric 1.21.1) • Modrinth API v2     │
+│  Wadah Modpack  : default (Active)               • Mod Terpasang: 48   │
+│  Penyimpanan    : 142.8 MB                       • Guard: javaw.exe OK │
+└────────────────────────────────────────────────────────────────────────┘
+
+? Pilih Operasi: (Gunakan tombol panah ↑/↓ dan Enter)
+❯ 🌐 Jelajahi Konten Baru (Mod, Modpack, Shader, Resource Pack)
+  📦 Kelola Mod Terpasang (Aktif / Nonaktif / Hapus)
+  🔄 Periksa & Perbarui Mod (Update All)
+  📁 Ganti Profil / Versi Game (Snapshot Manager)
+  🩺 Diagnostik & Analisis Crash (Bisect & Log Scanner)
+  ⚙️  Pengaturan & Konfigurasi Instance
+  🚪 Keluar
+```
+
+---
+
+### 💻 3. Direct Headless CLI
+Eksekusi baris perintah langsung untuk otomasi skrip, terminal cepat, atau pipeline CI/CD:
+
 ```bash
-# Instalasi global agar perintah "lm" dan "loadmoder" langsung aktif di terminal:
+# Pencarian cepat dengan filter tipe, loader, dan versi Minecraft:
+$ lm search sodium -t mod -l fabric -v 1.21.1
+✔ Ditemukan 12 hasil yang kompatibel di Modrinth API v2:
+┌─────────────────┬──────────┬──────────────┬─────────────┬─────────────┐
+│ Nama Mod        │ Slug     │ Versi Mod    │ Unduhan     │ Status      │
+├─────────────────┼──────────┼──────────────┼─────────────┼─────────────┤
+│ Sodium          │ sodium   │ mc1.21.1-0.6 │ 32.4M       │ [Terpasang] │
+│ Sodium Extra    │ extra    │ mc1.21.1-0.5 │ 14.1M       │ [Tersedia]  │
+└─────────────────┴──────────┴──────────────┴─────────────┴─────────────┘
+
+# Instalasi mod beserta resolusi dependensi otomatis (DAG):
+$ lm install iris
+✔ Mengunduh metadata dependensi...
+  ├─ iris (v1.8.0)
+  └─ fabric-api (v0.100.0) [Dependensi Wajib]
+✔ Memverifikasi checksum SHA-512... Selesai.
+✔ Memasang berkas ke .minecraft/mods... Sukses.
+```
+
+---
+
+## ⚡ Fitur Unggulan
+
+### 🖥️ 1. Antarmuka Fleksibel (Dual-Mode Interface)
+* **Desktop GUI Modern**: Antarmuka grafis visual berbasis **Electron 32** dan **React 19** dengan Tailwind CSS Nordic theme, pencarian instan, dan live updates.
+* **Interactive TUI Dashboard**: Dashboard terminal keyboard-driven (`lm` / `lm home`) dengan Figlet ASCII header, Nordic Cyber status box, filter chips horizontal, dan navigasi panah (`↑`/`↓` atau `j`/`k`).
+* **Direct Scriptable CLI**: Perintah modular langsung (`lm install`, `lm update`, `lm remove`, `lm search`) yang dirancang untuk otomasi skrip terminal dan CI/CD.
+
+### 🧩 2. Resolusi Dependensi Otomatis & Lockfile DAG
+* **Directed Acyclic Graph (DAG)**: Menghitung pohon dependensi wajib secara rekursif langsung dari metadata Modrinth API v2.
+* **Integritas State (`loadmoder.lock.json`)**: Melacak relasi file, versi game, loader target, dan hash checksum SHA-512 dengan penyimpanan atomik (`write-file-atomic`).
+* **Orphan Pruning**: Mendeteksi dan membersihkan pustaka dependensi yatim secara otomatis saat mod induk dihapus melalui `lm remove <slug> --prune`.
+
+### 🎮 3. Deteksi Multi-Launcher Otomatis & Pemetaan Kustom
+* **Multi-Drive Auto-Discovery**: Memindai seluruh partisi drive Windows (`C:`, `D:`, `E:`, dll.) untuk mendeteksi instalasi launcher secara otomatis:
+  * Official Minecraft Launcher (`.minecraft`)
+  * Prism Launcher & MultiMC
+  * Modrinth App & CurseForge
+  * TLauncher & Legacy Launcher
+  * SKLauncher
+* **Content-Based Signature**: Pengenalan berbasis tanda tangan file unik (`tlauncher-2.0.properties`, `TlauncherProfiles.json`, dll.) tanpa bergantung pada asumsi path default.
+* **Custom Folder Paths**: Fleksibilitas memetakan folder kustom untuk `mods`, `resourcepacks`, `shaderpacks`, dan direktori wadah modpack.
+
+### 📦 4. Manajemen Modpack & Isolasi Profil
+* **Streaming `.mrpack` Engine**: Membaca, memvalidasi manifes dengan skema Zod, mengekstrak berkas overrides, dan mengunduh dependensi secara paralel dengan pembatas konkurensi (`p-limit`).
+* **Brankas Profil Terisolasi (`.loadmoder/profiles/`)**: Beralih antar-modpack secara instan tanpa perlu mengunduh ulang aset (`lm modpack switch`).
+* **One-Time Golden Baseline Snapshot**: Mengunci dan mencadangkan konfigurasi awal launcher (`options.txt`, dll.) sebelum modpack pertama dipasang, memastikan pemulihan bersih permanen (*Zero-Delete Policy*) saat modpack dinonaktifkan.
+
+### 🎯 5. Drag-and-Drop Cerdas & Dukungan Browser Web
+* **Inspeksi Arsip Otomatis**: Menyeret berkas langsung ke antarmuka mendeteksi tipe konten secara akurat:
+  * Berkas `.jar` -> langsung ke direktori `mods/`
+  * Berkas `.zip` berisi `shaders/` -> direktori `shaderpacks/`
+  * Berkas `.zip` berisi `pack.mcmeta` -> direktori `resourcepacks/`
+  * Berkas `.mrpack` -> ekstraksi modpack ke wadah terisolasi
+* **Web Blob & Direct URL Download**: Mendukung penarikan berkas virtual dari browser web dan penarikan tautan download URL langsung ke dalam aplikasi.
+
+### 🛡️ 6. Keamanan Operasi, Process Guard & Crash Diagnostics
+* **Anti-File Lock & Process Guard**: Mendeteksi proses aktif game (`javaw.exe`, `java.exe`) sebelum modifikasi disk dilakukan, mencegah galat `EBUSY`/`EPERM` dan korupsi berkas saat game berjalan.
+* **Crash Diagnostics & Bisect Engine**: Melacak mod penyebab crash menggunakan algoritma pencarian biner otomatis $O(\log_2 N)$ (`lm bisect`) dan penganalisis pola berkas log (`lm diagnose`).
+* **Auto-Updater 5-Layer Integrity Guard**: Sistem pembaruan aplikasi mandiri dengan verifikasi byte `Content-Length`, ukuran GitHub Release, threshold 30 MB, checksum SHA-256, dan validasi header PE binary Windows.
+
+---
+
+## 📊 Matriks Perbandingan
+
+Perbandingan alur kerja pengelolaan mod dan modpack antara metode manual, launcher konvensional, dan LoadModer:
+
+| Kemampuan Utama | Manual (Explorer) | Launcher Konvensional | LoadModer (`lm`) |
+| :--- | :--- | :--- | :--- |
+| **Resolusi Dependensi** | ❌ Cari & unduh manual satu per satu | ⚠️ Terbatas pada modpack bawaan | ✅ **Otomatis rekursif (DAG & Lockfile)** |
+| **Pembersihan Dependensi (Pruning)** | ❌ Sering tertinggal (*orphaned files*) | ❌ Tidak didukung | ✅ **Otomatis terhapus (`--prune`)** |
+| **Cakupan Launcher** | ⚠️ Harus navigasi folder terpisah | ❌ Terkunci ke ekosistem launcher sendiri | ✅ **Universal lintas drive (`C:`, `D:`, `E:`)** |
+| **Efisiensi Ruang Disk** | ❌ Rawan penumpukan berkas ganda | ⚠️ Duplikasi penuh per instalasi (*heavy*) | ✅ **Brankas snapshot & Golden Baseline** |
+| **Investigasi Crash & Konflik** | ❌ Coba-coba uji mod satu per satu | ⚠️ Pembaca log teks mentah | ✅ **Binary search $O(\log_2 N)$ & Regex analyzer** |
+| **Proteksi Berkas Aktif (Anti-Lock)** | ❌ Rawan korupsi `EBUSY` saat game aktif | ⚠️ Peringatan dialog standar | ✅ **Process Guard `javaw.exe` & atomic write** |
+| **Pilihan Antarmuka** | Hanya File Manager | Hanya Desktop GUI | ✅ **Desktop GUI, Nordic TUI, & Direct CLI** |
+| **Dukungan Otomasi & CI/CD** | ❌ Tidak dapat diskrip | ❌ Tidak ada antarmuka baris perintah | ✅ **Headless CLI flags & format `--json`** |
+
+---
+
+## 🚀 Instalasi & Memulai Cepat
+
+### Opsi 1: Aplikasi Desktop Windows Mandiri (`.exe`)
+Untuk pengguna yang menginginkan antarmuka grafis tanpa perlu memasang Node.js:
+1. Unduh installer resmi dari halaman **[GitHub Releases](https://github.com/2Hafast8/LoadModer/releases)**:
+   * **`LoadModer-Setup-2.10.2.exe`**: Setup installer lengkap dengan desktop shortcut dan auto-updater.
+   * **`LoadModer-2.10.2-Portable.exe`**: Versi portabel, langsung jalan tanpa instalasi.
+2. Jalankan aplikasi, pilih instance Minecraft yang terdeteksi, dan mulai kelola mod Anda.
+
+### Opsi 2: Instalasi Global via NPM (CLI & TUI)
+Bagi pengguna terminal, server administrator, atau developer:
+
+```bash
+# Instalasi global agar perintah "lm" dan "loadmoder" aktif di sistem:
 npm install -g loadmoder
 
-# Atau jalankan langsung tanpa instalasi:
+# Atau jalankan instan tanpa instalasi permanen:
 npx loadmoder
 ```
 
-### 3. Pemasangan dari Sumber & Mode Developer
+### Opsi 3: Pemasangan dari Sumber (Development Mode)
 ```bash
-# Clone repository
+# 1. Clone repository
 git clone https://github.com/2Hafast8/LoadModer.git
 cd LoadModer
 
-# Instal dependensi & build seluruh bundle
+# 2. Instal seluruh dependensi
 npm ci
+
+# 3. Kompilasi bundle CLI & Desktop
 npm run build:all
 
-# Jalankan Desktop GUI (otomatis rebuild & sinkronisasi)
+# 4. Jalankan Desktop GUI
 npm run desktop
 
 # Atau jalankan TUI Dashboard
@@ -151,38 +221,63 @@ npm run dev
 
 ## 🛠️ Ringkasan Perintah CLI
 
-| Perintah | Deskripsi | Contoh Penggunaan |
-| :--- | :--- | :--- |
-| `lm` / `lm home` | Membuka Dashboard TUI interaktif dengan navigasi keyboard | `lm` |
-| `lm init` | Memindai launcher Minecraft dan menentukan instance target | `lm init` |
-| `lm search <query>` | Mencari konten di Modrinth dengan filter | `lm search sodium -t mod -l fabric -v 1.21.1` |
-| `lm install <targets...>` | Memasang mod, file `.mrpack`, atau link Modrinth beserta dependensinya | `lm install sodium iris fabric-api` |
-| `lm list` | Menampilkan tabel status mod, ukuran berkas, dan relasi lockfile | `lm list` |
-| `lm update` | Memeriksa dan memperbarui mod ke versi rilis yang kompatibel | `lm update -y` |
-| `lm remove <slug...>` | Menghapus mod beserta dependensi yatim | `lm remove iris --prune` |
-| `lm enable <mod>` | Mengaktifkan mod yang dinonaktifkan (`.jar.disabled` -> `.jar`) | `lm enable sodium` |
-| `lm disable <mod>` | Menonaktifkan mod tanpa menghapus file (`.jar` -> `.jar.disabled`) | `lm disable sodium` |
-| `lm bisect <action>` | Pencarian biner isolasi mod penyebab crash (`start` \| `good` \| `bad` \| `reset`) | `lm bisect start` |
-| `lm watch` | Memantau folder mods secara real-time dan menyinkronkan data | `lm watch` |
-| `lm modpack <action>` | Mengelola profil modpack terisolasi (`list` \| `switch` \| `disable`) | `lm modpack switch zombie-apocalypse` |
-| `lm profile <action>` | Mengelola snapshot profil versi game (`list` \| `switch`) | `lm profile switch -v 1.21.1 -l fabric` |
-| `lm config <action>` | Menampilkan atau mengatur konfigurasi instance aktif | `lm config show` |
+Semua operasi dapat dijalankan melalui perintah `lm` atau `loadmoder`:
 
----
+```text
+Usage: lm [options] [command]
 
-## ⚙️ Variabel Lingkungan (Environment Variables)
+High-performance Minecraft mod & modpack manager CLI
 
-| Variabel | Deskripsi | Nilai Bawaan |
-| :--- | :--- | :--- |
-| `LOADMODER_HOME` | Menentukan lokasi folder konfigurasi global | `~/.loadmoder` |
-| `LOADMODER_CONTACT` | Informasi kontak (email/URL) yang disertakan pada header `User-Agent` HTTP ke Modrinth | Kosong |
-| `MODRINTH_API_URL` | Menimpa base endpoint API Modrinth (misal: staging API) | `https://api.modrinth.com/v2` |
+Commands:
+  home | lm                      Buka TUI Dashboard interaktif
+  init                           Pindai launcher dan tentukan instance target
+  search <query>                 Cari konten di Modrinth dengan filter
+  install <targets...>           Pasang mod, berkas .mrpack, atau file lokal
+  list                           Tampilkan tabel status mod, kapasitas, dan lockfile
+  update                         Periksa dan perbarui mod ke versi kompatibel
+  remove <slugs...>              Hapus mod beserta dependensi yatim (--prune)
+  enable <mod>                   Aktifkan mod (.jar.disabled -> .jar)
+  disable <mod>                  Nonaktifkan mod (.jar -> .jar.disabled)
+  toggle <mod>                   Beralih status aktif/nonaktif mod
+  diagnose                       Pindai berkas log dan analisis mod penyebab crash
+  bisect <start|good|bad|reset>  Lacak mod penyebab crash dengan binary search
+  modpack <action>               Kelola profil modpack terisolasi (list|switch|disable)
+  profile <action>               Kelola snapshot versi game (list|switch)
+  watch                          Pantau folder mods secara real-time
+  config <show|set|get|path>     Kelola konfigurasi instance aktif
+```
+
+### Contoh Penggunaan Nyata:
+
+```bash
+# Mencari mod Sodium untuk Fabric 1.21.1:
+lm search sodium -t mod -l fabric -v 1.21.1
+
+# Memasang Fabric API dan Iris Shader beserta seluruh dependensinya:
+lm install fabric-api iris
+
+# Memperbarui seluruh mod terpasang secara otomatis:
+lm update -y
+
+# Menghapus mod beserta pustaka dependensi yang tidak lagi digunakan:
+lm remove iris --prune
+
+# Mendiagnosis penyebab crash dari berkas crash-reports:
+lm diagnose
+
+# Mengisolasi mod penyebab crash menggunakan pencarian biner otomatis:
+lm bisect start
+lm bisect bad
+lm bisect good
+```
 
 ---
 
 ## 🏗️ Arsitektur Sistem
 
-```
+LoadModer mengadopsi prinsip pemisahan domain murni (*Domain-Driven Decoupling*). Modul logika domain di `src/core/` terisolasi sepenuhnya dari dependensi visual/UI sehingga dapat diuji secara deterministik.
+
+```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   PRESENTATION LAYER (MULTI-INTERFACE)                 │
 │  Desktop GUI (Electron 32 + React 19) │ Interactive TUI Dashboard (lm) │
@@ -206,51 +301,67 @@ npm run dev
                     │                               │
 ┌───────────────────▼───────────────────────────────▼────────────────────┐
 │                  INFRASTRUCTURE & ADAPTER LAYER                        │
-│   Modrinth API Client (v2) │ Parallel Download Pool │ Streaming Crypto│
-│   (Node:Fetch + RateLimit) │ (p-limit Concurrency)  │ (Node:Crypto)   │
+│   Modrinth API Client (v2) │ Parallel Download Pool │ Streaming Crypto │
+│   (Node:Fetch + RateLimit) │ (p-limit Concurrency)  │ (Node:Crypto)    │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
+## ⚙️ Variabel Lingkungan
+
+| Variabel | Deskripsi | Nilai Default |
+| :--- | :--- | :--- |
+| `LOADMODER_HOME` | Menentukan lokasi folder konfigurasi dan penyimpanan profil global | `~/.loadmoder` |
+| `LOADMODER_CONTACT` | Informasi kontak pengembang yang disertakan pada header `User-Agent` HTTP ke Modrinth | Kosong |
+| `MODRINTH_API_URL` | Menimpa base endpoint API Modrinth (misal: pengujian staging API) | `https://api.modrinth.com/v2` |
+| `NO_COLOR` | Menonaktifkan format warna terminal sesuai standar open-source | `0` / Tidak aktif |
+| `ACCESSIBLE` | Mode aksesibilitas terminal (WCAG AA & preservasi scrollback buffer) | `false` |
+
+---
+
 ## 📚 Dokumentasi Teknis
 
-Dokumentasi arsitektur dan spesifikasi lengkap tersedia di folder [`docs/`](docs/README.md):
+Dokumentasi arsitektur, panduan teknis, dan spesifikasi antarmuka tersedia di folder [`docs/`](docs/README.md):
 
-* [**01. Arsitektur dan Visi Sistem**](docs/01-architecture-and-vision.md): Struktur berlapis, alur data end-to-end, Desktop GUI subsystem, dan tata kelola kuota API.
-* [**02. Kurasi Tech Stack dan Pustaka**](docs/02-tech-stack-and-libraries.md): Pemilihan pustaka runtime CLI dan Desktop GUI (Electron 32, React 19, Vite, Tailwind CSS, electron-builder).
-* [**03. Spesifikasi Perintah dan UX LoadModer**](docs/03-cli-commands-and-ux.md): Detail opsi perintah, flag global, peluncuran desktop, dan tata letak visual TUI.
-* [**04. Mesin Modpack (.mrpack Engine)**](docs/04-modpack-engine.md): Parsing spesifikasi `.mrpack`, ekstraksi streaming, ekspor modpack, brankas profil modpack, dan isolasi wadah.
-* [**05. Integrasi Multi-Launcher**](docs/05-multi-launcher-integration.md): Auto-discovery Official Vanilla, Prism, MultiMC, Modrinth App, CurseForge, TLauncher, dan Legacy Launcher.
-* [**06. Dependency Graph dan Lockfile**](docs/06-dependency-graph-and-lockfile.md): Resolusi dependensi otomatis, Directed Acyclic Graph (DAG), dan reference counting.
-* [**07. Diagnostik Crash dan Bisect Engine**](docs/07-troubleshooting-and-bisect.md): Algoritma pencarian biner isolasi crash, toggle status mod, dan Crash Log Analyzer.
-* [**08. Panduan Pengembang dan Distribusi Binary**](docs/08-developer-guide-and-api.md): Struktur direktori lengkap, pengujian Vitest, kompilasi bundle, dan packaging Windows standalone `.exe`.
-* [**09. Spesifikasi Desain UI/UX (Nordic Clean)**](docs/09-ui-ux-design-specification.md): Filosofi visual, palet warna, aksesibilitas WCAG AA, dan arsitektur komponen TUI & Desktop.
-* [**C4 Architecture Specification**](docs/c4-architecture.md): Dokumentasi C4 Model resmi (System Context, Container, Component, dan Code Data Flow) untuk subsistem CLI dan Desktop.
-* [**Katalog Agent Skills**](docs/SKILL.md): Indeks 18 skill agen yang memandu kualitas kode dan standar arsitektur.
+* [**01. Arsitektur dan Visi Sistem**](docs/01-architecture-and-vision.md): Struktur berlapis, alur data end-to-end, dan tata kelola kuota API.
+* [**02. Kurasi Tech Stack**](docs/02-tech-stack-and-libraries.md): Pemilihan dependensi runtime CLI dan Desktop GUI (Electron 32, React 19, Vite, Tailwind CSS).
+* [**03. Spesifikasi Perintah & UX**](docs/03-cli-commands-and-ux.md): Rincian opsi flag global, peluncuran desktop, dan tata letak Nordic TUI.
+* [**04. Mesin Modpack (.mrpack Engine)**](docs/04-modpack-engine.md): Ekstraksi streaming, Zod parsing, isolasi wadah, dan ekspor modpack.
+* [**05. Integrasi Multi-Launcher**](docs/05-multi-launcher-integration.md): Spesifikasi auto-discovery Vanilla, Prism, MultiMC, Modrinth, CurseForge, TLauncher, dan Legacy Launcher.
+* [**06. Dependency Graph & Lockfile**](docs/06-dependency-graph-and-lockfile.md): Resolusi dependensi otomatis, Directed Acyclic Graph (DAG), dan reference counting.
+* [**07. Diagnostik Crash & Bisect Engine**](docs/07-troubleshooting-and-bisect.md): Algoritma pencarian biner isolasi crash dan Crash Log Pattern Analyzer.
+* [**08. Panduan Pengembang & Binary Build**](docs/08-developer-guide-and-api.md): Struktur proyek, pengujian Vitest, kompilasi bundle, dan packaging NSIS Windows.
+* [**09. Spesifikasi Desain UI/UX (Nordic Clean)**](docs/09-ui-ux-design-specification.md): Palet warna Nordic Clean, aksesibilitas WCAG AA, dan arsitektur komponen visual.
+* [**C4 Architecture Model**](docs/c4-architecture.md): Dokumentasi C4 resmi (System Context, Container, Component, dan Data Flow Diagram).
+* [**Katalog Agent Skills**](docs/SKILL.md): Indeks 18 skill agen yang memandu kualitas kode dan standar rekayasa perangkat lunak.
 
 ---
 
-## 🧪 Pengujian & Type Checking
+## 🧪 Pengujian & Jaminan Mutu
+
+LoadModer mengedepankan keandalan tinggi dengan cakupan pengujian unit dan integrasi yang komprehensif:
 
 ```bash
-# Validasi tipe TypeScript
+# 1. Validasi tipe statis TypeScript (0 errors)
 npx tsc --noEmit
 
-# Eksekusi seluruh test suite unit & integrasi
+# 2. Eksekusi seluruh rangkaian pengujian unit & integrasi
 npm test
 
-# Mode watch interaktif Vitest
-npx vitest
+# 3. Validasi bundle distribusi produksi
+npm run build
 ```
 
-**Hasil Pengujian:**
-- 35 test files lulus (100%)
-- 257 unit & integration tests lulus (100%)
-- Cakupan: Dependency Graph, Resolver, Drive Scanner, Multi-Launcher Detection, Legacy Launcher Dual-Path, TLauncher Profile Vault, Log Analyzer, Bisect Runner, Diagnostics CLI, Modpack Exporter, Local Installer, Desktop Dual-Mode IPC, Desktop I18n, UI Theme & Accessibility.
+**Metrik Pengujian Terverifikasi:**
+* **42 Test Files** lulus 100%
+* **297 Tests** lulus 100%
+* **Cakupan Pengujian**: Dependency Resolver DAG, Orphan Pruner, Drive Scanner Multi-Partition, Multi-Launcher Signatures, Legacy Dual-Path Isolation, TLauncher Profile Vault, Crash Log Analyzer, Bisect Binary Engine, Local Drag-and-Drop Archive Inspector, Process Guard Windows, dan Desktop IPC Security Gateway.
 
 ---
 
-## 📄 Lisensi
+## 📄 Lisensi & Kontribusi
 
-Didistribusikan di bawah lisensi [MIT](LICENSE).
+Proyek ini didistribusikan di bawah lisensi terbuka [MIT](LICENSE).
+
+Dikembangkan oleh **[Hafiz Noval Rianto](https://github.com/2Hafast8)**. Kontribusi berupa pelaporan isu, saran fitur, dan pull request selalu disambut dengan hangat melalui [GitHub Issues](https://github.com/2Hafast8/LoadModer/issues).
