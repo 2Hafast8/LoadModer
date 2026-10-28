@@ -21,6 +21,7 @@ loadmoder.lock.json
 .env
 .env.local
 .env.*.local
+.npmrc
 
 # Logs
 logs
