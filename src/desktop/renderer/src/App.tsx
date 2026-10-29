@@ -17,64 +17,109 @@ import { useLanguage } from './i18n/LanguageContext.js';
 const TOUR_STEPS_BY_PAGE: Record<NavTab, TourStep[]> = {
   mods: [
     {
-      targetSelector: 'input[type="text"]',
+      targetSelector: '[data-tour="mods-search-input"]',
       title: 'Pencarian Mod Lokal',
       description: 'Cari mod yang telah terpasang berdasarkan nama, deskripsi, atau loader secara instan.',
     },
     {
-      targetSelector: 'select',
+      targetSelector: '[data-tour="mods-sort-pagination"]',
       title: 'Pengurutan & Paginasi',
       description: 'Urutkan mod berdasarkan ukuran (terbesar/terkecil) dan atur batasan per halaman (25, 50, 100).',
     },
     {
-      targetSelector: 'header',
-      title: 'Navigasi Menu Utama',
-      description: 'Beralih dengan cepat ke Jelajahi, Instance, Diagnostik, Bantuan, atau Pengaturan.',
+      targetSelector: '[data-tour="mods-card-list"]',
+      title: 'Daftar Mod & Kontrol Cepat',
+      description: 'Aktifkan atau nonaktifkan mod dengan sakelar instan, hapus berkas, atau buka tautan web Modrinth.',
     },
   ],
   explore: [
     {
-      targetSelector: 'input[type="text"]',
+      targetSelector: '[data-tour="explore-search-input"]',
       title: 'Pencarian Ribuan Mod Online',
-      description: 'Cari mod, shader, dan resourcepack langsung dari database Modrinth API v2.',
+      description: 'Cari mod, shader, dan resourcepack langsung dari database Modrinth API v2 secara real-time.',
     },
     {
-      targetSelector: 'main',
+      targetSelector: '[data-tour="explore-type-filters"]',
+      title: 'Filter Kategori Proyek',
+      description: 'Beralih antara Mod, Modpack (.mrpack), Shaders (Iris/OptiFine), dan Resource Packs.',
+    },
+    {
+      targetSelector: '[data-tour="explore-card-list"]',
       title: 'Pemasangan Sekali Klik',
-      description: 'Klik tombol pasang pada kartu mod untuk mengunduh dan menyelaraskan dependensi otomatis.',
+      description: 'Klik kartu mod untuk melihat deskripsi lengkap atau langsung pasang dengan resolusi dependensi otomatis.',
     },
   ],
   instances: [
     {
-      targetSelector: 'header',
-      title: 'Pengelola Instance & Launcher',
-      description: 'LoadModer mendeteksi launcher resmi, TLauncher, TL Legacy, Prism, dan launcher kustom lokal Anda.',
+      targetSelector: '[data-tour="instances-status-card"]',
+      title: 'Status Instance & Wadah Aktif',
+      description: 'Pantau launcher aktif, versi game Minecraft, loader aktif, dan wadah modpack yang sedang bekerja.',
     },
     {
-      targetSelector: 'main',
-      title: 'Mode Wadah Modpack & Ekspor',
-      description: 'Gunakan wadah modpack terisolasi atau ekspor seluruh profil modpack ke format .zip.',
+      targetSelector: '[data-tour="instances-export-button"]',
+      title: 'Ekspor Profil Modpack (.zip)',
+      description: 'Ekspor modpack utuh atau selektif (mods, resourcepacks, shaders) ke arsip ZIP siap pakai.',
+    },
+    {
+      targetSelector: '[data-tour="instances-mode-selector"]',
+      title: 'Pemilih Mode Wadah & Launcher',
+      description: 'Beralih aman antara mode standar .minecraft dan wadah profil modpack terisolasi tanpa benturan berkas.',
+    },
+    {
+      targetSelector: '[data-tour="instances-list-grid"]',
+      title: 'Daftar Profil Launcher Terdeteksi',
+      description: 'Pilih instance yang diinginkan dari launcher resmi Mojang, TLauncher, TL Legacy, Prism, atau folder kustom.',
     },
   ],
   bisect: [
     {
-      targetSelector: 'main',
-      title: 'Diagnostik & Analisis Crash Log',
-      description: 'Deteksi penyebab crash otomatis (OOM, Java mismatch, mod conflict) dan nonaktifkan mod bermasalah.',
+      targetSelector: '[data-tour="diagnostics-subtabs"]',
+      title: 'Navigasi Diagnostik & Pemecahan Masalah',
+      description: 'Pilih antara pembaca analisis crash report instan atau pelacak biner interaktif (Bisect).',
+    },
+    {
+      targetSelector: '[data-tour="diagnostics-crash-logs"]',
+      title: 'Penganalisis Crash Log Cerdas',
+      description: 'Menganalisis file crash log secara otomatis dengan saran perbaikan yang konkret dan langsung dapat ditindaklanjuti.',
     },
   ],
   help: [
     {
-      targetSelector: 'main',
-      title: 'Pusat Bantuan & Struktur Launcher',
-      description: 'Pelajari struktur hierarki folder setiap launcher dan temukan jawaban dari pertanyaan umum.',
+      targetSelector: '[data-tour="help-subtabs"]',
+      title: 'Navigasi Pusat Bantuan',
+      description: 'Akses Tanya Jawab (FAQ), Peta Struktur Direktori Launcher, atau Pintasan Alat Darurat.',
+    },
+    {
+      targetSelector: '[data-tour="help-search-box"]',
+      title: 'Pencarian Solusi Real-Time',
+      description: 'Ketik kata kunci kendala Anda (contoh: crash, ram, java, shader, antivirus) untuk menemukan solusi instan.',
+    },
+    {
+      targetSelector: '[data-tour="help-content-card"]',
+      title: 'Solusi Lengkap & Struktur Folder',
+      description: 'Pelajari hierarki folder launcher dan petunjuk pemecahan kendala teknis langkah demi langkah.',
     },
   ],
   settings: [
     {
-      targetSelector: 'main',
-      title: 'Pusat Pembaruan & Preferensi',
-      description: 'Periksa pembaruan rilis terbaru LoadModer, ubah bahasa, dan laporkan kendala ke tim pengembang.',
+      targetSelector: '[data-tour="settings-update-hub"]',
+      title: 'Pusat Pembaruan (Update Hub)',
+      description: 'Periksa ketersediaan versi rilis terbaru LoadModer dan lakukan pembaruan otomatis secara aman.',
+    },
+    {
+      targetSelector: '[data-tour="settings-language-card"]',
+      title: 'Bahasa Antarmuka Pengguna',
+      description: 'Pilih bahasa tampilan aplikasi antara Bahasa Indonesia dan English secara instan.',
+    },
+    {
+      targetSelector: '[data-tour="settings-appearance-card"]',
+      title: 'Tampilan & Reset Tur Panduan',
+      description: 'Jalankan ulang tur panduan spotlight interaktif kapan saja jika ingin mempelajari ulang fitur LoadModer.',
+    },
+    {
+      targetSelector: '[data-tour="settings-author-card"]',
+      title: 'Informasi Pengembang & Lisensi',
+      description: 'Informasi pengembang resmi Hafiz Noval Rianto (2Hafast8), tim kontributor, dan lisensi open-source MIT.',
     },
   ],
 };
@@ -100,6 +145,18 @@ export const App: React.FC = () => {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isTourActive, setIsTourActive] = useState(false);
   const [activeTourPage, setActiveTourPage] = useState<NavTab>('mods');
+
+  const handleResetAndStartOnboardingTour = () => {
+    localStorage.removeItem('loadmoder_onboarding_welcomed');
+    const tourPages: NavTab[] = ['mods', 'explore', 'instances', 'bisect', 'help', 'settings'];
+    tourPages.forEach((p) => localStorage.removeItem(`loadmoder_tour_${p}`));
+    setIsTourActive(false);
+    setCurrentTab('mods');
+    setActiveTourPage('mods');
+    setTimeout(() => {
+      setIsOnboardingOpen(true);
+    }, 50);
+  };
 
   const dragCounter = useRef(0);
 
@@ -313,10 +370,7 @@ export const App: React.FC = () => {
         {currentTab === 'bisect' && <BisectView />}
         {currentTab === 'help' && (
           <HelpView
-            onStartTour={() => {
-              setActiveTourPage('help');
-              setIsTourActive(true);
-            }}
+            onStartTour={handleResetAndStartOnboardingTour}
           />
         )}
         {currentTab === 'settings' && (
@@ -324,10 +378,7 @@ export const App: React.FC = () => {
             updateInfo={updateInfo}
             onCheckUpdate={handleCheckUpdate}
             isCheckingUpdate={isCheckingUpdate}
-            onStartTour={() => {
-              setActiveTourPage('settings');
-              setIsTourActive(true);
-            }}
+            onStartTour={handleResetAndStartOnboardingTour}
           />
         )}
       </main>
@@ -353,7 +404,7 @@ export const App: React.FC = () => {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         onStartTour={() => {
-          setActiveTourPage(currentTab);
+          setActiveTourPage('mods');
           setIsTourActive(true);
         }}
       />

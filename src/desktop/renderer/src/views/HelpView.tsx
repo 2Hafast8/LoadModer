@@ -266,7 +266,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
         </div>
 
         {/* Search Bar */}
-        <div className="relative">
+        <div data-tour="help-search-box" className="relative">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-nordic-muted pointer-events-none" />
           <input
             type="text"
@@ -287,7 +287,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
       )}
 
       {/* Navigation Sub-Tabs */}
-      <div className="px-4 pt-3 border-b border-obsidian-border bg-obsidian-surface/60 flex items-center space-x-2">
+      <div data-tour="help-subtabs" className="px-4 pt-3 border-b border-obsidian-border bg-obsidian-surface/60 flex items-center space-x-2">
         <button
           onClick={() => setActiveTab('faq')}
           className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
@@ -326,7 +326,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div data-tour="help-content-card" className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* TAB 1: FAQ & Troubleshooting */}
         {activeTab === 'faq' && (
           <div className="space-y-3">

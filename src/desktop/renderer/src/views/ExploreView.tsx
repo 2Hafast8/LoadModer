@@ -913,6 +913,7 @@ export const ExploreView: React.FC = () => {
         <div className="p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           <div className="flex items-center space-x-2 w-full md:max-w-xl flex-1">
             <form
+              data-tour="explore-search-input"
               onSubmit={(e) => {
                 e.preventDefault();
                 searchModrinth();
@@ -967,7 +968,7 @@ export const ExploreView: React.FC = () => {
           </div>
 
           {/* Tipe Asset Selector Tabs */}
-          <div className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs shrink-0 self-start md:self-auto">
+          <div data-tour="explore-type-filters" className="flex items-center bg-obsidian-card border border-obsidian-border rounded p-0.5 text-xs shrink-0 self-start md:self-auto">
             <button
               onClick={() => handleSelectProjectType('mod')}
               className={`flex items-center space-x-1 px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
@@ -1164,7 +1165,7 @@ export const ExploreView: React.FC = () => {
             <span>{t.explore.emptyResults}</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+          <div data-tour="explore-card-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
             {hits.map((hit) => {
               const isInstalled = checkIsInstalled(hit);
               const isInstalling = installingId === hit.project_id;

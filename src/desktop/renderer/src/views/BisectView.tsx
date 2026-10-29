@@ -71,7 +71,7 @@ export const BisectView: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-obsidian-bg p-6 overflow-y-auto">
       <div className="max-w-3xl mx-auto w-full space-y-5">
-        <div className="flex items-center gap-2 border-b border-[#1E2822] pb-3">
+        <div data-tour="diagnostics-subtabs" className="flex items-center gap-2 border-b border-[#1E2822] pb-3">
           <button
             onClick={() => setSubTab('logs')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
@@ -98,9 +98,11 @@ export const BisectView: React.FC = () => {
         </div>
 
         {subTab === 'logs' ? (
-          <CrashLogViewer />
+          <div data-tour="diagnostics-crash-logs">
+            <CrashLogViewer />
+          </div>
         ) : (
-          <div className="space-y-5">
+          <div data-tour="diagnostics-bisect-tool" className="space-y-5">
             <div className="border border-obsidian-border bg-obsidian-surface rounded p-5 space-y-2">
               <div className="flex items-center space-x-2.5">
                 <div className="p-2 rounded bg-emerald-dark/30 text-emerald-primary border border-emerald-primary/30">

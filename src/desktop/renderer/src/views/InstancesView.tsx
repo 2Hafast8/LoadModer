@@ -445,6 +445,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
 
           {activeInstance && (
             <button
+              data-tour="instances-export-button"
               onClick={() => setExportModalOpen(true)}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
             >
@@ -503,7 +504,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* ❖ STATUS INSTANCE (CLI Parity Box) */}
         {instanceStatus && (
-          <div className="border border-emerald-primary/40 bg-obsidian-card/90 rounded-md p-3.5 space-y-2.5 shadow-sm font-sans">
+          <div data-tour="instances-status-card" className="border border-emerald-primary/40 bg-obsidian-card/90 rounded-md p-3.5 space-y-2.5 shadow-sm font-sans">
             <div className="flex items-center justify-between border-b border-obsidian-border/80 pb-2">
               <div className="flex items-center space-x-2">
                 <span className="text-emerald-primary font-bold text-xs font-mono tracking-wider flex items-center space-x-1.5">
@@ -564,7 +565,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         )}
 
         {activeInstance?.capabilities?.supportsModeSwitch && (
-          <div className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3.5">
+          <div data-tour="instances-mode-selector" className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
                 <Boxes className="w-4 h-4 text-emerald-primary" />
@@ -927,7 +928,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
             <span className="text-xs">{t.instances.noInstancesFound}</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div data-tour="instances-list-grid" className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {instances.map((inst) => {
               const isActive =
                 activeInstance?.id === inst.id ||

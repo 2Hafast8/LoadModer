@@ -5,6 +5,26 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.11.1] - 2026-10-29
+
+### Fixed
+- **Perbaikan Kecepatan Scroll Tur Spotlight (`src/desktop/renderer/src/components/TourOverlay.tsx`)**:
+  - Menghilangkan delay floaty 250ms dan perilaku smooth-scroll bawaan (500–800ms) Chromium pada tur interaktif.
+  - Menerapkan deteksi instan viewport (`isInViewport`): jika elemen sudah terlihat di layar, posisi spotlight diperbarui instan pada frame 0 tanpa memicu scroll berlebih.
+  - Menggunakan scroll instan direct (`behavior: 'auto'`) saat elemen berada di luar layar, serta menyelaraskan animasi transisi spotlight ke `duration-200` yang jauh lebih responsif.
+- **Perbaikan Ulang Tur di Pengaturan (`src/desktop/renderer/src/App.tsx`, `src/desktop/renderer/src/views/SettingsView.tsx`)**:
+  - Tombol "Mulai Tur" / "Ulangi Tur" di halaman Pengaturan kini mereset seluruh state onboarding dan tur halaman secara komprehensif (`loadmoder_onboarding_welcomed` dan seluruh `loadmoder_tour_*`).
+  - Secara otomatis mengarahkan kembali ke tab Mods dan memunculkan modal selamat datang (`OnboardingModal`), memberikan pengalaman onboarding penuh persis seperti saat pertama kali membuka aplikasi.
+- **Penyelarasan Target Spotlight & Highlight Razor-Sharp (`src/desktop/renderer/src/components/TourOverlay.tsx`)**:
+  - Mengganti teknik full-screen backdrop dengan *Massive Box-Shadow Cutout* (`box-shadow: 0 0 0 9999px rgba(10, 15, 13, 0.82)`) sehingga elemen yang disorot tampil tajam dan bebas efek blur.
+  - Memberikan atribut `data-tour` spesifik pada seluruh komponen di tab Mods, Explore, Instances, Bisect, Help, dan Settings untuk memastikan spotlight terarah tepat pada elemen target.
+  - Menambahkan pembatasan batas layar (*viewport clamping*) pada kartu tooltip tur agar tombol dan teks tidak pernah keluar atau terpotong di tepi layar.
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.11.1` secara konsisten pada `package.json`, `package-lock.json`, `src/constants.ts`, `TopBar.tsx`, `SettingsView.tsx`, dan seluruh dokumentasi proyek.
+
+---
+
 ## [2.11.0] - 2026-10-29
 
 ### Added

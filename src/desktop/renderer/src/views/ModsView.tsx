@@ -407,7 +407,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
         </div>
 
         {/* Search input with ref focus guard */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div data-tour="mods-search-input" className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-nordic-muted pointer-events-none" />
           <input
             ref={searchInputRef}
@@ -420,7 +420,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
         </div>
 
         {/* Sort & Filter controls */}
-        <div className="flex items-center space-x-2">
+        <div data-tour="mods-sort-pagination" className="flex items-center space-x-2">
           {/* Sort Dropdown */}
           <div className="flex items-center space-x-1 bg-obsidian-card border border-obsidian-border rounded px-2 py-1 text-xs">
             <ArrowUpDown className="w-3.5 h-3.5 text-nordic-muted shrink-0" />
@@ -564,7 +564,7 @@ export const ModsView: React.FC<ModsViewProps> = ({ onGoToExplore }) => {
       )}
 
       {/* Main Asset Table View */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div data-tour="mods-card-list" className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 space-y-2 text-nordic-muted">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-primary" />

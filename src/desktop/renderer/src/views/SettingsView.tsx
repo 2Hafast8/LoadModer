@@ -113,7 +113,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     window.open('https://github.com/2Hafast8/LoadModer', '_blank');
   };
 
-  const currentVer = updateInfo?.currentVersion || '2.10.3';
+  const currentVer = updateInfo?.currentVersion || '2.11.1';
   const hasUpdate = Boolean(updateInfo?.updateAvailable);
 
   return (
@@ -146,7 +146,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="w-full max-w-5xl mx-auto space-y-5">
           {/* 1. PUSAT PEMBARUAN (UPDATE HUB) */}
-          <section className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-4 shadow-sm">
+          <section data-tour="settings-update-hub" className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-obsidian-border pb-3">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -313,7 +313,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </section>
 
           {/* 2. PENGATURAN BAHASA (LANGUAGE) */}
-          <section className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
+          <section data-tour="settings-language-card" className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
             <div className="flex items-center space-x-2.5 border-b border-obsidian-border pb-3">
               <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text">
                 <Languages className="w-4 h-4 text-emerald-primary" />
@@ -368,7 +368,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </section>
 
           {/* 3. TAMPILAN & TUR (APPEARANCE & ONBOARDING) */}
-          <section className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
+          <section data-tour="settings-appearance-card" className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
             <div className="flex items-center space-x-2.5 border-b border-obsidian-border pb-3">
               <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text">
                 <Palette className="w-4 h-4 text-emerald-primary" />
@@ -447,7 +447,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </section>
 
           {/* 5. INFORMASI APLIKASI & TIM PENGEMBANG (ABOUT & CREDITS) */}
-          <section className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
+          <section data-tour="settings-author-card" className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
             <div className="flex items-center space-x-2.5 border-b border-obsidian-border pb-3">
               <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text">
                 <Info className="w-4 h-4 text-emerald-primary" />

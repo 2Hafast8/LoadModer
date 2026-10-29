@@ -69,7 +69,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             className="text-[11px] font-mono px-2 py-0.5 rounded bg-obsidian-card text-nordic-muted border border-obsidian-border select-none"
             title="LoadModer Standalone Desktop"
           >
-            v{updateInfo?.currentVersion || '2.11.0'}
+            v{updateInfo?.currentVersion || '2.11.1'}
           </span>
         </div>
       </div>

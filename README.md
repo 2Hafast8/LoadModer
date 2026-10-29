@@ -74,7 +74,7 @@ Dijalankan via perintah `lm` atau `lm home`. Menyajikan kontrol keyboard ergonom
  | |   / _ \ / _` | / _` | |\/| |/ _ \ / _` |/ _ \ '__|
  | |__| (_) | (_| || (_| | |  | | (_) | (_| |  __/ |   
  |_____\___/ \__,_| \__,_|_|  |_|\___/ \__,_|\___|_|   
-  v2.11.0  •  Minecraft Mod & Modpack Manager  •  Nordic Clean TUI
+  v2.11.1  •  Minecraft Mod & Modpack Manager  •  Nordic Clean TUI
 
 ┌────────────────────────────────────────────────────────────────────────┐
 │  Instance Aktif : Prism Launcher (Fabric 1.21.1) • Modrinth API v2     │
@@ -183,8 +183,8 @@ Perbandingan alur kerja pengelolaan mod dan modpack antara metode manual, launch
 ### Opsi 1: Aplikasi Desktop Windows Mandiri (`.exe`)
 Untuk pengguna yang menginginkan antarmuka grafis tanpa perlu memasang Node.js:
 1. Unduh installer resmi dari halaman **[GitHub Releases](https://github.com/2Hafast8/LoadModer/releases)**:
-   * **`LoadModer-Setup-2.11.0.exe`**: Setup installer lengkap dengan desktop shortcut dan auto-updater.
-   * **`LoadModer-2.11.0-Portable.exe`**: Versi portabel, langsung jalan tanpa instalasi.
+   * **`LoadModer-Setup-2.11.1.exe`**: Setup installer lengkap dengan desktop shortcut dan auto-updater.
+   * **`LoadModer-2.11.1-Portable.exe`**: Versi portabel, langsung jalan tanpa instalasi.
 2. Jalankan aplikasi, pilih instance Minecraft yang terdeteksi, dan mulai kelola mod Anda.
 
 ### Opsi 2: Instalasi Global via NPM (CLI & TUI)
