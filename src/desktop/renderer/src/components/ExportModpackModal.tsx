@@ -169,7 +169,11 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
               </span>
             </div>
             <div className="flex items-center justify-between text-[11px] text-nordic-muted">
-              <span>{isProfileExport ? 'Cakupan: Full Profile Modpack' : 'Cakupan: Folder mods, resourcepacks, shaders'}</span>
+              <span>
+                {isProfileExport
+                  ? (t.export.scopeFull || 'Cakupan: Full Profile Modpack')
+                  : (t.export.scopeFolders || 'Cakupan: Folder mods, resourcepacks, shaders')}
+              </span>
               <span className="font-mono text-emerald-active font-semibold">
                 {effectiveLoader} • MC {effectiveGameVersion}
               </span>
@@ -187,7 +191,7 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
                 <option value="active">{t.export.sourceActive}</option>
                 {savedProfiles.map((p) => (
                   <option key={p.id} value={p.id}>
-                    Profil: {p.name} ({p.id})
+                    {(t.export.profilePrefix || 'Profil: {name}').replace('{name}', p.name)} ({p.id})
                   </option>
                 ))}
               </select>

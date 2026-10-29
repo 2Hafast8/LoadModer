@@ -89,8 +89,7 @@ export const SwitchModeModal: React.FC<SwitchModeModalProps> = ({
           <div className="flex items-start space-x-2.5 p-3 rounded bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
             <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
             <span className="leading-relaxed">
-              {t.instances.confirmModeWarning ||
-                'Pencegahan klik tidak sengaja: Proses ini akan menyinkronkan jalur folder mods & resourcepack. Pastikan game Minecraft sedang ditutup.'}
+              {t.instances.confirmModeWarning}
             </span>
           </div>
         </div>
@@ -102,7 +101,7 @@ export const SwitchModeModal: React.FC<SwitchModeModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 rounded text-xs text-nordic-muted hover:text-nordic-text transition-colors cursor-pointer"
           >
-            {t.common.cancel || 'Batal'}
+            {t.common.cancel}
           </button>
           <button
             type="button"

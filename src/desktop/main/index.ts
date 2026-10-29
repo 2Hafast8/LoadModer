@@ -38,10 +38,10 @@ if (!gotSingleInstanceLock) {
     const appIcon = iconCandidates.find((p) => existsSync(p));
 
     mainWindow = new BrowserWindow({
-      width: 1140,
-      height: 740,
-      minWidth: 880,
-      minHeight: 600,
+      width: 1200,
+      height: 780,
+      minWidth: 980,
+      minHeight: 720,
       frame: false,
       titleBarStyle: 'hidden',
       backgroundColor: '#090D0B',

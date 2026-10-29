@@ -71,18 +71,18 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
         onDeleted();
         onClose();
       } else {
-        setErrorMsg(res.error || 'Gagal menghapus profil launcher.');
+        setErrorMsg(res.error || t.instances.deleteInstanceFailed.replace('{error}', '') || 'Failed to delete launcher profile.');
         setDeleting(false);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Terjadi kesalahan sistem.');
+      setErrorMsg(err.message || t.common.error);
       setDeleting(false);
     }
   };
 
   const handlePasteAttempt = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    setErrorMsg(t.modalDeleteInstance?.pasteDisabled || 'Fitur paste dinonaktifkan demi keamanan. Silakan ketik kode verifikasi secara manual.');
+    setErrorMsg(t.modalDeleteInstance?.pasteDisabled);
   };
 
   return (
@@ -96,10 +96,10 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold text-red-400">
-                {t.modalDeleteInstance?.title || 'Hapus Profil Launcher'}
+                {t.modalDeleteInstance?.title}
               </h2>
               <p className="text-[11px] text-nordic-muted">
-                {t.modalDeleteInstance?.subtitle || 'Validasi keamanan ketat 2 langkah untuk mencegah kesalahan penghapusan profil'}
+                {t.modalDeleteInstance?.subtitle}
               </p>
             </div>
           </div>
@@ -133,15 +133,14 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
           <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-start space-x-2">
             <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
             <span className="leading-relaxed">
-              {t.modalDeleteInstance?.warning ||
-                'Profil ini akan dihapus dari LoadModer. Berkas game Minecraft, folder mods, dan dunia Anda di penyimpanan lokal TIDAK akan terhapus.'}
+              {t.modalDeleteInstance?.warning}
             </span>
           </div>
 
           {/* 1. VALIDASI LANGKAH PERTAMA (Checkbox Persetujuan Sadar Risiko) */}
           <div className="pt-2 border-t border-obsidian-border/60">
             <div className="text-[11px] font-bold text-nordic-muted uppercase tracking-wider mb-2">
-              Validasi 1: Persetujuan Sadar Risiko
+              {t.modalDeleteInstance?.validation1Title}
             </div>
             <label
               onClick={() => setVal1Checked(!val1Checked)}
@@ -159,8 +158,7 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
                 )}
               </div>
               <span className="text-xs text-nordic-text leading-relaxed">
-                {t.modalDeleteInstance?.validation1Label ||
-                  'Saya memahami bahwa profil launcher ini akan dihapus dari daftar pengelolaan LoadModer.'}
+                {t.modalDeleteInstance?.validation1Label}
               </span>
             </label>
           </div>
@@ -169,7 +167,7 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
           <div className="pt-2 border-t border-obsidian-border/60 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="text-[11px] font-bold text-red-400 uppercase tracking-wider">
-                {t.modalDeleteInstance?.validation2Title || 'Validasi 2: Kode Verifikasi Acak'}
+                {t.modalDeleteInstance?.validation2Title}
               </div>
               <button
                 type="button"

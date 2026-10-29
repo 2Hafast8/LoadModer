@@ -183,13 +183,15 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
           <div className="flex items-center space-x-1.5 text-emerald-400 font-bold">
             <Sparkles className="w-3.5 h-3.5" />
             <span className="text-[11px] font-mono uppercase">
-              Tur Panduan ({currentStepIndex + 1}/{steps.length})
+              {(t.tour?.stepOf || 'Tur Panduan ({current}/{total})')
+                .replace('{current}', String(currentStepIndex + 1))
+                .replace('{total}', String(steps.length))}
             </span>
           </div>
           <button
             onClick={handleSkip}
             className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-[#1E2822] transition-colors cursor-pointer"
-            title="Tutup & Lewati Tur"
+            title={t.tour?.skipTooltip || 'Tutup & Lewati Tur'}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -210,7 +212,7 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
             onClick={handleSkip}
             className="text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
           >
-            Lewati
+            {t.tour?.skip || 'Lewati'}
           </button>
 
           <div className="flex items-center space-x-1.5">
@@ -220,7 +222,7 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
                 className="flex items-center space-x-1 px-2.5 py-1 rounded bg-[#131B16] border border-[#1E2822] text-zinc-200 hover:text-emerald-400 text-[11px] font-semibold transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-3 h-3" />
-                <span>Sebelumnya</span>
+                <span>{t.tour?.prev || 'Sebelumnya'}</span>
               </button>
             )}
 
@@ -228,7 +230,7 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
               onClick={handleNext}
               className="flex items-center space-x-1 px-3 py-1 rounded bg-emerald-500 text-black hover:bg-emerald-400 text-[11px] font-bold transition-colors cursor-pointer shadow-lg shadow-emerald-950/40"
             >
-              <span>{isLastStep ? 'Selesai' : 'Lanjut'}</span>
+              <span>{isLastStep ? (t.tour?.finish || 'Selesai') : (t.tour?.next || 'Lanjut')}</span>
               {isLastStep ? <Check className="w-3 h-3" /> : <ArrowRight className="w-3 h-3" />}
             </button>
           </div>

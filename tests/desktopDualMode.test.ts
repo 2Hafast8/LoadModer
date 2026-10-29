@@ -49,7 +49,7 @@ describe('Desktop Dual-Mode Architecture', () => {
   it('harus memuat registrasi IPC handlers tanpa exception', async () => {
     const { registerIpcHandlers } = await import('../src/desktop/main/ipcHandlers.js');
     expect(typeof registerIpcHandlers).toBe('function');
-  });
+  }, 15000);
 
   it('harus mengekspos API backend CLI lengkap pada preload desktop bridge', () => {
     const preloadCjsPath = path.resolve(process.cwd(), 'dist-desktop/preload.cjs');

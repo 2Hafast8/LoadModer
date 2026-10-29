@@ -5,6 +5,24 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.11.2] - 2026-10-29
+
+### Fixed
+- **Responsivitas Tata Letak & Batasan Skala Zoom Aplikasi (`src/desktop/main/index.ts`, `src/desktop/renderer/src/App.tsx`, `src/desktop/renderer/src/components/TopBar.tsx`)**:
+  - Menetapkan batas aman penskalaan zoom antarmuka (`ZOOM_MIN = 0.8` hingga `ZOOM_MAX = 1.25`) dengan toleransi presisi floating-point dan pembulatan langkah 0.05 untuk mencegah kerusakan visual akibat zoom berlebih.
+  - Menambahkan dukungan pintasan keyboard (`Ctrl++`, `Ctrl+=`, `Ctrl+-`, `Ctrl+0`) serta penanganan zoom berbasis roda mouse (`Ctrl + Wheel`) yang sinkron antara Electron main process dan web frame renderer.
+  - Mengoptimalkan tata letak responsif pada `TopBar`, `ExploreView`, `InstancesView`, modal dialog, dan kartu detail dengan penataan flex wrap, horizontal scrollbar tersembunyi, dan truncate protektif agar teks bahasa Indonesia (yang relatif lebih panjang) dan bahasa Inggris tidak terpotong pada berbagai resolusi layar.
+- **Lokalisasi Penuh Bahasa Inggris & Dwibahasa Dinamis (`src/desktop/renderer/src/views/ExploreView.tsx`, `src/desktop/renderer/src/i18n/translations.ts`, `src/desktop/renderer/src/components/UpdateModal.tsx`)**:
+  - Menyediakan kamus kategori dwibahasa terpisah `CATEGORIES_BY_TYPE_EN` dan `CATEGORIES_BY_TYPE_ID` untuk semua tipe proyek (*mods, modpacks, shaders, resourcepacks*) sehingga dropdown kategori di tab Explore tampil sepenuhnya dalam bahasa Inggris saat English Mode aktif.
+  - Menyelaraskan label ukuran paginasi Explore (`Show: 24 per page` / `Tampilkan: 24 per halaman`) menggunakan key i18n dinamis `{t.explore.pageSizeLabel}`.
+  - Memperbaiki seluruh atribut `title` (tooltip) pada filter Explore dan modal pembaruan aplikasi (`UpdateModal.tsx`) agar mengikuti bahasa aktif.
+  - Menghapus string hardcoded bahasa Indonesia yang tersisa pada berbagai komponen desktop (`TourOverlay`, `OnboardingModal`, `HelpView`, `CrashLogViewer`, `InstancesView`, `DeleteInstanceModal`, `ExportModpackModal`, `RestorePointsPanel`, `SwitchModeModal`).
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.11.2` secara konsisten pada `package.json`, `package-lock.json`, `src/constants.ts`, `TopBar.tsx`, `SettingsView.tsx`, dan seluruh dokumentasi resmi.
+
+---
+
 ## [2.11.1] - 2026-10-29
 
 ### Fixed

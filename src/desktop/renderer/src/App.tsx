@@ -13,116 +13,117 @@ import { UpdateModal, type AppUpdateInfo } from './components/UpdateModal.js';
 import { OnboardingModal } from './components/OnboardingModal.js';
 import { TourOverlay, type TourStep } from './components/TourOverlay.js';
 import { useLanguage } from './i18n/LanguageContext.js';
+import type { TranslationSchema } from './i18n/translations.js';
 
-const TOUR_STEPS_BY_PAGE: Record<NavTab, TourStep[]> = {
+const getTourSteps = (t: TranslationSchema): Record<NavTab, TourStep[]> => ({
   mods: [
     {
       targetSelector: '[data-tour="mods-search-input"]',
-      title: 'Pencarian Mod Lokal',
-      description: 'Cari mod yang telah terpasang berdasarkan nama, deskripsi, atau loader secara instan.',
+      title: t.tour.modsSearchTitle,
+      description: t.tour.modsSearchDesc,
     },
     {
       targetSelector: '[data-tour="mods-sort-pagination"]',
-      title: 'Pengurutan & Paginasi',
-      description: 'Urutkan mod berdasarkan ukuran (terbesar/terkecil) dan atur batasan per halaman (25, 50, 100).',
+      title: t.tour.modsSortTitle,
+      description: t.tour.modsSortDesc,
     },
     {
       targetSelector: '[data-tour="mods-card-list"]',
-      title: 'Daftar Mod & Kontrol Cepat',
-      description: 'Aktifkan atau nonaktifkan mod dengan sakelar instan, hapus berkas, atau buka tautan web Modrinth.',
+      title: t.tour.modsCardsTitle,
+      description: t.tour.modsCardsDesc,
     },
   ],
   explore: [
     {
       targetSelector: '[data-tour="explore-search-input"]',
-      title: 'Pencarian Ribuan Mod Online',
-      description: 'Cari mod, shader, dan resourcepack langsung dari database Modrinth API v2 secara real-time.',
+      title: t.tour.exploreSearchTitle,
+      description: t.tour.exploreSearchDesc,
     },
     {
       targetSelector: '[data-tour="explore-type-filters"]',
-      title: 'Filter Kategori Proyek',
-      description: 'Beralih antara Mod, Modpack (.mrpack), Shaders (Iris/OptiFine), dan Resource Packs.',
+      title: t.tour.exploreFiltersTitle,
+      description: t.tour.exploreFiltersDesc,
     },
     {
       targetSelector: '[data-tour="explore-card-list"]',
-      title: 'Pemasangan Sekali Klik',
-      description: 'Klik kartu mod untuk melihat deskripsi lengkap atau langsung pasang dengan resolusi dependensi otomatis.',
+      title: t.tour.exploreCardsTitle,
+      description: t.tour.exploreCardsDesc,
     },
   ],
   instances: [
     {
       targetSelector: '[data-tour="instances-status-card"]',
-      title: 'Status Instance & Wadah Aktif',
-      description: 'Pantau launcher aktif, versi game Minecraft, loader aktif, dan wadah modpack yang sedang bekerja.',
+      title: t.tour.instancesStatusTitle,
+      description: t.tour.instancesStatusDesc,
     },
     {
       targetSelector: '[data-tour="instances-export-button"]',
-      title: 'Ekspor Profil Modpack (.zip)',
-      description: 'Ekspor modpack utuh atau selektif (mods, resourcepacks, shaders) ke arsip ZIP siap pakai.',
+      title: t.tour.instancesExportTitle,
+      description: t.tour.instancesExportDesc,
     },
     {
       targetSelector: '[data-tour="instances-mode-selector"]',
-      title: 'Pemilih Mode Wadah & Launcher',
-      description: 'Beralih aman antara mode standar .minecraft dan wadah profil modpack terisolasi tanpa benturan berkas.',
+      title: t.tour.instancesModeTitle,
+      description: t.tour.instancesModeDesc,
     },
     {
       targetSelector: '[data-tour="instances-list-grid"]',
-      title: 'Daftar Profil Launcher Terdeteksi',
-      description: 'Pilih instance yang diinginkan dari launcher resmi Mojang, TLauncher, TL Legacy, Prism, atau folder kustom.',
+      title: t.tour.instancesListTitle,
+      description: t.tour.instancesListDesc,
     },
   ],
   bisect: [
     {
       targetSelector: '[data-tour="diagnostics-subtabs"]',
-      title: 'Navigasi Diagnostik & Pemecahan Masalah',
-      description: 'Pilih antara pembaca analisis crash report instan atau pelacak biner interaktif (Bisect).',
+      title: t.tour.bisectNavTitle,
+      description: t.tour.bisectNavDesc,
     },
     {
       targetSelector: '[data-tour="diagnostics-crash-logs"]',
-      title: 'Penganalisis Crash Log Cerdas',
-      description: 'Menganalisis file crash log secara otomatis dengan saran perbaikan yang konkret dan langsung dapat ditindaklanjuti.',
+      title: t.tour.bisectLogsTitle,
+      description: t.tour.bisectLogsDesc,
     },
   ],
   help: [
     {
       targetSelector: '[data-tour="help-subtabs"]',
-      title: 'Navigasi Pusat Bantuan',
-      description: 'Akses Tanya Jawab (FAQ), Peta Struktur Direktori Launcher, atau Pintasan Alat Darurat.',
+      title: t.tour.helpNavTitle,
+      description: t.tour.helpNavDesc,
     },
     {
       targetSelector: '[data-tour="help-search-box"]',
-      title: 'Pencarian Solusi Real-Time',
-      description: 'Ketik kata kunci kendala Anda (contoh: crash, ram, java, shader, antivirus) untuk menemukan solusi instan.',
+      title: t.tour.helpSearchTitle,
+      description: t.tour.helpSearchDesc,
     },
     {
       targetSelector: '[data-tour="help-content-card"]',
-      title: 'Solusi Lengkap & Struktur Folder',
-      description: 'Pelajari hierarki folder launcher dan petunjuk pemecahan kendala teknis langkah demi langkah.',
+      title: t.tour.helpContentTitle,
+      description: t.tour.helpContentDesc,
     },
   ],
   settings: [
     {
       targetSelector: '[data-tour="settings-update-hub"]',
-      title: 'Pusat Pembaruan (Update Hub)',
-      description: 'Periksa ketersediaan versi rilis terbaru LoadModer dan lakukan pembaruan otomatis secara aman.',
+      title: t.tour.settingsUpdateTitle,
+      description: t.tour.settingsUpdateDesc,
     },
     {
       targetSelector: '[data-tour="settings-language-card"]',
-      title: 'Bahasa Antarmuka Pengguna',
-      description: 'Pilih bahasa tampilan aplikasi antara Bahasa Indonesia dan English secara instan.',
+      title: t.tour.settingsLangTitle,
+      description: t.tour.settingsLangDesc,
     },
     {
       targetSelector: '[data-tour="settings-appearance-card"]',
-      title: 'Tampilan & Reset Tur Panduan',
-      description: 'Jalankan ulang tur panduan spotlight interaktif kapan saja jika ingin mempelajari ulang fitur LoadModer.',
+      title: t.tour.settingsTourTitle,
+      description: t.tour.settingsTourDesc,
     },
     {
       targetSelector: '[data-tour="settings-author-card"]',
-      title: 'Informasi Pengembang & Lisensi',
-      description: 'Informasi pengembang resmi Hafiz Noval Rianto (2Hafast8), tim kontributor, dan lisensi open-source MIT.',
+      title: t.tour.settingsAuthorTitle,
+      description: t.tour.settingsAuthorDesc,
     },
   ],
-};
+});
 
 export const App: React.FC = () => {
   const { t } = useLanguage();
@@ -412,7 +413,7 @@ export const App: React.FC = () => {
       <TourOverlay
         isOpen={isTourActive}
         page={activeTourPage}
-        steps={TOUR_STEPS_BY_PAGE[activeTourPage] || []}
+        steps={getTourSteps(t)[activeTourPage] || []}
         onClose={() => setIsTourActive(false)}
       />
 

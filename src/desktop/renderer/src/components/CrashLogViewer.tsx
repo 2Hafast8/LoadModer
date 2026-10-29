@@ -83,15 +83,15 @@ export const CrashLogViewer: React.FC = () => {
 
   const handleCopyDiagnosticSummary = () => {
     if (!report) return;
-    const summaryText = `[LoadModer Crash Diagnostics]
-Berkas Sumber: ${report.sourceFile || 'latest.log'} (${report.sourceType || 'log'})
-Kategori: ${report.category || 'Unknown'}
-Penyebab Utama: ${report.culprit || 'Tidak teridentifikasi'}
-Ringkasan: ${report.summary || '-'}
-Saran Perbaikan: ${report.solution || '-'}`;
+    const summaryText = `${t.logs?.diagCopyHeader || '=== LoadModer Diagnostic Report ==='}
+${t.logs?.diagCopySource || 'Source File:'} ${report.sourceFile || 'latest.log'} (${report.sourceType || 'log'})
+${t.logs?.diagCopyCategory || 'Issue Category:'} ${report.category || 'Unknown'}
+${t.logs?.diagCopyCulprit || 'Primary Culprit:'} ${report.culprit || (t.logs?.unidentified || 'Unidentified')}
+${t.logs?.diagCopyDetail || 'Issue Details:'} ${report.summary || '-'}
+${t.logs?.diagCopyRecommendation || 'Recommendation:'} ${report.solution || '-'}`;
 
     navigator.clipboard.writeText(summaryText);
-    setActionNotice('Ringkasan diagnosa berhasil disalin ke clipboard!');
+    setActionNotice(t.logs?.diagCopiedNotice || 'Ringkasan diagnosa berhasil disalin ke clipboard!');
     setTimeout(() => setActionNotice(null), 3000);
   };
 
@@ -103,7 +103,9 @@ Saran Perbaikan: ${report.solution || '-'}`;
       const targetPath = `${active.rootDir}\\${folderType}`;
       await window.api.instances.openFolder(targetPath);
     } catch (err: any) {
-      setActionNotice(`Gagal membuka folder: ${err.message}`);
+      setActionNotice(
+        (t.logs?.openFolderFailedNotice || 'Gagal membuka folder: {error}').replace('{error}', err.message)
+      );
     }
   };
 
@@ -113,10 +115,16 @@ Saran Perbaikan: ${report.solution || '-'}`;
     try {
       const res = await window.api.mods.toggle(targetFile, false);
       if (res.success) {
-        setActionNotice(`Mod "${targetFile}" berhasil dinonaktifkan! Jalankan kembali Minecraft.`);
+        setActionNotice(
+          (t.logs?.modDisabledNotice || 'Mod "{mod}" berhasil dinonaktifkan! Jalankan kembali Minecraft.')
+            .replace('{mod}', targetFile)
+        );
         loadAnalysis();
       } else {
-        setActionNotice(`Gagal menonaktifkan mod: ${res.error}`);
+        setActionNotice(
+          (t.logs?.modDisableFailedNotice || 'Gagal menonaktifkan mod: {error}')
+            .replace('{error}', res.error || '')
+        );
       }
     } catch (err: any) {
       setActionNotice(`Error: ${err.message}`);
@@ -143,13 +151,13 @@ Saran Perbaikan: ${report.solution || '-'}`;
         <div className="text-xs text-zinc-400">
           {report?.sourceFile ? (
             <span className="flex items-center space-x-1.5">
-              <span>Berkas yang Dianalisis:</span>
+              <span>{t.logs?.analyzedFile || 'Berkas yang Dianalisis:'}</span>
               <code className="text-emerald-400 font-mono bg-obsidian-card px-2 py-0.5 rounded border border-obsidian-border font-semibold">
                 {report.sourceFile}
               </code>
             </span>
           ) : (
-            <span>Analisis log runtime aktif</span>
+            <span>{t.logs?.activeLogAnalysis || 'Analisis log runtime aktif'}</span>
           )}
         </div>
 
@@ -157,10 +165,10 @@ Saran Perbaikan: ${report.solution || '-'}`;
           <button
             onClick={() => handleOpenFolder('crash-reports')}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#131B16] hover:bg-[#1A241F] border border-[#1E2822] text-zinc-300 rounded-lg text-xs font-medium transition-colors cursor-pointer"
-            title="Buka folder crash-reports di File Explorer"
+            title={t.logs?.crashFolderTooltip || 'Buka folder crash-reports di File Explorer'}
           >
             <FolderOpen className="w-3.5 h-3.5 text-nordic-muted" />
-            <span>Folder Crash</span>
+            <span>{t.logs?.crashFolder || 'Folder Crash'}</span>
           </button>
 
           <button
@@ -193,7 +201,7 @@ Saran Perbaikan: ${report.solution || '-'}`;
           </div>
           <h4 className="text-sm font-bold text-zinc-100">{t.logs.noCrashFound}</h4>
           <p className="text-xs text-zinc-400 max-w-md leading-relaxed">
-            Tidak ditemukan indikasi crash fatal pada berkas <code>crash-reports</code> maupun <code>latest.log</code>. Semua sistem berjalan normal.
+            {t.logs?.noCrashDesc || 'Tidak ditemukan indikasi crash fatal pada berkas crash-reports maupun latest.log. Semua sistem berjalan normal.'}
           </p>
         </div>
       ) : (
@@ -206,10 +214,11 @@ Saran Perbaikan: ${report.solution || '-'}`;
               </div>
               <div>
                 <h4 className="text-sm font-bold text-red-400">
-                  Crash Terdeteksi ({report.category ? report.category.replace('_', ' ').toUpperCase() : 'FATAL EXCEPTION'})
+                  {(t.logs?.crashDetected || 'Crash Terdeteksi')} ({report.category ? report.category.replace('_', ' ').toUpperCase() : 'FATAL EXCEPTION'})
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  Dianalisis dari berkas <span className="font-mono text-zinc-200">{report.sourceFile || 'latest.log'}</span>
+                  {(t.logs?.analyzedFromFile || 'Dianalisis dari berkas')}{' '}
+                  <span className="font-mono text-zinc-200">{report.sourceFile || 'latest.log'}</span>
                 </p>
               </div>
             </div>
@@ -218,10 +227,10 @@ Saran Perbaikan: ${report.solution || '-'}`;
               <button
                 onClick={handleCopyDiagnosticSummary}
                 className="flex items-center space-x-1 px-2.5 py-1 rounded bg-obsidian-card border border-obsidian-border text-[11px] text-zinc-300 hover:text-emerald-400 hover:border-emerald-400/40 transition-colors cursor-pointer"
-                title="Salin ringkasan diagnosa untuk forum / discord"
+                title={t.logs?.copyDiagnosticTooltip || 'Salin ringkasan diagnosa untuk forum / discord'}
               >
                 <Copy className="w-3 h-3" />
-                <span>Salin Diagnosa</span>
+                <span>{t.logs?.copyDiagnostic || 'Salin Diagnosa'}</span>
               </button>
             </div>
           </div>
@@ -230,16 +239,16 @@ Saran Perbaikan: ${report.solution || '-'}`;
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div className="p-3 bg-obsidian-card border border-obsidian-border rounded-lg space-y-1">
               <span className="text-[10px] font-mono uppercase text-zinc-500 block font-semibold">
-                Penyebab Utama (Culprit)
+                {t.logs?.primaryCulprit || 'Penyebab Utama (Culprit)'}
               </span>
               <span className="font-mono font-bold text-red-300 text-xs break-all">
-                {report.culprit || 'Tidak teridentifikasi spesifik'}
+                {report.culprit || (t.logs?.unidentified || 'Tidak teridentifikasi spesifik')}
               </span>
             </div>
 
             <div className="p-3 bg-obsidian-card border border-obsidian-border rounded-lg space-y-1">
               <span className="text-[10px] font-mono uppercase text-zinc-500 block font-semibold">
-                Kategori Masalah
+                {t.logs?.issueCategory || 'Kategori Masalah'}
               </span>
               <span className="text-zinc-200 font-semibold text-xs capitalize">
                 {report.category ? report.category.replace(/_/g, ' ') : 'General Exception'}
@@ -249,7 +258,9 @@ Saran Perbaikan: ${report.solution || '-'}`;
 
           {/* Explanation */}
           <div className="p-3 bg-red-950/20 border border-red-500/30 rounded-lg text-xs space-y-1">
-            <span className="text-[11px] font-bold text-red-300 block">Apa yang Terjadi:</span>
+            <span className="text-[11px] font-bold text-red-300 block">
+              {t.logs?.whatHappened || 'Apa yang Terjadi:'}
+            </span>
             <p className="text-zinc-300 leading-relaxed text-xs">
               {report.summary}
             </p>
@@ -259,7 +270,7 @@ Saran Perbaikan: ${report.solution || '-'}`;
           <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-lg text-xs space-y-2">
             <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
               <Wrench className="w-4 h-4" />
-              <span>Saran Tindakan Perbaikan:</span>
+              <span>{t.logs?.recommendedFixAction || 'Saran Tindakan Perbaikan:'}</span>
             </div>
             <p className="text-zinc-200 text-xs leading-relaxed">
               {report.solution || 'Lakukan pengujian dengan menonaktifkan mod yang baru dipasang atau gunakan tab Diagnostik Bisect.'}
@@ -274,7 +285,7 @@ Saran Perbaikan: ${report.solution || '-'}`;
                   className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
                 >
                   <XCircle className="w-3.5 h-3.5" />
-                  <span>{report.action.label || `Nonaktifkan "${report.action.target}"`}</span>
+                  <span>{report.action.label || (t.logs?.disableMod || 'Nonaktifkan "{mod}"').replace('{mod}', report.action.target)}</span>
                 </button>
               )}
 
@@ -285,7 +296,9 @@ Saran Perbaikan: ${report.solution || '-'}`;
                   className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
                 >
                   <XCircle className="w-3.5 h-3.5" />
-                  <span>Nonaktifkan Mod "{report.culprit}"</span>
+                  <span>
+                    {(t.logs?.disableMod || 'Nonaktifkan Mod ({mod})').replace('{mod}', report.culprit)}
+                  </span>
                 </button>
               )}
 
@@ -295,7 +308,7 @@ Saran Perbaikan: ${report.solution || '-'}`;
                   className="flex items-center space-x-1 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-zinc-200 hover:border-emerald-400/40 transition-colors cursor-pointer"
                 >
                   <FolderOpen className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Buka Folder Config</span>
+                  <span>{t.logs?.openConfigFolder || 'Buka Folder Config'}</span>
                 </button>
               )}
 
@@ -304,7 +317,7 @@ Saran Perbaikan: ${report.solution || '-'}`;
                 className="flex items-center space-x-1 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer"
               >
                 <FolderOpen className="w-3.5 h-3.5 text-nordic-muted" />
-                <span>Buka Folder Logs</span>
+                <span>{t.logs?.openLogsFolder || 'Buka Folder Logs'}</span>
               </button>
             </div>
           </div>
@@ -332,13 +345,15 @@ Saran Perbaikan: ${report.solution || '-'}`;
           {showRawLog && (
             <div className="p-3 border-t border-[#1E2822]">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-[11px] text-zinc-500 font-mono">Potongan Log / Stack Trace Terakhir</span>
+                <span className="text-[11px] text-zinc-500 font-mono">
+                  {t.logs?.rawLogTraceHeader || 'Potongan Log / Stack Trace Terakhir'}
+                </span>
                 <button
                   onClick={handleCopyLog}
                   className="flex items-center gap-1 px-2.5 py-1 bg-[#131B16] hover:bg-[#1A241F] border border-[#1E2822] text-zinc-300 rounded text-[11px] transition-colors cursor-pointer"
                 >
                   {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  <span>{copied ? 'Tersalin' : 'Salin Log'}</span>
+                  <span>{copied ? t.logs.copied : t.logs.copyLog}</span>
                 </button>
               </div>
 

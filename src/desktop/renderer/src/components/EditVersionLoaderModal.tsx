@@ -91,14 +91,18 @@ export const EditVersionLoaderModal: React.FC<EditVersionLoaderModalProps> = ({
         const res = await window.api.instances.switchVersionAndLoader(loader, gameVersion);
         if (res.success) {
           setResultMessage(
-            `Profil berhasil diselaraskan ke ${loader.toUpperCase()} ${gameVersion}. (${res.savedCount ?? 0} mod disimpan, ${res.restoredCount ?? 0} dipulihkan)`
+            (t.modalVersion?.syncSuccess || 'Profil berhasil diselaraskan ke {loader} {version}. ({saved} mod disimpan, {restored} dipulihkan)')
+              .replace('{loader}', loader.toUpperCase())
+              .replace('{version}', gameVersion)
+              .replace('{saved}', String(res.savedCount ?? 0))
+              .replace('{restored}', String(res.restoredCount ?? 0))
           );
           setTimeout(() => {
             onSaved();
             onClose();
           }, 1500);
         } else {
-          setErrorMessage(res.error || 'Gagal mengubah profil versi.');
+          setErrorMessage(res.error || t.modalVersion?.syncFailed || 'Gagal mengubah profil versi.');
         }
       } else {
         const res = await window.api.instances.updateConfig(instance.id, {
@@ -106,17 +110,21 @@ export const EditVersionLoaderModal: React.FC<EditVersionLoaderModalProps> = ({
           gameVersion,
         });
         if (res.success) {
-          setResultMessage(`Konfigurasi instance berhasil diperbarui ke ${loader.toUpperCase()} ${gameVersion}.`);
+          setResultMessage(
+            (t.modalVersion?.configSuccess || 'Konfigurasi instance berhasil diperbarui ke {loader} {version}.')
+              .replace('{loader}', loader.toUpperCase())
+              .replace('{version}', gameVersion)
+          );
           setTimeout(() => {
             onSaved();
             onClose();
           }, 1200);
         } else {
-          setErrorMessage(res.error || 'Gagal memperbarui konfigurasi.');
+          setErrorMessage(res.error || t.modalVersion?.configFailed || 'Gagal memperbarui konfigurasi.');
         }
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Terjadi kesalahan saat memproses.');
+      setErrorMessage(err.message || t.modalVersion?.processError || 'Terjadi kesalahan saat memproses.');
     } finally {
       setLoading(false);
     }

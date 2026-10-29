@@ -209,7 +209,7 @@ export const LauncherStructureModal: React.FC<LauncherStructureModalProps> = ({
           {/* Launcher Navigation Sidebar */}
           <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-obsidian-border bg-obsidian-surface/30 p-2 overflow-y-auto space-y-1">
             <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-primary uppercase tracking-wider">
-              Daftar Launcher
+              {t.help?.selectLauncher || 'Daftar Launcher'}
             </div>
             {LAUNCHER_GUIDES.map((g) => {
               const selected = g.id === activeTab;
@@ -247,7 +247,7 @@ export const LauncherStructureModal: React.FC<LauncherStructureModalProps> = ({
             <div className="grid grid-cols-1 gap-2 text-xs">
               <div className="p-3 rounded bg-obsidian-surface border border-obsidian-border space-y-1">
                 <span className="text-[10px] uppercase font-semibold text-nordic-muted">
-                  Lokasi Data Standar:
+                  {t.help?.standardPath || 'Lokasi Data Standar:'}
                 </span>
                 <div className="font-mono text-emerald-active text-[11px] break-all select-all">
                   {currentGuide.defaultPath}
@@ -256,7 +256,7 @@ export const LauncherStructureModal: React.FC<LauncherStructureModalProps> = ({
 
               <div className="p-3 rounded bg-obsidian-surface border border-obsidian-border space-y-1">
                 <span className="text-[10px] uppercase font-semibold text-nordic-muted">
-                  Berkas Konfigurasi / Identitas:
+                  {t.help?.mainConfig || 'Berkas Konfigurasi / Identitas:'}
                 </span>
                 <div className="font-mono text-nordic-text text-[11px] break-all select-all">
                   {currentGuide.configPath}
@@ -273,7 +273,7 @@ export const LauncherStructureModal: React.FC<LauncherStructureModalProps> = ({
             {/* Directory Tree */}
             <div className="space-y-1.5">
               <span className="text-[11px] font-semibold text-nordic-muted uppercase tracking-wider">
-                Struktur Pohon Berkas (File Tree):
+                {t.help?.directoryHierarchy || 'Struktur Pohon Berkas (File Tree):'}
               </span>
               <pre className="p-3.5 rounded bg-obsidian-bg border border-obsidian-border text-emerald-primary font-mono text-[11px] leading-relaxed overflow-x-auto select-all">
                 {currentGuide.structure}
@@ -288,7 +288,7 @@ export const LauncherStructureModal: React.FC<LauncherStructureModalProps> = ({
             onClick={onClose}
             className="px-4 py-1.5 rounded text-xs font-semibold bg-obsidian-hover hover:bg-obsidian-border text-nordic-text transition-colors cursor-pointer"
           >
-            Tutup Panduan
+            {t.common.close}
           </button>
         </div>
       </div>

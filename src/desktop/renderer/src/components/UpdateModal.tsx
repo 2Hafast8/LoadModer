@@ -431,7 +431,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             <button
               onClick={handleDirectBrowserDownload}
               className="text-[11px] text-nordic-muted hover:text-emerald-primary underline transition-colors cursor-pointer flex items-center space-x-1"
-              title="Unduh berkas instalasi resmi langsung via peramban web"
+              title={t.updater.manualDownloadTooltip}
             >
               <span>{t.updater.manualDownloadNote}</span>
             </button>
@@ -475,7 +475,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 <button
                   onClick={handleOpenDownloadFolder}
                   className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-obsidian-card border border-obsidian-border text-xs text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
-                  title="Buka folder berkas unduhan di File Explorer"
+                  title={t.updater.openDownloadFolderTooltip}
                 >
                   <FolderOpen className="w-3.5 h-3.5 text-nordic-muted" />
                   <span>{t.updater.openDownloadFolder}</span>
@@ -489,7 +489,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   {isInstalling ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Memulai instalasi...</span>
+                      <span>{t.updater.applying || 'Memulai instalasi...'}</span>
                     </>
                   ) : (
                     <>

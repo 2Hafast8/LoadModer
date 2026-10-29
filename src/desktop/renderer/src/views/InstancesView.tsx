@@ -366,7 +366,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         });
         await loadInstances();
       } else {
-        setNotification({ text: res.error || 'Gagal mengubah mode launcher', type: 'error' });
+        setNotification({
+          text: (t.instances.failedChangeMode || 'Failed to change launcher mode: {error}').replace('{error}', res.error || ''),
+          type: 'error',
+        });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
@@ -379,8 +382,8 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
     if (!window.confirm(t.instances.confirmRestoreBaseline)) return;
     setOperationBusy({
       isOpen: true,
-      title: t.loadingOverlay?.restoringBaselineTitle || 'Memulihkan Golden Baseline',
-      subtitle: t.loadingOverlay?.restoringBaselineDesc || 'Mengembalikan berkas instalasi awal yang murni...',
+      title: t.loadingOverlay?.restoringBaselineTitle || '',
+      subtitle: t.loadingOverlay?.restoringBaselineDesc || '',
     });
     try {
       const res = await window.api.baseline.restore();
@@ -391,7 +394,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         });
         await loadInstances();
       } else {
-        setNotification({ text: res.error || 'Gagal memulihkan baseline', type: 'error' });
+        setNotification({
+          text: (t.instances.failedRestoreBaseline || 'Failed to restore baseline: {error}').replace('{error}', res.error || ''),
+          type: 'error',
+        });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
@@ -408,7 +414,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         setNotification({ text: t.instances.profileDeleted, type: 'success' });
         loadInstances();
       } else {
-        setNotification({ text: res.error || 'Gagal menghapus profil modpack', type: 'error' });
+        setNotification({
+          text: (t.instances.failedDeleteProfile || 'Failed to delete modpack profile: {error}').replace('{error}', res.error || ''),
+          type: 'error',
+        });
       }
     } catch (err: any) {
       setNotification({ text: err.message, type: 'error' });
@@ -422,16 +431,16 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
   return (
     <div className="flex flex-col h-full bg-obsidian-bg">
       <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xs font-semibold text-nordic-text uppercase tracking-wider">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xs font-semibold text-nordic-text uppercase tracking-wider truncate">
             {t.instances.title}
           </h2>
-          <p className="text-[11px] text-nordic-muted">
+          <p className="text-[11px] text-nordic-muted truncate">
             {t.instances.subtitle}
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {activeInstance && (
             <button
               onClick={() => handleOpenFolder(activeInstance.rootDir)}
@@ -512,7 +521,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                   <span>STATUS INSTANCE</span>
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-dark/30 border border-emerald-primary/40 text-emerald-active font-mono uppercase font-semibold">
-                  {instanceStatus.mode === 'modpack' ? `Modpack (${instanceStatus.activeContainer ?? 'wadah'})` : 'Default'}
+                  {instanceStatus.mode === 'modpack' ? `Modpack (${instanceStatus.activeContainer ?? t.instances.containerFallback})` : 'Default'}
                 </span>
               </div>
               <span className="text-[11px] font-mono text-nordic-muted">
@@ -530,7 +539,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                 <span className="text-nordic-muted">Mode :</span>
                 <span className="font-semibold text-nordic-text">
                   {instanceStatus.mode === 'modpack'
-                    ? `modpack (${instanceStatus.activeContainer ?? 'wadah'})`
+                    ? `modpack (${instanceStatus.activeContainer ?? t.instances.containerFallback})`
                     : 'default'}
                 </span>
               </div>
@@ -546,7 +555,9 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs border-t border-obsidian-border/40 pt-2">
               <div className="flex items-center space-x-1.5">
                 <span className="text-nordic-muted">Mods :</span>
-                <span className="font-bold text-emerald-primary font-mono">{instanceStatus.activeCount} Aktif</span>
+                <span className="font-bold text-emerald-primary font-mono">
+                  {(t.instances.activeModsCount || '{count} Active').replace('{count}', String(instanceStatus.activeCount))}
+                </span>
                 <span className="text-nordic-muted font-mono">/ {instanceStatus.modsCount} Total</span>
               </div>
               <span className="text-nordic-muted hidden md:inline">•</span>
@@ -858,7 +869,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                             <button
                               onClick={() => handleSwitchModpackProfile(prof.id)}
                               className="p-1 rounded text-zinc-400 hover:text-emerald-400 hover:bg-emerald-950/30 transition-colors cursor-pointer"
-                              title="Pulihkan / Ekstrak ulang berkas profil ini ke wadah"
+                              title={t.instances.reExtractProfileTooltip || 'Re-extract / restore files of this profile to container'}
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
                             </button>

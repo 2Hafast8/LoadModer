@@ -86,8 +86,8 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
     setNotice(null);
     setPanelBusy({
       isOpen: true,
-      title: t.loadingOverlay?.savingVersionTitle || 'Menyimpan Profil Versi',
-      subtitle: t.loadingOverlay?.savingVersionDesc || 'Menyimpan mod aktif ke arsip profil versi...',
+      title: t.loadingOverlay?.savingVersionTitle || '',
+      subtitle: t.loadingOverlay?.savingVersionDesc || '',
       detail: `${activeInstance?.loader?.toUpperCase() ?? 'MOD'} ${activeInstance?.gameVersion ?? ''}`,
     });
     try {
@@ -96,7 +96,7 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
         setNotice({ text: t.snapshots.createSuccess, type: 'success' });
         await loadSnapshots();
       } else {
-        setNotice({ text: res.error || 'Gagal menyimpan profil versi.', type: 'error' });
+        setNotice({ text: res.error || t.modalVersion?.configFailed || 'Failed to save version profile.', type: 'error' });
       }
     } catch (err: any) {
       setNotice({ text: err.message, type: 'error' });
@@ -117,8 +117,8 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
     setNotice(null);
     setPanelBusy({
       isOpen: true,
-      title: t.loadingOverlay?.switchingVersionTitle || 'Mengalihkan Profil Versi Game',
-      subtitle: t.loadingOverlay?.switchingVersionDesc || 'Mengarsipkan mod versi sebelumnya dan memulihkan mod versi target...',
+      title: t.loadingOverlay?.switchingVersionTitle || '',
+      subtitle: t.loadingOverlay?.switchingVersionDesc || '',
       detail: `${loader.toUpperCase()} ${gameVersion}`,
     });
     try {
@@ -131,7 +131,7 @@ export const RestorePointsPanel: React.FC<RestorePointsPanelProps> = ({
         await loadSnapshots();
         onProfileSwitched?.();
       } else {
-        setNotice({ text: res.error || 'Gagal mengalihkan profil versi.', type: 'error' });
+        setNotice({ text: res.error || t.modalVersion?.syncFailed || 'Failed to switch version profile.', type: 'error' });
       }
     } catch (err: any) {
       setNotice({ text: err.message, type: 'error' });

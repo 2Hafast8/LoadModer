@@ -58,24 +58,36 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div className="flex items-start space-x-3 p-2.5 rounded bg-obsidian-surface border border-obsidian-border">
               <CheckCircle2 className="w-4 h-4 text-emerald-primary shrink-0 mt-0.5" />
               <div>
-                <span className="font-semibold text-nordic-text block">Eksplorasi & Unduhan Cepat</span>
-                <span className="text-[11px] text-nordic-muted">Akses jutaan mod langsung dari Modrinth API v2 secara instan.</span>
+                <span className="font-semibold text-nordic-text block">
+                  {t.onboarding?.feature1Title || 'Eksplorasi & Unduhan Cepat'}
+                </span>
+                <span className="text-[11px] text-nordic-muted">
+                  {t.onboarding?.feature1Desc || 'Akses jutaan mod langsung dari Modrinth API v2 secara instan.'}
+                </span>
               </div>
             </div>
 
             <div className="flex items-start space-x-3 p-2.5 rounded bg-obsidian-surface border border-obsidian-border">
               <CheckCircle2 className="w-4 h-4 text-emerald-primary shrink-0 mt-0.5" />
               <div>
-                <span className="font-semibold text-nordic-text block">Isolasi Wadah Modpack Mandiri</span>
-                <span className="text-[11px] text-nordic-muted">Pisahkan folder mod per-versi tanpa merusak game Minecraft utama Anda.</span>
+                <span className="font-semibold text-nordic-text block">
+                  {t.onboarding?.feature2Title || 'Isolasi Wadah Modpack Mandiri'}
+                </span>
+                <span className="text-[11px] text-nordic-muted">
+                  {t.onboarding?.feature2Desc || 'Pisahkan folder mod per-versi tanpa merusak game Minecraft utama Anda.'}
+                </span>
               </div>
             </div>
 
             <div className="flex items-start space-x-3 p-2.5 rounded bg-obsidian-surface border border-obsidian-border">
               <CheckCircle2 className="w-4 h-4 text-emerald-primary shrink-0 mt-0.5" />
               <div>
-                <span className="font-semibold text-nordic-text block">Diagnostik Crash & Solusi Pintar</span>
-                <span className="text-[11px] text-nordic-muted">Analisis log crash otomatis dan temukan mod penyebab crash lewat bisect.</span>
+                <span className="font-semibold text-nordic-text block">
+                  {t.onboarding?.feature3Title || 'Diagnostik Crash & Solusi Pintar'}
+                </span>
+                <span className="text-[11px] text-nordic-muted">
+                  {t.onboarding?.feature3Desc || 'Analisis log crash otomatis dan temukan mod penyebab crash lewat bisect.'}
+                </span>
               </div>
             </div>
           </div>

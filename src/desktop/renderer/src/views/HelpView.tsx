@@ -28,12 +28,12 @@ interface LauncherGuide {
   structure: string;
 }
 
-const LAUNCHER_GUIDES: LauncherGuide[] = [
+const LAUNCHER_GUIDES_ID: LauncherGuide[] = [
   {
     id: 'official',
     name: 'Official Minecraft (Mojang/Microsoft)',
     type: 'Official',
-    badge: 'Official / First-Party',
+    badge: 'Resmi Mojang (Standard Root)',
     defaultPath: '%appdata%\\.minecraft',
     configPath: '%appdata%\\.minecraft\\launcher_profiles.json',
     notes: 'Default instance utama di LoadModer. Tidak memiliki isolasi wadah bawaan; folder mods/ langsung di root .minecraft.',
@@ -146,6 +146,124 @@ const LAUNCHER_GUIDES: LauncherGuide[] = [
   },
 ];
 
+const LAUNCHER_GUIDES_EN: LauncherGuide[] = [
+  {
+    id: 'official',
+    name: 'Official Minecraft (Mojang/Microsoft)',
+    type: 'Official',
+    badge: 'Official / First-Party',
+    defaultPath: '%appdata%\\.minecraft',
+    configPath: '%appdata%\\.minecraft\\launcher_profiles.json',
+    notes: 'Default primary instance in LoadModer. Lacks built-in container isolation; mods/ folder sits directly in the root .minecraft.',
+    structure: `.minecraft/
+├── versions/              # Minecraft version jars and binary JSONs
+├── mods/                  # Game mods (.jar)
+├── resourcepacks/         # Texture & resource packs
+├── shaderpacks/           # Shader packs (Iris/OptiFine)
+├── config/                # Mod configuration files
+├── saves/                 # Game worlds
+├── options.txt            # Graphics, controls, FOV settings
+└── launcher_profiles.json # Official launcher profile metadata`,
+  },
+  {
+    id: 'tlauncher',
+    name: 'TLauncher',
+    type: 'Third-Party',
+    badge: 'Third-Party (Shared / Versions Containers)',
+    defaultPath: '%appdata%\\.minecraft',
+    configPath: '%appdata%\\.tlauncher\\tlauncher-2.0.properties',
+    notes: 'Supports isolated version modpack containers in versions/<version_name>/. Each modpack has an independent mods/ folder inside versions/.',
+    structure: `%appdata%/
+├── .minecraft/
+│   ├── versions/
+│   │   └── <modpack_name>/
+│   │       ├── mods/                  # Pack-specific mods folder
+│   │       ├── config/                # Pack-specific configs
+│   │       ├── <modpack_name>.json    # Version metadata
+│   │       └── TLauncherAdditional.json # TLauncher modpack metadata
+│   ├── mods/                          # Default root mods folder
+│   ├── resourcepacks/
+│   ├── shaderpacks/
+│   └── TlauncherProfiles.json
+└── .tlauncher/
+    └── tlauncher-2.0.properties`,
+  },
+  {
+    id: 'legacy',
+    name: 'Legacy Launcher (formerly TL Legacy)',
+    type: 'Third-Party',
+    badge: 'Third-Party (Dual-Path Engine & Container)',
+    defaultPath: '%appdata%\\.tlauncher\\legacy\\Minecraft\\game',
+    configPath: '%appdata%\\.tlauncher\\legacy\\Minecraft\\tl.properties',
+    notes: 'Unique Dual-Path architecture: game/versions/ holds only core engine binaries, while user modpacks and mods reside in game/home/<profile>/mods.',
+    structure: `%appdata%/.tlauncher/legacy/Minecraft/
+├── tl.properties              # Defines active login.version
+└── game/
+    ├── versions/              # Engine binary (read-only/shared)
+    └── home/
+        └── <profile>/         # User working profile container
+            ├── mods/          # Per-profile mods (.jar)
+            ├── config/        # Per-profile configs
+            ├── resourcepacks/ # Resource packs
+            ├── shaderpacks/   # Shader packs
+            └── options.txt    # Per-profile graphics settings`,
+  },
+  {
+    id: 'prism',
+    name: 'Prism Launcher',
+    type: 'Third-Party',
+    badge: 'Third-Party (Multi-Instance Isolated)',
+    defaultPath: '%appdata%\\PrismLauncher\\instances',
+    configPath: '%appdata%\\PrismLauncher\\prismlauncher.cfg',
+    notes: 'Each instance is fully isolated in subfolder instances/<instance_name>/. Game directory is located inside .minecraft/ or minecraft/.',
+    structure: `PrismLauncher/
+├── prismlauncher.cfg          # Global launcher config
+├── accounts.json
+└── instances/                 # Fully isolated instances
+    └── <InstanceName>/
+        ├── instance.cfg       # Instance config (RAM, Java)
+        ├── mmc-pack.json      # Loader and version components
+        └── .minecraft/        # Isolated game folder
+            ├── mods/
+            ├── config/
+            └── options.txt`,
+  },
+  {
+    id: 'modrinth',
+    name: 'Modrinth App',
+    type: 'Third-Party',
+    badge: 'Third-Party (Profile Isolated)',
+    defaultPath: '%appdata%\\com.modrinth.theseus\\profiles',
+    configPath: '%appdata%\\com.modrinth.theseus\\profiles.json',
+    notes: 'Each profile maintains an isolated directory under profiles/<profile_id>/. LoadModer detects these profiles automatically.',
+    structure: `com.modrinth.theseus/
+├── profiles.json
+└── profiles/
+    └── <profile_id>/
+        ├── profile.json
+        ├── mods/
+        ├── config/
+        ├── resourcepacks/
+        └── shaderpacks/`,
+  },
+  {
+    id: 'atlauncher',
+    name: 'ATLauncher',
+    type: 'Third-Party',
+    badge: 'Third-Party (Instances Folder)',
+    defaultPath: '%appdata%\\ATLauncher\\instances',
+    configPath: '%appdata%\\ATLauncher\\configs',
+    notes: 'Instances are stored inside the instances/ directory. Each instance has its own mods, config, and saves folders.',
+    structure: `ATLauncher/
+└── instances/
+    └── <InstanceName>/
+        ├── instance.json
+        ├── mods/
+        ├── config/
+        └── saves/`,
+  },
+];
+
 interface FAQItem {
   id: string;
   category: 'crash' | 'mods' | 'launcher' | 'antivirus';
@@ -155,7 +273,7 @@ interface FAQItem {
   tags: string[];
 }
 
-const FAQ_LIST: FAQItem[] = [
+const FAQ_LIST_ID: FAQItem[] = [
   {
     id: 'crash-oom',
     category: 'crash',
@@ -206,21 +324,74 @@ const FAQ_LIST: FAQItem[] = [
   },
 ];
 
+const FAQ_LIST_EN: FAQItem[] = [
+  {
+    id: 'crash-oom',
+    category: 'crash',
+    title: 'Game Crash: OutOfMemoryError (Java heap space)',
+    summary: 'Minecraft ran out of allocated RAM when loading heavy mods or shaders.',
+    solution: 'Open your Minecraft launcher settings (e.g. Launcher Profile / Java Settings) and increase allocated RAM to at least 4096 MB (4 GB) or 6144 MB (6 GB) using arguments -Xmx4G or -Xmx6G.',
+    tags: ['crash', 'ram', 'memory', 'oom', 'heap'],
+  },
+  {
+    id: 'crash-java-version',
+    category: 'crash',
+    title: 'Crash: UnsupportedClassVersionError (Java Version Mismatch)',
+    summary: 'The Java runtime used by the launcher does not match Minecraft or mod loader requirements.',
+    solution: 'Ensure your Java runtime matches: Minecraft 1.16 and older requires Java 8; Minecraft 1.17 - 1.20.4 requires Java 17; Minecraft 1.20.5+ requires Java 21.',
+    tags: ['java', 'version', 'class', 'incompatible'],
+  },
+  {
+    id: 'crash-missing-dep',
+    category: 'crash',
+    title: 'Crash: ClassNotFoundException / Missing Dependency',
+    summary: 'A mod requires a library or helper API that is not installed (e.g. Fabric API, Cloth Config, Architecture API).',
+    solution: 'Open the Diagnostics tab in LoadModer, check the missing library name in Crash Analyzer, then search and install the dependency from the Explore tab.',
+    tags: ['dependency', 'fabric api', 'cloth config', 'library'],
+  },
+  {
+    id: 'antivirus-false-positive',
+    category: 'antivirus',
+    title: 'Update Blocked or .exe Missing (Antivirus / SmartScreen)',
+    summary: 'Windows Defender or third-party antivirus flagged LoadModer installer as an unknown binary (false positive).',
+    solution: 'When the "Windows protected your PC" dialog appears, click "More info" ➔ "Run anyway". Add %LOCALAPPDATA%\\Programs\\loadmoder or the install directory to your antivirus whitelist.',
+    tags: ['antivirus', 'smartscreen', 'defender', 'update', 'blocked'],
+  },
+  {
+    id: 'mods-drag-drop',
+    category: 'mods',
+    title: 'Installing Mods, Shaders, or Resource Packs via Drag & Drop',
+    summary: 'LoadModer supports instant installation by dragging files directly into the window.',
+    solution: 'Drag .jar (mods), .zip (shaders / resource packs), or .mrpack files from File Explorer and drop them onto the Mods or Explore tab. LoadModer detects the file type and places it in the right directory.',
+    tags: ['drag', 'drop', 'install', 'shader', 'resourcepack'],
+  },
+  {
+    id: 'launcher-mode-difference',
+    category: 'launcher',
+    title: 'Standard Mode (.minecraft) vs Modpack Container Mode',
+    summary: 'When to use default mode versus isolated client container mode.',
+    solution: 'Standard Mode uses the root .minecraft/mods folder directly (great for daily play). Modpack Container Mode isolates mods and shaders into separate version profiles (e.g. versions/MyPack/) so packs never conflict.',
+    tags: ['mode', 'container', 'default', 'profile', 'isolation'],
+  },
+];
+
 interface HelpViewProps {
   onStartTour?: () => void;
 }
 
 export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'faq' | 'launcher' | 'quicktools'>('faq');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLauncherId, setSelectedLauncherId] = useState<string>('official');
   const [expandedFaqId, setExpandedFaqId] = useState<string | null>('crash-oom');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  const activeLauncher = LAUNCHER_GUIDES.find((l) => l.id === selectedLauncherId) || LAUNCHER_GUIDES[0];
+  const launcherGuides = language === 'en' ? LAUNCHER_GUIDES_EN : LAUNCHER_GUIDES_ID;
+  const faqList = language === 'en' ? FAQ_LIST_EN : FAQ_LIST_ID;
+  const activeLauncher = launcherGuides.find((l) => l.id === selectedLauncherId) || launcherGuides[0];
 
-  const filteredFaq = FAQ_LIST.filter((item) => {
+  const filteredFaq = faqList.filter((item) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
@@ -235,12 +406,12 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
     try {
       const res = await window.api.instances.openFolder();
       if (res.success) {
-        showNotice('Direktori game aktif berhasil dibuka.');
+        showNotice(t.help?.openActiveFolderSuccess || 'Direktori game aktif berhasil dibuka.');
       } else {
-        showNotice(res.error || 'Gagal membuka direktori game.');
+        showNotice(res.error || t.help?.openActiveFolderFailed.replace('{error}', '') || 'Gagal membuka direktori game.');
       }
     } catch (err: any) {
-      showNotice(err.message || 'Terjadi kesalahan.');
+      showNotice(err.message || t.common.error);
     }
   };
 
@@ -253,27 +424,27 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
     <div className="flex flex-col h-full bg-obsidian-bg">
       {/* Header Bar */}
       <div className="p-4 border-b border-obsidian-border bg-obsidian-surface flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="flex items-center space-x-2">
-            <HelpCircle className="w-4 h-4 text-emerald-primary" />
-            <h2 className="text-xs font-semibold text-nordic-text uppercase tracking-wider">
+            <HelpCircle className="w-4 h-4 text-emerald-primary shrink-0" />
+            <h2 className="text-xs font-semibold text-nordic-text uppercase tracking-wider truncate">
               {t.help?.title || 'Pusat Bantuan & Dokumentasi'}
             </h2>
           </div>
-          <p className="text-[11px] text-nordic-muted">
+          <p className="text-[11px] text-nordic-muted truncate">
             {t.help?.subtitle || 'Panduan solusi masalah, struktur direktori launcher, dan alat darurat'}
           </p>
         </div>
 
         {/* Search Bar */}
-        <div data-tour="help-search-box" className="relative">
+        <div data-tour="help-search-box" className="relative shrink-0 w-full sm:w-64">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-nordic-muted pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t.help?.searchPlaceholder || 'Cari solusi kendala & panduan...'}
-            className="pl-8 pr-3 py-1.5 bg-obsidian-card border border-obsidian-border rounded text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary/60 w-64 transition-colors"
+            className="pl-8 pr-3 py-1.5 bg-obsidian-card border border-obsidian-border rounded text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary/60 w-full transition-colors"
           />
         </div>
       </div>
@@ -287,40 +458,40 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
       )}
 
       {/* Navigation Sub-Tabs */}
-      <div data-tour="help-subtabs" className="px-4 pt-3 border-b border-obsidian-border bg-obsidian-surface/60 flex items-center space-x-2">
+      <div data-tour="help-subtabs" className="px-4 pt-3 border-b border-obsidian-border bg-obsidian-surface/60 flex items-center space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('faq')}
-          className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
+          className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
             activeTab === 'faq'
               ? 'border-emerald-primary text-emerald-active'
               : 'border-transparent text-nordic-muted hover:text-nordic-text'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5" />
+          <Sparkles className="w-3.5 h-3.5 shrink-0" />
           <span>{t.help?.tabFaq || 'Solusi & Tanya Jawab (FAQ)'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('launcher')}
-          className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
+          className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
             activeTab === 'launcher'
               ? 'border-emerald-primary text-emerald-active'
               : 'border-transparent text-nordic-muted hover:text-nordic-text'
           }`}
         >
-          <BookOpen className="w-3.5 h-3.5" />
+          <BookOpen className="w-3.5 h-3.5 shrink-0" />
           <span>{t.help?.tabLauncherGuide || 'Panduan Struktur Launcher'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('quicktools')}
-          className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
+          className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
             activeTab === 'quicktools'
               ? 'border-emerald-primary text-emerald-active'
               : 'border-transparent text-nordic-muted hover:text-nordic-text'
           }`}
         >
-          <Wrench className="w-3.5 h-3.5" />
+          <Wrench className="w-3.5 h-3.5 shrink-0" />
           <span>{t.help?.tabTools || 'Alat Cepat & Pintasan'}</span>
         </button>
       </div>
@@ -331,20 +502,24 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
         {activeTab === 'faq' && (
           <div className="space-y-3">
             <div className="text-[11px] font-mono text-nordic-muted flex items-center justify-between">
-              <span>Menampilkan {filteredFaq.length} solusi permasalahan umum</span>
+              <span>
+                {(t.help?.showingSolutions || 'Menampilkan {count} solusi permasalahan umum')
+                  .replace('{count}', String(filteredFaq.length))}
+              </span>
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
                   className="text-emerald-primary hover:underline cursor-pointer"
                 >
-                  Reset Pencarian
+                  {t.help?.resetSearch || 'Reset Pencarian'}
                 </button>
               )}
             </div>
 
             {filteredFaq.length === 0 ? (
               <div className="p-8 text-center border border-dashed border-obsidian-border rounded-lg text-xs text-nordic-muted">
-                Tidak ada topik solusi yang cocok dengan kata kunci &quot;{searchQuery}&quot;.
+                {(t.help?.noMatchingTopic || 'Tidak ada topik solusi yang cocok dengan kata kunci "{query}".')
+                  .replace('{query}', searchQuery)}
               </div>
             ) : (
               filteredFaq.map((item) => {
@@ -379,7 +554,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
                     {isExpanded && (
                       <div className="px-4 pb-4 pt-2 border-t border-obsidian-border/60 bg-obsidian-surface/60 space-y-2.5 animate-fade-in">
                         <div className="text-[11px] font-bold text-emerald-primary uppercase tracking-wider">
-                          Langkah Solusi Rekomendasi:
+                          {t.help?.recommendedSteps || 'Langkah Solusi Rekomendasi:'}
                         </div>
                         <div className="p-3 rounded bg-obsidian-bg border border-emerald-500/20 text-xs text-nordic-text leading-relaxed">
                           {item.solution}
@@ -409,10 +584,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
             {/* Sidebar Daftar Launcher */}
             <div className="space-y-2">
               <div className="text-[11px] font-bold text-nordic-muted uppercase tracking-wider px-1">
-                Pilih Launcher Minecraft
+                {t.help?.selectLauncher || 'Pilih Launcher Minecraft'}
               </div>
               <div className="space-y-1">
-                {LAUNCHER_GUIDES.map((launcher) => {
+                {launcherGuides.map((launcher) => {
                   const isSelected = selectedLauncherId === launcher.id;
                   return (
                     <button
@@ -451,13 +626,17 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
 
               <div className="space-y-2 text-xs">
                 <div>
-                  <span className="text-nordic-muted text-[11px] block">Jalur Direktori Standar:</span>
+                  <span className="text-nordic-muted text-[11px] block">
+                    {t.help?.standardPath || 'Jalur Direktori Standar:'}
+                  </span>
                   <code className="text-emerald-primary font-mono text-xs break-all bg-obsidian-bg px-2 py-1 rounded block mt-0.5 border border-obsidian-border">
                     {activeLauncher.defaultPath}
                   </code>
                 </div>
                 <div>
-                  <span className="text-nordic-muted text-[11px] block">Berkas Konfigurasi Utama:</span>
+                  <span className="text-nordic-muted text-[11px] block">
+                    {t.help?.mainConfig || 'Berkas Konfigurasi Utama:'}
+                  </span>
                   <code className="text-nordic-text font-mono text-xs break-all bg-obsidian-bg px-2 py-1 rounded block mt-0.5 border border-obsidian-border">
                     {activeLauncher.configPath}
                   </code>
@@ -466,7 +645,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
 
               <div>
                 <span className="text-[11px] font-bold text-nordic-muted uppercase tracking-wider block mb-1.5">
-                  Hierarki Arsitektur Berkas:
+                  {t.help?.directoryHierarchy || 'Hierarki Arsitektur Berkas:'}
                 </span>
                 <pre className="p-3.5 rounded bg-obsidian-bg border border-obsidian-border text-xs font-mono text-emerald-300 leading-relaxed overflow-x-auto select-text">
                   {activeLauncher.structure}
@@ -483,17 +662,17 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
               <div className="space-y-1.5">
                 <div className="flex items-center space-x-2 text-emerald-primary font-bold text-xs">
                   <FolderOpen className="w-4 h-4" />
-                  <span>Buka Direktori Game Aktif</span>
+                  <span>{t.help?.openActiveGameDir || 'Buka Direktori Game Aktif'}</span>
                 </div>
                 <p className="text-[11px] text-nordic-muted leading-relaxed">
-                  Buka folder direktori instalasi Minecraft yang sedang dikelola saat ini di File Explorer.
+                  {t.help?.openActiveGameDirDesc || 'Buka folder direktori instalasi Minecraft yang sedang dikelola saat ini di File Explorer.'}
                 </p>
               </div>
               <button
                 onClick={handleOpenActiveFolder}
                 className="w-full flex items-center justify-center space-x-1.5 px-3 py-2 rounded bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 text-xs font-semibold text-nordic-text hover:text-emerald-primary transition-colors cursor-pointer"
               >
-                <span>Buka di Explorer</span>
+                <span>{t.help?.openInExplorer || 'Buka di Explorer'}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -502,23 +681,23 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
               <div className="space-y-1.5">
                 <div className="flex items-center space-x-2 text-emerald-primary font-bold text-xs">
                   <Sparkles className="w-4 h-4" />
-                  <span>Mulai Ulang Tur Interaktif</span>
+                  <span>{t.help?.restartTourTitle || 'Mulai Ulang Tur Interaktif'}</span>
                 </div>
                 <p className="text-[11px] text-nordic-muted leading-relaxed">
-                  Jalankan ulang tur panduan interaktif spotlight untuk mempelajari fungsi setiap fitur aplikasi.
+                  {t.help?.restartTourDesc || 'Jalankan ulang tur panduan interaktif spotlight untuk mempelajari fungsi setiap fitur aplikasi.'}
                 </p>
               </div>
               <button
                 onClick={() => {
                   if (onStartTour) {
                     onStartTour();
-                    showNotice('Tur interaktif dimulai.');
+                    showNotice(t.help?.tourStartedNotice || 'Tur interaktif dimulai.');
                   }
                 }}
                 className="w-full flex items-center justify-center space-x-1.5 px-3 py-2 rounded bg-emerald-500/15 border border-emerald-500/40 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 transition-colors cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Mulai Tur Aplikasi</span>
+                <span>{t.help?.startAppTour || 'Mulai Tur Aplikasi'}</span>
               </button>
             </div>
 
@@ -526,22 +705,21 @@ export const HelpView: React.FC<HelpViewProps> = ({ onStartTour }) => {
               <div className="space-y-1.5">
                 <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
                   <ShieldAlert className="w-4 h-4" />
-                  <span>Pusat Diagnostik & Analisis</span>
+                  <span>{t.help?.diagnosticsCenterTitle || 'Pusat Diagnostik & Analisis'}</span>
                 </div>
                 <p className="text-[11px] text-nordic-muted leading-relaxed">
-                  Periksa file crash report terbaru dan jalankan binary search bisect untuk menemukan mod bermasalah.
+                  {t.help?.diagnosticsCenterDesc || 'Periksa file crash report terbaru dan jalankan binary search bisect untuk menemukan mod bermasalah.'}
                 </p>
               </div>
               <a
                 href="#diagnostics"
                 onClick={(e) => {
                   e.preventDefault();
-                  // Bisa dinavigasikan lewat App.tsx jika dibutuhkan
-                  showNotice('Gunakan tab Diagnostics di navigasi utama untuk analisis crash mendalam.');
+                  showNotice(t.help?.openDiagnosticsHint || 'Gunakan tab Diagnostics di navigasi utama untuk analisis crash mendalam.');
                 }}
                 className="w-full flex items-center justify-center space-x-1.5 px-3 py-2 rounded bg-obsidian-surface border border-obsidian-border hover:border-amber-500/40 text-xs font-semibold text-nordic-text hover:text-amber-400 transition-colors cursor-pointer"
               >
-                <span>Buka Tab Diagnostics</span>
+                <span>{t.help?.openDiagnosticsTab || 'Buka Tab Diagnostics'}</span>
               </a>
             </div>
           </div>

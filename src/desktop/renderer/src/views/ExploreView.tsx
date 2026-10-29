@@ -30,7 +30,52 @@ import { MarkdownViewer } from '../components/MarkdownViewer.js';
 import { ModpackInstallModal, type ModpackTargetInfo } from '../components/ModpackInstallModal.js';
 import { useLanguage } from '../i18n/LanguageContext.js';
 
-export const CATEGORIES_BY_TYPE: Record<string, Array<{ slug: string; name: string }>> = {
+export const CATEGORIES_BY_TYPE_EN: Record<string, Array<{ slug: string; name: string }>> = {
+  mod: [
+    { slug: 'optimization', name: 'Optimization & Performance' },
+    { slug: 'adventure', name: 'Adventure & Exploration' },
+    { slug: 'magic', name: 'Magic & Supernatural' },
+    { slug: 'technology', name: 'Technology & Automation' },
+    { slug: 'decoration', name: 'Decoration & Blocks' },
+    { slug: 'storage', name: 'Storage & Chests' },
+    { slug: 'utility', name: 'Utility & Tools' },
+    { slug: 'library', name: 'Library & API' },
+    { slug: 'worldgen', name: 'World Generation & Biomes' },
+    { slug: 'mobs', name: 'Mobs & Creatures' },
+    { slug: 'food', name: 'Food & Farming' },
+    { slug: 'equipment', name: 'Weapons, Armor & Tools' },
+  ],
+  modpack: [
+    { slug: 'optimization', name: 'Optimization & Lightweight' },
+    { slug: 'adventure', name: 'Adventure & Exploration' },
+    { slug: 'quests', name: 'Quests & Progression' },
+    { slug: 'tech', name: 'Technology & Industrial' },
+    { slug: 'magic', name: 'Magic & Mystery' },
+    { slug: 'combat', name: 'PvP & Combat' },
+    { slug: 'kitchen-sink', name: 'All-in-One (Kitchen Sink)' },
+    { slug: 'challenging', name: 'Hardcore & Challenges' },
+  ],
+  shader: [
+    { slug: 'low', name: 'Low-End (Fast & Lightweight)' },
+    { slug: 'medium', name: 'Medium (Balanced)' },
+    { slug: 'high', name: 'High / Ultra (Maximum Detail)' },
+    { slug: 'path-tracing', name: 'Ray Tracing / Path Tracing' },
+    { slug: 'photorealistic', name: 'Photorealistic' },
+    { slug: 'cartoon', name: 'Cartoon & Cel Shading' },
+    { slug: 'vanilla-like', name: 'Vanilla Plus' },
+  ],
+  resourcepack: [
+    { slug: 'combat', name: 'PvP & Combat (Compact)' },
+    { slug: 'faith-vanilla', name: 'Faithful / Vanilla Plus' },
+    { slug: 'medieval', name: 'Medieval & Fantasy' },
+    { slug: 'modern', name: 'Modern & Minimalist' },
+    { slug: 'photo-realistic', name: 'Photorealistic' },
+    { slug: 'futuristic', name: 'Futuristic & Sci-Fi' },
+    { slug: 'utility', name: 'Utility, Font & GUI' },
+  ],
+};
+
+export const CATEGORIES_BY_TYPE_ID: Record<string, Array<{ slug: string; name: string }>> = {
   mod: [
     { slug: 'optimization', name: 'Optimasi & FPS Boost' },
     { slug: 'adventure', name: 'Petualangan & Eksplorasi' },
@@ -75,6 +120,8 @@ export const CATEGORIES_BY_TYPE: Record<string, Array<{ slug: string; name: stri
   ],
 };
 
+export const CATEGORIES_BY_TYPE = CATEGORIES_BY_TYPE_EN;
+
 function getPageNumbers(current: number, total: number): Array<number | '...'> {
   if (total <= 7) {
     return Array.from({ length: total }, (_, i) => i + 1);
@@ -109,7 +156,8 @@ interface ProjectHit {
 }
 
 export const ExploreView: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const categoriesByType = language === 'id' ? CATEGORIES_BY_TYPE_ID : CATEGORIES_BY_TYPE_EN;
   const [query, setQuery] = useState('');
   const [projectType, setProjectType] = useState<'mod' | 'modpack' | 'shader' | 'resourcepack'>('mod');
   const [loader, setLoader] = useState<'all' | 'fabric' | 'forge' | 'neoforge' | 'quilt'>('all');
@@ -383,7 +431,10 @@ export const ExploreView: React.FC = () => {
           });
           await fetchInstalledIndex();
         } else {
-          setStatusMessage({ text: res.error ?? 'Gagal memasang modpack', type: 'error' });
+          setStatusMessage({
+            text: res.error ?? (t.explore.installFailed?.replace('{name}', 'modpack') || 'Failed to install modpack'),
+            type: 'error',
+          });
         }
       } else if (modpackModalTarget.slugOrId) {
         const res = await window.api.modrinth.install(modpackModalTarget.slugOrId, {
@@ -1031,10 +1082,10 @@ export const ExploreView: React.FC = () => {
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0 max-w-[160px] truncate"
-              title="Filter Kategori"
+              title={t.explore.categoryFilterTooltip}
             >
               <option value="all">{t.explore.categoryAll}</option>
-              {CATEGORIES_BY_TYPE[projectType]?.map((cat) => (
+              {categoriesByType[projectType]?.map((cat) => (
                 <option key={cat.slug} value={cat.slug}>
                   {cat.name}
                 </option>
@@ -1047,7 +1098,7 @@ export const ExploreView: React.FC = () => {
                 value={loader}
                 onChange={(e) => setLoader(e.target.value as any)}
                 className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
-                title="Filter Mod Loader"
+                title={t.explore.loaderFilterTooltip}
               >
                 <option value="all">{t.explore.loaderAll}</option>
                 <option value="fabric">Fabric</option>
@@ -1062,7 +1113,7 @@ export const ExploreView: React.FC = () => {
               value={mcVersionFilter}
               onChange={(e) => setMcVersionFilter(e.target.value)}
               className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0 max-w-[160px] truncate"
-              title="Filter Versi Minecraft"
+              title={t.explore.mcVersionFilterTooltip}
             >
               {activeInstance?.gameVersion && (
                 <option value={activeInstance.gameVersion}>
@@ -1101,7 +1152,7 @@ export const ExploreView: React.FC = () => {
               value={environment}
               onChange={(e) => setEnvironment(e.target.value as any)}
               className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
-              title="Filter Lingkungan"
+              title={t.explore.environmentFilterTooltip}
             >
               <option value="all">{t.explore.environmentAll}</option>
               <option value="client">{t.explore.envClient}</option>
@@ -1115,7 +1166,7 @@ export const ExploreView: React.FC = () => {
               value={sortIndex}
               onChange={(e) => setSortIndex(e.target.value as any)}
               className="bg-obsidian-card border border-obsidian-border rounded px-2.5 py-1 text-xs text-nordic-text focus:outline-none focus:border-emerald-primary cursor-pointer shrink-0"
-              title="Urutan Hasil"
+              title={t.explore.sortOrderTooltip}
             >
               <option value="downloads">{t.explore.sortDownloads}</option>
               <option value="relevance">{t.explore.sortRelevance}</option>
@@ -1325,7 +1376,7 @@ export const ExploreView: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2">
-            <span className="text-[11px] text-nordic-muted">Tampilkan:</span>
+            <span className="text-[11px] text-nordic-muted">{t.explore.pageSizeLabel}</span>
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}

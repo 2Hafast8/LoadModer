@@ -113,7 +113,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     window.open('https://github.com/2Hafast8/LoadModer', '_blank');
   };
 
-  const currentVer = updateInfo?.currentVersion || '2.11.1';
+  const currentVer = updateInfo?.currentVersion || '2.11.2';
   const hasUpdate = Boolean(updateInfo?.updateAvailable);
 
   return (
@@ -148,25 +148,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 1. PUSAT PEMBARUAN (UPDATE HUB) */}
           <section data-tour="settings-update-hub" className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-obsidian-border pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                   <Sparkles className="w-4 h-4" />
                 </div>
-                <div>
-                  <h3 className="text-xs font-bold text-nordic-text">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs font-bold text-nordic-text truncate">
                     {t.settings?.updateHubTitle || 'Update Hub'}
                   </h3>
-                  <p className="text-[11px] text-nordic-muted">
+                  <p className="text-[11px] text-nordic-muted truncate">
                     {t.settings?.updateHubDesc || 'Check for the latest releases and update LoadModer safely'}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 shrink-0">
                 <button
                   onClick={onCheckUpdate}
                   disabled={isCheckingUpdate || downloading || isInstalling}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 text-xs font-semibold text-nordic-text hover:text-emerald-primary transition-colors cursor-pointer disabled:opacity-50"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-surface border border-obsidian-border hover:border-emerald-primary/40 text-xs font-semibold text-nordic-text hover:text-emerald-primary transition-colors cursor-pointer disabled:opacity-50 shrink-0"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin text-emerald-primary' : ''}`} />
                   <span>{isCheckingUpdate ? (t.settings?.checkingBtn || 'Checking...') : (t.settings?.checkUpdatesBtn || 'Check for Updates')}</span>
@@ -328,7 +328,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <button
                 onClick={() => {
                   setLanguage('id');
@@ -344,7 +344,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="text-xs font-bold">{t.settings?.langIndonesian || 'Bahasa Indonesia'}</div>
                   <div className="text-[10px] font-mono opacity-70">{t.settings?.langIndonesianSub || 'Bahasa Baku Nasional'}</div>
                 </div>
-                {language === 'id' && <CheckCircle2 className="w-4 h-4 text-emerald-primary" />}
+                {language === 'id' && <CheckCircle2 className="w-4 h-4 text-emerald-primary shrink-0 ml-2" />}
               </button>
 
               <button
@@ -362,7 +362,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="text-xs font-bold">{t.settings?.langEnglish || 'English'}</div>
                   <div className="text-[10px] font-mono opacity-70">{t.settings?.langEnglishSub || 'International English'}</div>
                 </div>
-                {language === 'en' && <CheckCircle2 className="w-4 h-4 text-emerald-primary" />}
+                {language === 'en' && <CheckCircle2 className="w-4 h-4 text-emerald-primary shrink-0 ml-2" />}
               </button>
             </div>
           </section>
@@ -370,10 +370,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 3. TAMPILAN & TUR (APPEARANCE & ONBOARDING) */}
           <section data-tour="settings-appearance-card" className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
             <div className="flex items-center space-x-2.5 border-b border-obsidian-border pb-3">
-              <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text">
+              <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text shrink-0">
                 <Palette className="w-4 h-4 text-emerald-primary" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-xs font-bold text-nordic-text">
                   {t.settings?.appearanceTitle || 'Appearance & Tour'}
                 </h3>
@@ -384,20 +384,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <div className="space-y-3 text-xs pt-1">
-              <div className="flex items-center justify-between p-3 rounded bg-obsidian-surface border border-obsidian-border">
-                <div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded bg-obsidian-surface border border-obsidian-border gap-2">
+                <div className="min-w-0 flex-1 pr-2">
                   <div className="font-semibold text-nordic-text">{t.settings?.visualThemeLabel || 'Visual Theme'}</div>
-                  <div className="text-[11px] text-nordic-muted">{t.settings?.visualThemeDesc || 'Nordic Clean Deep Obsidian Palette (#0A0F0D)'}</div>
+                  <div className="text-[11px] text-nordic-muted leading-relaxed break-words">{t.settings?.visualThemeDesc || 'Nordic Clean Deep Obsidian Palette (#0A0F0D)'}</div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 shrink-0 self-start sm:self-auto">
                   {t.settings?.themeDefaultBadge || 'Default Nordic'}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded bg-obsidian-surface border border-obsidian-border">
-                <div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded bg-obsidian-surface border border-obsidian-border gap-2.5">
+                <div className="min-w-0 flex-1 pr-2">
                   <div className="font-semibold text-nordic-text">{t.settings?.tourLabel || 'Interactive Spotlight Tour'}</div>
-                  <div className="text-[11px] text-nordic-muted">{t.settings?.tourDesc || 'Re-run the guided tour to learn how to use LoadModer features'}</div>
+                  <div className="text-[11px] text-nordic-muted leading-relaxed break-words">{t.settings?.tourDesc || 'Re-run the guided tour to learn how to use LoadModer features'}</div>
                 </div>
                 <button
                   onClick={() => {
@@ -406,9 +406,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       showNotice(t.settings?.tourStartedNotice || 'Interactive tour started.');
                     }
                   }}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 text-xs font-semibold transition-colors cursor-pointer"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 text-xs font-semibold transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" />
                   <span>{t.settings?.startTourBtn || 'Start Tour'}</span>
                 </button>
               </div>
@@ -418,10 +418,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 4. LAPORAN BUG & DOKUMENTASI (BUG REPORT) */}
           <section className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
             <div className="flex items-center space-x-2.5 border-b border-obsidian-border pb-3">
-              <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text">
+              <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text shrink-0">
                 <Bug className="w-4 h-4 text-amber-400" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-xs font-bold text-nordic-text">
                   {t.settings?.bugReportTitle || 'Bug Report & Issues'}
                 </h3>
@@ -431,17 +431,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            <div className="p-3 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-between">
-              <div className="text-xs">
+            <div className="p-3 rounded bg-obsidian-surface border border-obsidian-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="min-w-0 flex-1 pr-2 text-xs">
                 <span className="font-semibold text-nordic-text block">{t.settings?.issueTrackerTitle || 'GitHub Issue Tracker'}</span>
-                <span className="text-[11px] text-nordic-muted">{t.settings?.issueTrackerDesc || 'Please include crash logs or screenshots if available'}</span>
+                <span className="text-[11px] text-nordic-muted leading-relaxed break-words">{t.settings?.issueTrackerDesc || 'Please include crash logs or screenshots if available'}</span>
               </div>
               <button
                 onClick={handleOpenGitHubIssues}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border hover:border-amber-500/40 text-xs font-semibold text-nordic-text hover:text-amber-400 transition-colors cursor-pointer"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border hover:border-amber-500/40 text-xs font-semibold text-nordic-text hover:text-amber-400 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
               >
                 <span>{t.settings?.openIssuesBtn || 'Open GitHub Issues'}</span>
-                <ExternalLink className="w-3.5 h-3.5" />
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" />
               </button>
             </div>
           </section>
@@ -449,10 +449,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 5. INFORMASI APLIKASI & TIM PENGEMBANG (ABOUT & CREDITS) */}
           <section data-tour="settings-author-card" className="border border-obsidian-border bg-obsidian-card rounded-lg p-4 space-y-3 shadow-sm">
             <div className="flex items-center space-x-2.5 border-b border-obsidian-border pb-3">
-              <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text">
+              <div className="w-8 h-8 rounded bg-obsidian-surface border border-obsidian-border flex items-center justify-center text-nordic-text shrink-0">
                 <Info className="w-4 h-4 text-emerald-primary" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-xs font-bold text-nordic-text">
                   {t.settings?.aboutTitle || 'About LoadModer & Team'}
                 </h3>
@@ -464,32 +464,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between py-1 border-b border-obsidian-border/50">
-                <span className="text-nordic-muted">{t.settings?.appLabel || 'Application:'}</span>
+                <span className="text-nordic-muted shrink-0">{t.settings?.appLabel || 'Application:'}</span>
                 <span className="font-semibold text-nordic-text">LoadModer Desktop</span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-obsidian-border/50">
-                <span className="text-nordic-muted">{t.settings?.versionLabel || 'Release Version:'}</span>
+                <span className="text-nordic-muted shrink-0">{t.settings?.versionLabel || 'Release Version:'}</span>
                 <span className="font-mono text-emerald-primary font-bold">v{currentVer}</span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-obsidian-border/50">
-                <span className="text-nordic-muted">{t.settings?.developerLabel || 'Lead Developer:'}</span>
+                <span className="text-nordic-muted shrink-0">{t.settings?.developerLabel || 'Lead Developer:'}</span>
                 <span className="font-semibold text-nordic-text">Hafiz Noval Rianto</span>
               </div>
-              <div className="flex items-center justify-between py-1 border-b border-obsidian-border/50">
-                <span className="text-nordic-muted">{t.settings?.teamLabel || 'Team & Contributors:'}</span>
-                <span className="font-semibold text-nordic-text">Hafiz Noval Rianto & LoadModer Community Contributors</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between py-1.5 border-b border-obsidian-border/50 gap-1">
+                <span className="text-nordic-muted shrink-0">{t.settings?.teamLabel || 'Team & Contributors:'}</span>
+                <span className="font-semibold text-nordic-text text-left sm:text-right min-w-0 break-words">Hafiz Noval Rianto & LoadModer Community Contributors</span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-obsidian-border/50">
-                <span className="text-nordic-muted">{t.settings?.licenseLabel || 'License:'}</span>
+                <span className="text-nordic-muted shrink-0">{t.settings?.licenseLabel || 'License:'}</span>
                 <span className="font-mono text-nordic-text">MIT License (Open Source)</span>
               </div>
               <div className="flex items-center justify-between pt-1">
-                <span className="text-nordic-muted">{t.settings?.repoLabel || 'GitHub Repository:'}</span>
+                <span className="text-nordic-muted shrink-0">{t.settings?.repoLabel || 'GitHub Repository:'}</span>
                 <button
                   onClick={handleOpenGitHubRepo}
-                  className="flex items-center space-x-1 text-emerald-primary hover:underline cursor-pointer"
+                  className="flex items-center space-x-1 text-emerald-primary hover:underline cursor-pointer shrink-0"
                 >
-                  <FolderGit2 className="w-3.5 h-3.5" />
+                  <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
                   <span>2Hafast8/LoadModer</span>
                 </button>
               </div>
