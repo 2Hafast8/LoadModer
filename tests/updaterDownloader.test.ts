@@ -238,5 +238,33 @@ describe("Updater Downloader Multi-Layer Integrity Hardening", () => {
     // Cleanup
     await fs.unlink(targetPath).catch(() => {});
   });
+
+  it("should validate SHA-512 in base64 format from latest.yml", async () => {
+    const chunk = Buffer.from("MZ" + "SHA512_BASE64_TEST".repeat(50));
+    const sha512Base64 = crypto.createHash("sha512").update(chunk).digest("base64");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers({ "content-length": chunk.length.toString() }),
+        body: createMockStream([chunk]),
+      })
+    );
+
+    const fileName = "sha512-test.exe";
+    const result = await downloadReleaseAsset("https://fake.url/sha512.exe", fileName, {
+      minBytes: 0,
+      expectedSha512: sha512Base64,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.filePath).toBe(path.join(tempDir, fileName));
+
+    // Cleanup
+    await fs.unlink(result.filePath!).catch(() => {});
+  });
 });
 

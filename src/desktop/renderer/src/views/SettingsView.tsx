@@ -113,7 +113,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     window.open('https://github.com/2Hafast8/LoadModer', '_blank');
   };
 
-  const currentVer = updateInfo?.currentVersion || '2.11.2';
+  const currentVer = updateInfo?.currentVersion || '2.11.3';
   const hasUpdate = Boolean(updateInfo?.updateAvailable);
 
   return (

@@ -1,8 +1,9 @@
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
-import { createWriteStream, promises as fs } from "node:fs";
-import { Readable } from "node:stream";
+import { createReadStream, createWriteStream, promises as fs } from "node:fs";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { USER_AGENT } from "../../constants.js";
 import { formatBytes } from "../../utils/format.js";
 
@@ -15,8 +16,10 @@ export interface UpdateDownloadProgress {
 
 export interface DownloadUpdateOptions {
   expectedSha256?: string;
+  expectedSha512?: string;
   expectedSize?: number;
   minBytes?: number;
+  maxRetries?: number;
   onProgress?: (progress: UpdateDownloadProgress) => void;
 }
 
@@ -24,6 +27,7 @@ export interface DownloadUpdateResult {
   success: boolean;
   filePath?: string;
   sha256?: string;
+  sha512?: string;
   error?: string;
 }
 
@@ -33,9 +37,39 @@ export interface DownloadUpdateResult {
 export const MIN_EXE_BYTES = 30 * 1024 * 1024;
 
 /**
- * Downloads a release asset to a temporary directory with multi-layer integrity verification.
+ * Calculates physical hashes directly from file on disk to prevent stream desync.
  */
-export async function downloadReleaseAsset(
+export async function calculateFileHashes(filePath: string): Promise<{
+  sha256: string;
+  sha512Hex: string;
+  sha512Base64: string;
+  size: number;
+}> {
+  const hash256 = crypto.createHash("sha256");
+  const hash512 = crypto.createHash("sha512");
+  let size = 0;
+
+  const stream = createReadStream(filePath);
+  for await (const chunk of stream) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buf.length;
+    hash256.update(buf);
+    hash512.update(buf);
+  }
+
+  const sha512Buf = hash512.digest();
+  return {
+    sha256: hash256.digest("hex").toLowerCase(),
+    sha512Hex: sha512Buf.toString("hex").toLowerCase(),
+    sha512Base64: sha512Buf.toString("base64"),
+    size,
+  };
+}
+
+/**
+ * Internal single-attempt download worker using Transform stream and pipeline.
+ */
+async function downloadReleaseAssetOnce(
   assetUrl: string,
   fileName: string,
   options?: DownloadUpdateOptions
@@ -72,27 +106,18 @@ export async function downloadReleaseAsset(
     let bytesSinceLastCheck = 0;
     let currentSpeed = "0 B/s";
 
-    const hash = crypto.createHash("sha256");
-    const stream = createWriteStream(partPath);
-    writeStream = stream;
+    const streamSha256 = crypto.createHash("sha256");
+    const streamSha512 = crypto.createHash("sha512");
+    writeStream = createWriteStream(partPath);
 
-    // Convert Web ReadableStream to Node Readable
-    const nodeReadable = Readable.fromWeb(response.body as any);
-
-    await new Promise<void>((resolve, reject) => {
-      let isSettled = false;
-
-      const safeReject = (err: any) => {
-        if (!isSettled) {
-          isSettled = true;
-          reject(err);
-        }
-      };
-
-      nodeReadable.on("data", (chunk: Buffer) => {
-        downloadedBytes += chunk.length;
-        bytesSinceLastCheck += chunk.length;
-        hash.update(chunk);
+    // Transform stream enforces strict backpressure control between network and disk
+    const progressTransform = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        downloadedBytes += buf.length;
+        bytesSinceLastCheck += buf.length;
+        streamSha256.update(buf);
+        streamSha512.update(buf);
 
         const now = Date.now();
         const elapsedMs = now - lastTime;
@@ -110,28 +135,14 @@ export async function downloadReleaseAsset(
             totalBytes,
           });
         }
-      });
 
-      nodeReadable.on("error", (err) => {
-        stream.destroy();
-        safeReject(err);
-      });
-
-      stream.on("error", (err) => {
-        nodeReadable.destroy();
-        safeReject(err);
-      });
-
-      // Wait for 'close' event to ensure file descriptor and OS disk buffers are flushed
-      stream.on("close", () => {
-        if (!isSettled) {
-          isSettled = true;
-          resolve();
-        }
-      });
-
-      nodeReadable.pipe(stream);
+        callback(null, buf);
+      },
     });
+
+    // Native Node.js pipeline handles backpressure, flow pausing, and error teardown end-to-end
+    const nodeReadable = Readable.fromWeb(response.body as any);
+    await pipeline(nodeReadable, progressTransform, writeStream);
 
     // Multi-Layer Integrity Verifications:
     // 1. Content-Length header verification
@@ -160,19 +171,7 @@ export async function downloadReleaseAsset(
       );
     }
 
-    // 4. SHA-256 hash verification
-    const calculatedSha256 = hash.digest("hex").toLowerCase();
-    if (options?.expectedSha256) {
-      const cleanExpected = options.expectedSha256.trim().toLowerCase();
-      if (calculatedSha256 !== cleanExpected) {
-        await fs.unlink(partPath).catch(() => {});
-        throw new Error(
-          `Integritas berkas gagal (SHA-256 mismatch).\nDiharapkan: ${cleanExpected}\nDihitung: ${calculatedSha256}`
-        );
-      }
-    }
-
-    // 5. Windows PE Executable magic bytes sanity check (MZ = 0x4D, 0x5A)
+    // 4. Windows PE Executable magic bytes sanity check (MZ = 0x4D, 0x5A)
     if (isExe) {
       const handle = await fs.open(partPath, "r");
       try {
@@ -186,21 +185,60 @@ export async function downloadReleaseAsset(
       }
     }
 
+    // 5. Post-Write On-Disk Re-verification (reads physical file on disk to catch disk write or antivirus desync)
+    const onDisk = await calculateFileHashes(partPath);
+    const calculatedSha256 = streamSha256.digest("hex").toLowerCase();
+
+    if (onDisk.sha256 !== calculatedSha256) {
+      await fs.unlink(partPath).catch(() => {});
+      throw new Error(
+        `Integritas disk gagal: Hash berkas pada disk (${onDisk.sha256}) berbeda dengan hash data yang diterima (${calculatedSha256}).`
+      );
+    }
+
+    // 6. SHA-256 hash verification
+    if (options?.expectedSha256) {
+      const cleanExpected = options.expectedSha256.trim().toLowerCase();
+      if (onDisk.sha256 !== cleanExpected) {
+        await fs.unlink(partPath).catch(() => {});
+        throw new Error(
+          `Integritas berkas gagal (SHA-256 mismatch).\nDiharapkan: ${cleanExpected}\nDihitung: ${onDisk.sha256}`
+        );
+      }
+    }
+
+    // 7. SHA-512 hash verification (supports hex or base64 from latest.yml)
+    if (options?.expectedSha512) {
+      const cleanExpected = options.expectedSha512.trim();
+      const isBase64 = cleanExpected.endsWith("=") || cleanExpected.length === 88;
+      const matches = isBase64
+        ? onDisk.sha512Base64 === cleanExpected
+        : onDisk.sha512Hex === cleanExpected.toLowerCase();
+
+      if (!matches) {
+        await fs.unlink(partPath).catch(() => {});
+        throw new Error(
+          `Integritas berkas gagal (SHA-512 mismatch).\nDiharapkan: ${cleanExpected}\nDihitung: ${isBase64 ? onDisk.sha512Base64 : onDisk.sha512Hex}`
+        );
+      }
+    }
+
     // Final progress callback at 100%
     options?.onProgress?.({
       percent: 100,
       speed: "0 B/s",
-      downloadedBytes,
-      totalBytes: downloadedBytes,
+      downloadedBytes: onDisk.size,
+      totalBytes: onDisk.size,
     });
 
-    // Atomic move to target path
+    // Atomic move to target path only after 100% verified
     await fs.rename(partPath, targetPath);
 
     return {
       success: true,
       filePath: targetPath,
-      sha256: calculatedSha256,
+      sha256: onDisk.sha256,
+      sha512: onDisk.sha512Hex,
     };
   } catch (err: any) {
     if (writeStream && !writeStream.destroyed) {
@@ -214,3 +252,27 @@ export async function downloadReleaseAsset(
   }
 }
 
+/**
+ * Downloads a release asset to a temporary directory with multi-layer integrity verification and auto-retry.
+ */
+export async function downloadReleaseAsset(
+  assetUrl: string,
+  fileName: string,
+  options?: DownloadUpdateOptions
+): Promise<DownloadUpdateResult> {
+  const maxRetries = options?.maxRetries ?? 0;
+  let lastResult: DownloadUpdateResult = { success: false, error: "Download not started" };
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    lastResult = await downloadReleaseAssetOnce(assetUrl, fileName, options);
+    if (lastResult.success) {
+      return lastResult;
+    }
+    // If not successful and we have retries left, wait briefly before next attempt
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+
+  return lastResult;
+}

@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 
 export const APP_NAME = "loadmoder";
-export const APP_VERSION = "2.11.2";
+export const APP_VERSION = "2.11.3";
 export const GITHUB_USER = "hafiznovelrianto";
 
 const contact = process.env.LOADMODER_CONTACT;

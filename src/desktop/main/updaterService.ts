@@ -25,11 +25,14 @@ export class DesktopUpdaterService {
     fileName: string,
     expectedSha256?: string,
     expectedSize?: number,
+    expectedSha512?: string,
     onProgress?: (progress: UpdateDownloadProgress) => void
   ): Promise<DownloadUpdateResult> {
     return downloadReleaseAsset(assetUrl, fileName, {
       expectedSha256,
+      expectedSha512,
       expectedSize,
+      maxRetries: 1,
       onProgress,
     });
   }

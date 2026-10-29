@@ -5,6 +5,21 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.11.3] - 2026-10-30
+
+### Fixed
+- **Perbaikan Kritis Bug NSIS Error ("Installer integrity check has failed") pada In-App Updater (`src/core/updater/downloader.ts`, `src/core/updater/githubRelease.ts`)**:
+  - Menghilangkan anomali desinkronisasi buffer akibat penggunaan kombinasi `.on('data')` dan `.pipe()` saat disk buffer mengalami latensi (*backpressure*, misalnya pemindaian real-time oleh Windows Defender).
+  - Mengonversi arsitektur unduhan secara penuh ke `Transform` stream dan `pipeline` dari `node:stream/promises` untuk menjamin aliran data aman dan bebas dari pergeseran buffer chunk.
+  - Menerapkan **Validasi Ganda Fisik di Disk (*Post-Write On-Disk Re-verification*)**: biner `.part` dibaca ulang secara streaming langsung dari disk untuk memastikan hash fisik cocok persis dengan hash stream, `expectedSha256`, dan `expectedSha512` sebelum berkas diizinkan di-*rename* menjadi `.exe`.
+  - Mengintegrasikan parser metadata `latest.yml` bawaan `electron-builder` sehingga checksum SHA-512 resmi selalu tersedia sejak detik pertama rilis dipublikasikan di GitHub.
+  - Menambahkan mekanisme *auto-retry* unduhan serta pembersihan otomatis berkas korup lama di folder temp pengguna.
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.11.3` secara konsisten pada `package.json`, `package-lock.json`, `src/constants.ts`, `TopBar.tsx`, `SettingsView.tsx`, dan seluruh dokumentasi resmi.
+
+---
+
 ## [2.11.2] - 2026-10-29
 
 ### Fixed

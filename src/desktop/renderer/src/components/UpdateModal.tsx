@@ -33,12 +33,14 @@ export interface AppUpdateInfo {
     downloadUrl: string;
     size: number;
     sha256?: string;
+    sha512?: string;
   };
   portableAsset?: {
     name: string;
     downloadUrl: string;
     size: number;
     sha256?: string;
+    sha512?: string;
   };
   error?: string;
 }
@@ -114,7 +116,8 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         targetAsset.downloadUrl,
         targetAsset.name,
         targetAsset.sha256,
-        targetAsset.size
+        targetAsset.size,
+        targetAsset.sha512
       );
 
       if (res.success && res.filePath) {

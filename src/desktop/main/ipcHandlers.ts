@@ -2733,9 +2733,9 @@ async function computeInstanceStatus(active: any) {
     return await desktopUpdater.check();
   });
 
-  ipcMain.handle('updater:download', async (event, assetUrl: string, fileName: string, expectedSha256?: string, expectedSize?: number) => {
+  ipcMain.handle('updater:download', async (event, assetUrl: string, fileName: string, expectedSha256?: string, expectedSize?: number, expectedSha512?: string) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? getMainWindow?.();
-    return await desktopUpdater.download(assetUrl, fileName, expectedSha256, expectedSize, (progress) => {
+    return await desktopUpdater.download(assetUrl, fileName, expectedSha256, expectedSize, expectedSha512, (progress) => {
       win?.webContents.send('updater:progress', progress);
     });
   });

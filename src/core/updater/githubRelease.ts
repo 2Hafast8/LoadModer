@@ -8,6 +8,7 @@ export interface ReleaseAssetInfo {
   downloadUrl: string;
   size: number;
   sha256?: string;
+  sha512?: string;
 }
 
 export interface AppUpdateInfo {
@@ -22,6 +23,7 @@ export interface AppUpdateInfo {
   setupAsset?: ReleaseAssetInfo;
   portableAsset?: ReleaseAssetInfo;
   checksumsAsset?: ReleaseAssetInfo;
+  latestYmlAsset?: ReleaseAssetInfo;
   error?: string;
 }
 
@@ -37,6 +39,65 @@ export interface GitHubReleasePayload {
     size: number;
     content_type?: string;
   }>;
+}
+
+export interface LatestYmlFileInfo {
+  url: string;
+  sha512: string;
+  size?: number;
+}
+
+/**
+ * Parses SHA-512 hashes and file sizes from electron-builder's latest.yml.
+ */
+export function parseLatestYmlContent(content: string): Record<string, LatestYmlFileInfo> {
+  const result: Record<string, LatestYmlFileInfo> = {};
+  if (!content) return result;
+
+  const lines = content.split(/\r?\n/);
+  let currentFile: Partial<LatestYmlFileInfo> | null = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const urlMatch = /^(?:-\s*)?url:\s*([^\s]+)/i.exec(trimmed);
+    if (urlMatch) {
+      if (currentFile?.url && currentFile.sha512) {
+        result[currentFile.url.toLowerCase()] = currentFile as LatestYmlFileInfo;
+      }
+      currentFile = { url: urlMatch[1] };
+      continue;
+    }
+
+    const sha512Match = /^sha512:\s*([^\s]+)/i.exec(trimmed);
+    if (sha512Match) {
+      if (currentFile) {
+        currentFile.sha512 = sha512Match[1];
+      }
+      continue;
+    }
+
+    const sizeMatch = /^size:\s*(\d+)/i.exec(trimmed);
+    if (sizeMatch && currentFile) {
+      currentFile.size = parseInt(sizeMatch[1], 10);
+      continue;
+    }
+
+    const pathMatch = /^path:\s*([^\s]+)/i.exec(trimmed);
+    if (pathMatch) {
+      const p = pathMatch[1].toLowerCase();
+      if (!result[p] && currentFile?.sha512) {
+        result[p] = { url: pathMatch[1], sha512: currentFile.sha512, size: currentFile.size };
+      }
+    }
+  }
+
+  if (currentFile?.url && currentFile.sha512) {
+    result[currentFile.url.toLowerCase()] = currentFile as LatestYmlFileInfo;
+  }
+
+  return result;
 }
 
 /**
@@ -126,6 +187,7 @@ export async function checkForAppUpdate(
     let setupAsset: ReleaseAssetInfo | undefined;
     let portableAsset: ReleaseAssetInfo | undefined;
     let checksumsAsset: ReleaseAssetInfo | undefined;
+    let latestYmlAsset: ReleaseAssetInfo | undefined;
 
     for (const asset of release.assets ?? []) {
       const lower = asset.name.toLowerCase();
@@ -139,12 +201,36 @@ export async function checkForAppUpdate(
         setupAsset = assetInfo;
       } else if (lower.endsWith(".exe") && lower.includes("portable")) {
         portableAsset = assetInfo;
+      } else if (lower === "latest.yml" || lower.endsWith("/latest.yml")) {
+        latestYmlAsset = assetInfo;
       } else if (lower.includes("sha256") || lower.endsWith("sums.txt")) {
         checksumsAsset = assetInfo;
       }
     }
 
-    // Try to fetch checksums if available and we have assets
+    // Try to fetch checksums from latest.yml (official electron-builder metadata with sha512)
+    if (latestYmlAsset) {
+      try {
+        const ymlResp = await fetch(latestYmlAsset.downloadUrl, {
+          headers: { "User-Agent": USER_AGENT },
+        });
+        if (ymlResp.ok) {
+          const ymlText = await ymlResp.text();
+          const ymlMap = parseLatestYmlContent(ymlText);
+          if (setupAsset && ymlMap[setupAsset.name.toLowerCase()]) {
+            const entry = ymlMap[setupAsset.name.toLowerCase()];
+            setupAsset.sha512 = entry.sha512;
+            if (entry.size && !setupAsset.size) {
+              setupAsset.size = entry.size;
+            }
+          }
+        }
+      } catch {
+        // Silently continue if latest.yml fetch fails; SHA256SUMS.txt may still succeed
+      }
+    }
+
+    // Try to fetch checksums from SHA256SUMS.txt
     if (checksumsAsset) {
       try {
         const sumResp = await fetch(checksumsAsset.downloadUrl, {
@@ -177,6 +263,7 @@ export async function checkForAppUpdate(
       setupAsset,
       portableAsset,
       checksumsAsset,
+      latestYmlAsset,
     };
   } catch (err: any) {
     const isTimeout = err?.name === "TimeoutError" || err?.name === "AbortError";
@@ -188,4 +275,3 @@ export async function checkForAppUpdate(
     };
   }
 }
-

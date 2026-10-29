@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseChecksumsContent } from "../src/core/updater/githubRelease.js";
+import { parseChecksumsContent, parseLatestYmlContent } from "../src/core/updater/githubRelease.js";
 
 describe("GitHub Release Checksum Parser", () => {
   it("should parse standard sha256 lines (hash  filename)", () => {
@@ -26,6 +26,23 @@ SHA256    BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD C:\\U
 
   it("should return empty object on empty content", () => {
     expect(parseChecksumsContent("")).toEqual({});
+  });
+
+  it("should parse electron-builder latest.yml file entries", () => {
+    const yml = `
+version: 2.11.2
+files:
+  - url: LoadModer-Setup-2.11.2.exe
+    sha512: +DLA174QZJSW8SskWl7/r7rYrHw2fu7U1lHTYuRNi+Ui/3rUoJWqwq6efSCnDld/3cMq539XqMEW0VzPcaWH/g==
+    size: 84996570
+path: LoadModer-Setup-2.11.2.exe
+sha512: +DLA174QZJSW8SskWl7/r7rYrHw2fu7U1lHTYuRNi+Ui/3rUoJWqwq6efSCnDld/3cMq539XqMEW0VzPcaWH/g==
+releaseDate: '2026-10-29T15:32:58.990Z'
+`;
+    const parsed = parseLatestYmlContent(yml);
+    expect(parsed["loadmoder-setup-2.11.2.exe"]).toBeDefined();
+    expect(parsed["loadmoder-setup-2.11.2.exe"].sha512).toBe("+DLA174QZJSW8SskWl7/r7rYrHw2fu7U1lHTYuRNi+Ui/3rUoJWqwq6efSCnDld/3cMq539XqMEW0VzPcaWH/g==");
+    expect(parsed["loadmoder-setup-2.11.2.exe"].size).toBe(84996570);
   });
 });
 

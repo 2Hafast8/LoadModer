@@ -380,8 +380,8 @@ const api: DesktopAPI = {
   },
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),
-    download: (assetUrl: string, fileName: string, expectedSha256?: string, expectedSize?: number) =>
-      ipcRenderer.invoke('updater:download', assetUrl, fileName, expectedSha256, expectedSize),
+    download: (assetUrl: string, fileName: string, expectedSha256?: string, expectedSize?: number, expectedSha512?: string) =>
+      ipcRenderer.invoke('updater:download', assetUrl, fileName, expectedSha256, expectedSize, expectedSha512),
     install: (filePath: string, silent?: boolean) =>
       ipcRenderer.invoke('updater:install', filePath, silent),
     onProgress: (callback: (payload: UpdateProgressPayload) => void) => {
