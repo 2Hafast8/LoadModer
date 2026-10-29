@@ -5,6 +5,52 @@ Format ini mengacu pada [Keep a Changelog](https://keepachangelog.com/id/1.0.0/)
 
 ---
 
+## [2.11.0] - 2026-10-29
+
+### Added
+- **Halaman Pengaturan Terpadu (`src/desktop/renderer/src/views/SettingsView.tsx`)**:
+  - Halaman mandiri terpusat untuk mengelola konfigurasi aplikasi, Update Hub, pemilih bahasa antarmuka (Bahasa Indonesia & English), reset tur panduan spotlight, serta informasi lisensi open-source dan pengembang resmi: **Hafiz Noval Rianto (`2Hafast8`) & Tim Kontributor LoadModer**.
+  - Status pembaruan dipindahkan dari TopBar ke dalam Settings, menjadikan tampilan header lebih bersih dengan badge versi statis `v2.11.0`.
+- **Pusat Bantuan & Launcher Structure Guide (`src/desktop/renderer/src/views/HelpView.tsx`)**:
+  - Halaman Bantuan baru yang dilengkapi pencarian FAQ real-time, panduan struktur direktori launcher Minecraft, pemecahan masalah umum, tombol salin info sistem, serta akses cepat ke folder konfigurasi `.loadmoder`.
+- **Penganalisis Crash Report Cerdas (`src/core/troubleshoot/logAnalyzer.ts`, `src/desktop/renderer/src/components/CrashLogViewer.tsx`)**:
+  - Mesin diagnosa crash log yang diperluas dengan pendeteksian akar masalah mendalam (Java runtime mismatch, alokasi memori heap, benturan mixin/dependensi) serta penyajian saran perbaikan yang konkret dan langsung dapat ditindaklanjuti.
+- **Ekspor Profil Modpack ke Arsip `.zip` (`src/desktop/renderer/src/components/ExportModpackModal.tsx`, `src/desktop/renderer/src/views/InstancesView.tsx`)**:
+  - Tombol ekspor profil modpack langsung dari kartu instansi.
+  - Opsi ekspor selektif untuk mode default (`mods`, `resourcepacks`, `shaderpacks`) dengan penyesuaian otomatis versi Minecraft, mod loader, nama paket, versi, dan deskripsi arsip zip.
+- **Pagination & Pengurutan Ukuran Berkas Mod (`src/desktop/renderer/src/views/ModsView.tsx`)**:
+  - Navigasi halaman mods dengan opsi ukuran batas 25, 50, dan 100 mod per halaman.
+  - Filter pengurutan dinamis berdasarkan ukuran berkas (*terbesar ke terkecil* dan *terkecil ke terbesar*).
+  - Penguncian tombol periksa update saat berada dalam mode modpack terisolasi untuk menjaga integritas paket.
+- **Isolasi Folder Shaderpack & Resourcepack pada Mode Modpack (`src/desktop/main/ipcHandlers.ts`)**:
+  - Pemetaan otomatis direktori shader dan resourcepack ke dalam folder profil modpack yang sedang aktif, dan otomatis kembali ke direktori normal saat beralih ke mode default.
+- **Validasi Keamanan Pergantian Launcher & Captcha Acak (`src/desktop/renderer/src/components/SwitchModeModal.tsx`, `src/desktop/renderer/src/components/DeleteInstanceModal.tsx`)**:
+  - Modal konfirmasi pencegahan klik tidak sengaja saat beralih launcher mode, dengan tombol khusus "Kembali ke Mode Default".
+  - Captcha acak 6–8 karakter (kombinasi huruf besar, kecil, angka, dan simbol) untuk validasi penghapusan profil instansi secara aman.
+- **Panduan Onboarding & Tur Interaktif Spotlight (`src/desktop/renderer/src/components/OnboardingModal.tsx`, `src/desktop/renderer/src/components/TourOverlay.tsx`)**:
+  - Dialog selamat datang saat pertama kali memasang aplikasi dengan validasi keikutsertaan tur panduan.
+  - Tur visual berbasis spotlight yang memandu fitur-fitur kunci di setiap halaman secara terarah.
+- **Widget Download Center Melayang & Magnetik (`src/desktop/renderer/src/components/DownloadCenter.tsx`)**:
+  - Widget unduhan mengambang yang dapat digeser bebas dengan magnet snap halus ke tepi kanan dan kiri layar.
+  - Dropdown berorientasi otomatis (mengembang ke atas bila di bawah layar, dan ke bawah bila di atas layar).
+
+### Fixed
+- **Perbaikan Animasi Magnet & Jump Dropdown Download Center (`src/desktop/renderer/src/components/DownloadCenter.tsx`)**:
+  - Mengubah dropdown menjadi `position: absolute` sehingga tombol pemicu tidak lagi terdorong atau berkedip saat dropdown dibuka di posisi bawah layar.
+  - Menyatukan sistem koordinat horizontal ke properti `left` tunggal dengan kurva `0.35s cubic-bezier(0.2, 0.8, 0.2, 1)`, menghasilkan animasi snapping magnet kanan yang simetris dan mulus seperti magnet kiri.
+  - Clamping vertikal aman pada `window.innerHeight - 56px` dengan perhitungan delta drag murni mencegah widget hilang dari layar.
+  - Menambahkan pendeteksi klik di luar (*click outside to close*) untuk menutup panel unduhan secara intuitif.
+- **Perbaikan Freeze Kolom Pencarian Mods (`src/desktop/renderer/src/views/ModsView.tsx`)**:
+  - Mengganti dialog konfirmasi hapus mod bawaan sistem yang memblokir render thread dengan modal in-app non-blocking, memastikan input pencarian tetap responsif dan dapat langsung diklik setelah menghapus mod.
+- **Perbaikan Layout & Informasi Tim Pengembang (`src/desktop/renderer/src/views/SettingsView.tsx`, `src/desktop/renderer/src/i18n/translations.ts`)**:
+  - Menyelaraskan layout kartu pengaturan dengan container terpusat (`max-w-5xl mx-auto`).
+  - Menambahkan kelengkapan lokalisasi dwibahasa (ID/EN) untuk seluruh pengaturan aplikasi.
+
+### Changed
+- **Peningkatan SemVer**: Pembaruan nomor versi aplikasi menjadi `2.11.0` secara konsisten pada `package.json`, `package-lock.json`, `src/constants.ts`, `TopBar.tsx`, dan seluruh dokumentasi proyek.
+
+---
+
 ## [2.10.3] - 2026-10-28
 
 ### Fixed

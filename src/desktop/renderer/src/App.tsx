@@ -5,10 +5,79 @@ import { ModsView } from './views/ModsView.js';
 import { ExploreView } from './views/ExploreView.js';
 import { InstancesView } from './views/InstancesView.js';
 import { BisectView } from './views/BisectView.js';
+import { HelpView } from './views/HelpView.js';
+import { SettingsView } from './views/SettingsView.js';
 import { DownloadCenter } from './components/DownloadCenter.js';
 import { DropZoneOverlay } from './components/DropZoneOverlay.js';
 import { UpdateModal, type AppUpdateInfo } from './components/UpdateModal.js';
+import { OnboardingModal } from './components/OnboardingModal.js';
+import { TourOverlay, type TourStep } from './components/TourOverlay.js';
 import { useLanguage } from './i18n/LanguageContext.js';
+
+const TOUR_STEPS_BY_PAGE: Record<NavTab, TourStep[]> = {
+  mods: [
+    {
+      targetSelector: 'input[type="text"]',
+      title: 'Pencarian Mod Lokal',
+      description: 'Cari mod yang telah terpasang berdasarkan nama, deskripsi, atau loader secara instan.',
+    },
+    {
+      targetSelector: 'select',
+      title: 'Pengurutan & Paginasi',
+      description: 'Urutkan mod berdasarkan ukuran (terbesar/terkecil) dan atur batasan per halaman (25, 50, 100).',
+    },
+    {
+      targetSelector: 'header',
+      title: 'Navigasi Menu Utama',
+      description: 'Beralih dengan cepat ke Jelajahi, Instance, Diagnostik, Bantuan, atau Pengaturan.',
+    },
+  ],
+  explore: [
+    {
+      targetSelector: 'input[type="text"]',
+      title: 'Pencarian Ribuan Mod Online',
+      description: 'Cari mod, shader, dan resourcepack langsung dari database Modrinth API v2.',
+    },
+    {
+      targetSelector: 'main',
+      title: 'Pemasangan Sekali Klik',
+      description: 'Klik tombol pasang pada kartu mod untuk mengunduh dan menyelaraskan dependensi otomatis.',
+    },
+  ],
+  instances: [
+    {
+      targetSelector: 'header',
+      title: 'Pengelola Instance & Launcher',
+      description: 'LoadModer mendeteksi launcher resmi, TLauncher, TL Legacy, Prism, dan launcher kustom lokal Anda.',
+    },
+    {
+      targetSelector: 'main',
+      title: 'Mode Wadah Modpack & Ekspor',
+      description: 'Gunakan wadah modpack terisolasi atau ekspor seluruh profil modpack ke format .zip.',
+    },
+  ],
+  bisect: [
+    {
+      targetSelector: 'main',
+      title: 'Diagnostik & Analisis Crash Log',
+      description: 'Deteksi penyebab crash otomatis (OOM, Java mismatch, mod conflict) dan nonaktifkan mod bermasalah.',
+    },
+  ],
+  help: [
+    {
+      targetSelector: 'main',
+      title: 'Pusat Bantuan & Struktur Launcher',
+      description: 'Pelajari struktur hierarki folder setiap launcher dan temukan jawaban dari pertanyaan umum.',
+    },
+  ],
+  settings: [
+    {
+      targetSelector: 'main',
+      title: 'Pusat Pembaruan & Preferensi',
+      description: 'Periksa pembaruan rilis terbaru LoadModer, ubah bahasa, dan laporkan kendala ke tim pengembang.',
+    },
+  ],
+};
 
 export const App: React.FC = () => {
   const { t } = useLanguage();
@@ -27,7 +96,33 @@ export const App: React.FC = () => {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
 
+  // Onboarding & Spotlight Tour state
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isTourActive, setIsTourActive] = useState(false);
+  const [activeTourPage, setActiveTourPage] = useState<NavTab>('mods');
+
   const dragCounter = useRef(0);
+
+  useEffect(() => {
+    // Cek apakah pertama kali membuka aplikasi
+    const welcomed = localStorage.getItem('loadmoder_onboarding_welcomed');
+    if (!welcomed) {
+      setIsOnboardingOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Saat berpindah halaman, cek apakah tur untuk halaman ini belum pernah dijalankan
+    const welcomed = localStorage.getItem('loadmoder_onboarding_welcomed');
+    const pageTourDone = localStorage.getItem(`loadmoder_tour_${currentTab}`);
+    if (welcomed === 'true' && !pageTourDone && !isOnboardingOpen) {
+      const timer = setTimeout(() => {
+        setActiveTourPage(currentTab);
+        setIsTourActive(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentTab, isOnboardingOpen]);
 
   useEffect(() => {
     const fetchActive = async () => {
@@ -216,6 +311,25 @@ export const App: React.FC = () => {
           />
         )}
         {currentTab === 'bisect' && <BisectView />}
+        {currentTab === 'help' && (
+          <HelpView
+            onStartTour={() => {
+              setActiveTourPage('help');
+              setIsTourActive(true);
+            }}
+          />
+        )}
+        {currentTab === 'settings' && (
+          <SettingsView
+            updateInfo={updateInfo}
+            onCheckUpdate={handleCheckUpdate}
+            isCheckingUpdate={isCheckingUpdate}
+            onStartTour={() => {
+              setActiveTourPage('settings');
+              setIsTourActive(true);
+            }}
+          />
+        )}
       </main>
 
       <DownloadCenter />
@@ -233,6 +347,22 @@ export const App: React.FC = () => {
         updateInfo={updateInfo}
         onCheckUpdate={handleCheckUpdate}
         isCheckingUpdate={isCheckingUpdate}
+      />
+
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onStartTour={() => {
+          setActiveTourPage(currentTab);
+          setIsTourActive(true);
+        }}
+      />
+
+      <TourOverlay
+        isOpen={isTourActive}
+        page={activeTourPage}
+        steps={TOUR_STEPS_BY_PAGE[activeTourPage] || []}
+        onClose={() => setIsTourActive(false)}
       />
 
       {/* Floating Update Notification Banner */}

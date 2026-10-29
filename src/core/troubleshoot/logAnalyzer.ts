@@ -204,6 +204,44 @@ export class LogAnalyzer {
       };
     }
 
+    const glfwMatch = cleanContent.match(/GLFW error 65542|WGL: The driver does not appear to support OpenGL|OpenGL 3\.2/i);
+    if (glfwMatch) {
+      return {
+        hasCrash: true,
+        sourceFile: path.basename(sourcePath),
+        sourceType: isCrashReport ? 'crash_report' : 'latest_log',
+        category: 'unknown',
+        culprit: 'GPU Driver / OpenGL 3.2',
+        summary: 'Driver kartu grafis tidak mendukung versi OpenGL yang dibutuhkan Minecraft (GLFW error 65542).',
+        solution: 'Perbarui driver kartu grafis (Intel/NVIDIA/AMD) Anda ke versi terbaru melalui situs resmi produsen laptop/GPU.',
+        action: {
+          type: 'none',
+          target: '',
+          label: 'Perbarui Driver Kartu Grafis',
+        },
+        rawExcerpt,
+      };
+    }
+
+    const configMatch = cleanContent.match(/Failed to load config|Parsing error loading built-in config|com\.google\.gson\.JsonSyntaxException.*config/i);
+    if (configMatch) {
+      return {
+        hasCrash: true,
+        sourceFile: path.basename(sourcePath),
+        sourceType: isCrashReport ? 'crash_report' : 'latest_log',
+        category: 'corrupted_file',
+        culprit: 'Config Directory',
+        summary: 'Ditemukan berkas konfigurasi di folder "config/" yang rusak atau salah format (JSON/TOML Syntax Error).',
+        solution: 'Buka folder "config" dan hapus atau cadangkan berkas konfigurasi mod yang baru ditambahkan agar Minecraft membuat ulang konfigurasi default.',
+        action: {
+          type: 'none',
+          target: '',
+          label: 'Buka Folder Konfigurasi',
+        },
+        rawExcerpt,
+      };
+    }
+
     const hasErrorIndicator =
       isCrashReport ||
       cleanContent.includes('FATAL') ||

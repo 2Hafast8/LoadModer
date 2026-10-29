@@ -29,8 +29,8 @@ import { RestorePointsPanel } from '../components/RestorePointsPanel.js';
 import { ExportModpackModal } from '../components/ExportModpackModal.js';
 import { EditVersionLoaderModal } from '../components/EditVersionLoaderModal.js';
 import { ConfigurePathsModal } from '../components/ConfigurePathsModal.js';
-import { LauncherStructureModal } from '../components/LauncherStructureModal.js';
 import { DeleteInstanceModal } from '../components/DeleteInstanceModal.js';
+import { SwitchModeModal } from '../components/SwitchModeModal.js';
 import { OperationLoadingOverlay } from '../components/OperationLoadingOverlay.js';
 
 interface InstanceItem {
@@ -93,11 +93,17 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [selectedExportProfile, setSelectedExportProfile] = useState<any | null>(null);
+  const [confirmSwitchTarget, setConfirmSwitchTarget] = useState<{
+    mode: 'default' | 'modpack';
+    containerName?: string;
+    loader?: string;
+    gameVersion?: string;
+  } | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingInstance, setEditingInstance] = useState<InstanceItem | null>(null);
   const [pathsModalOpen, setPathsModalOpen] = useState(false);
   const [pathsInstance, setPathsInstance] = useState<InstanceItem | null>(null);
-  const [structureModalOpen, setStructureModalOpen] = useState(false);
   const [instanceToDelete, setInstanceToDelete] = useState<InstanceItem | null>(null);
   const [savingTLMods, setSavingTLMods] = useState(false);
   const [containerSearch, setContainerSearch] = useState('');
@@ -467,15 +473,6 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
           </button>
 
           <button
-            onClick={() => setStructureModalOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-obsidian-card border border-obsidian-border text-xs text-nordic-muted hover:text-emerald-primary hover:border-emerald-primary/40 transition-colors cursor-pointer"
-            title={t.instances.structureGuideTooltip}
-          >
-            <BookOpen className="w-3.5 h-3.5 text-emerald-primary" />
-            <span className="hidden sm:inline">{t.instances.structureGuide}</span>
-          </button>
-
-          <button
             onClick={loadInstances}
             disabled={loading}
             className="p-1.5 rounded bg-obsidian-card border border-obsidian-border text-nordic-muted hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer"
@@ -569,7 +566,7 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         {activeInstance?.capabilities?.supportsModeSwitch && (
           <div className="border border-obsidian-border bg-obsidian-surface rounded p-4 space-y-3.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
                 <Boxes className="w-4 h-4 text-emerald-primary" />
                 <span className="text-xs font-bold text-nordic-text font-mono uppercase">
                   {t.instances.modeSelector}
@@ -584,74 +581,63 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                 )}
               </div>
 
-              {containers.length > 4 && (
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-nordic-muted pointer-events-none" />
-                  <input
-                    type="text"
-                    value={containerSearch}
-                    onChange={(e) => setContainerSearch(e.target.value)}
-                    placeholder={t.instances.searchContainers || 'Cari wadah client...'}
-                    className="pl-8 pr-3 py-1 bg-obsidian-card border border-obsidian-border rounded text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary/60 w-full sm:w-56 transition-colors"
-                  />
-                </div>
-              )}
+              <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                {activeInstance.mode === 'modpack' ? (
+                  <button
+                    onClick={() => setConfirmSwitchTarget({ mode: 'default' })}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-amber-500/10 border border-amber-500/40 text-xs font-semibold text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                    title="Beralih kembali ke direktori standar .minecraft"
+                  >
+                    <Home className="w-3.5 h-3.5" />
+                    <span>{t.instances.restoreDefaultBtn || 'Kembali ke Mode Default'}</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{t.instances.currentlyDefault || 'Mode Default (.minecraft)'}</span>
+                  </div>
+                )}
+
+                {containers.length > 3 && (
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-nordic-muted pointer-events-none" />
+                    <input
+                      type="text"
+                      value={containerSearch}
+                      onChange={(e) => setContainerSearch(e.target.value)}
+                      placeholder={t.instances.searchContainers || 'Cari wadah client...'}
+                      className="pl-8 pr-3 py-1 bg-obsidian-card border border-obsidian-border rounded text-xs text-nordic-text placeholder-nordic-muted focus:outline-none focus:border-emerald-primary/60 w-full sm:w-48 transition-colors"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {/* 1. Opsi Default Mode (.minecraft) */}
-              <div
-                onClick={() => handleSwitchMode('default')}
-                className={`p-3 rounded border text-xs flex flex-col justify-between transition-all cursor-pointer ${
-                  activeInstance.mode !== 'modpack'
-                    ? 'bg-emerald-dark/20 border-emerald-primary/70 shadow-sm'
-                    : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:border-emerald-primary/40 hover:text-nordic-text'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <div
-                      className={`w-6 h-6 rounded flex items-center justify-center ${
-                        activeInstance.mode !== 'modpack'
-                          ? 'bg-emerald-primary/20 text-emerald-active'
-                          : 'bg-obsidian-surface text-nordic-muted'
-                      }`}
-                    >
-                      <Home className="w-3.5 h-3.5" />
-                    </div>
-                    <span className="font-bold text-nordic-text text-xs">
-                      {t.instances.modeDefault}
-                    </span>
-                  </div>
-                  {activeInstance.mode !== 'modpack' ? (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-primary text-obsidian-bg">
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>{t.common.active}</span>
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-obsidian-surface border border-obsidian-border text-nordic-muted">
-                      Standard
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] text-nordic-muted">
-                  {t.instances.defaultModeDesc || 'Instalasi game standar non-kontainer'}
-                </div>
-              </div>
+            {/* Container List (Hanya wadah buatan sendiri dan TL-Mods) */}
+            {(() => {
+              const visibleContainers = containers
+                .filter((c) => c.isLoadModerContainer || c.isTLMods || (!c.containerName.toLowerCase().includes('default') && !c.containerName.toLowerCase().includes('official')))
+                .filter((c) => {
+                  if (!containerSearch.trim()) return true;
+                  const q = containerSearch.toLowerCase().trim();
+                  return (
+                    (c.containerName && c.containerName.toLowerCase().includes(q)) ||
+                    (c.loader && c.loader.toLowerCase().includes(q)) ||
+                    (c.gameVersion && c.gameVersion.toLowerCase().includes(q))
+                  );
+                });
 
-              {/* 2. Kartu-kartu Wadah Client */}
-              {containers.length > 0 ? (
-                containers
-                  .filter((c) => {
-                    if (!containerSearch.trim()) return true;
-                    const q = containerSearch.toLowerCase().trim();
-                    return (
-                      (c.containerName && c.containerName.toLowerCase().includes(q)) ||
-                      (c.loader && c.loader.toLowerCase().includes(q)) ||
-                      (c.gameVersion && c.gameVersion.toLowerCase().includes(q))
-                    );
-                  })
-                  .map((c) => {
+              if (visibleContainers.length === 0) {
+                return (
+                  <div className="py-4 text-center text-xs text-nordic-muted border border-dashed border-obsidian-border rounded">
+                    {t.instances.noMatchingContainers || 'Belum ada wadah kustom atau TL-Mods yang terdeteksi.'}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {visibleContainers.map((c) => {
                     const isSelected =
                       activeInstance.mode === 'modpack' && activeInstance.activeContainer === c.containerName;
                     const loaderLower = (c.loader || '').toLowerCase();
@@ -667,7 +653,14 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                     return (
                       <div
                         key={c.containerName}
-                        onClick={() => handleSwitchMode('modpack', c.containerName)}
+                        onClick={() =>
+                          setConfirmSwitchTarget({
+                            mode: 'modpack',
+                            containerName: c.containerName,
+                            loader: c.loader,
+                            gameVersion: c.gameVersion,
+                          })
+                        }
                         className={`p-3 rounded border text-xs flex flex-col justify-between transition-all cursor-pointer ${
                           isSelected
                             ? 'bg-emerald-dark/20 border-emerald-primary/70 shadow-sm'
@@ -687,6 +680,11 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                               {c.isTLMods && (
                                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/40 text-amber-400 border border-amber-500/30">
                                   TL-Mods
+                                </span>
+                              )}
+                              {c.isLoadModerContainer && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">
+                                  LoadModer
                                 </span>
                               )}
                             </div>
@@ -719,40 +717,10 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                         </div>
                       </div>
                     );
-                  })
-              ) : (
-                <div
-                  onClick={() => handleSwitchMode('modpack')}
-                  className={`p-3 rounded border text-xs flex flex-col justify-between transition-all cursor-pointer ${
-                    activeInstance.mode === 'modpack'
-                      ? 'bg-emerald-dark/20 border-emerald-primary/70 shadow-sm'
-                      : 'bg-obsidian-card border-obsidian-border text-nordic-muted hover:border-emerald-primary/40 hover:text-nordic-text'
-                  }`}
-                >
-                  <div className="font-bold text-nordic-text text-xs mb-1">
-                    {t.instances.modeModpack}
-                  </div>
-                  <div className="text-[11px] text-nordic-muted">
-                    {t.instances.containerModeDesc || 'Wadah versi client terisolasi'}
-                  </div>
+                  })}
                 </div>
-              )}
-            </div>
-
-            {containers.length > 0 &&
-              containers.filter((c) => {
-                if (!containerSearch.trim()) return true;
-                const q = containerSearch.toLowerCase().trim();
-                return (
-                  (c.containerName && c.containerName.toLowerCase().includes(q)) ||
-                  (c.loader && c.loader.toLowerCase().includes(q)) ||
-                  (c.gameVersion && c.gameVersion.toLowerCase().includes(q))
-                );
-              }).length === 0 && (
-                <div className="py-4 text-center text-xs text-nordic-muted border border-dashed border-obsidian-border rounded">
-                  {t.instances.noMatchingContainers || 'Tidak ada wadah yang cocok dengan pencarian.'}
-                </div>
-              )}
+              );
+            })()}
           </div>
         )}
 
@@ -866,6 +834,17 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => {
+                              setSelectedExportProfile(prof);
+                              setExportModalOpen(true);
+                            }}
+                            className="p-1 rounded text-zinc-400 hover:text-emerald-400 hover:bg-emerald-950/30 transition-colors cursor-pointer"
+                            title={t.export?.modalTitle || "Ekspor Modpack (.zip)"}
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                          </button>
+
                           <button
                             onClick={() => handleRemoveModpackProfile(prof.id, prof.name)}
                             className="p-1 rounded text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
@@ -1126,8 +1105,15 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
 
       <ExportModpackModal
         isOpen={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
+        onClose={() => {
+          setExportModalOpen(false);
+          setSelectedExportProfile(null);
+        }}
         instanceName={activeInstance?.name}
+        targetProfile={selectedExportProfile}
+        mode={activeInstance?.mode || 'default'}
+        defaultLoader={activeInstance?.loader}
+        defaultGameVersion={activeInstance?.gameVersion}
       />
 
       <EditVersionLoaderModal
@@ -1150,9 +1136,18 @@ export const InstancesView: React.FC<InstancesViewProps> = ({ onInstanceChanged 
         onSaved={loadInstances}
       />
 
-      <LauncherStructureModal
-        isOpen={structureModalOpen}
-        onClose={() => setStructureModalOpen(false)}
+      <SwitchModeModal
+        isOpen={Boolean(confirmSwitchTarget)}
+        onClose={() => setConfirmSwitchTarget(null)}
+        targetMode={confirmSwitchTarget?.mode || 'default'}
+        targetContainer={confirmSwitchTarget?.containerName}
+        targetLoader={confirmSwitchTarget?.loader}
+        targetGameVersion={confirmSwitchTarget?.gameVersion}
+        onConfirm={() => {
+          if (confirmSwitchTarget) {
+            handleSwitchMode(confirmSwitchTarget.mode, confirmSwitchTarget.containerName);
+          }
+        }}
       />
 
       <DeleteInstanceModal

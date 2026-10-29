@@ -6,30 +6,63 @@ interface ExportModpackModalProps {
   isOpen: boolean;
   onClose: () => void;
   instanceName?: string;
+  targetProfile?: {
+    id: string;
+    name: string;
+    loader?: string;
+    gameVersion?: string;
+  } | null;
+  mode?: 'default' | 'modpack';
+  defaultLoader?: string;
+  defaultGameVersion?: string;
 }
 
 export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
   isOpen,
   onClose,
   instanceName,
+  targetProfile,
+  mode = 'default',
+  defaultLoader,
+  defaultGameVersion,
 }) => {
   const { t } = useLanguage();
-  const [format, setFormat] = useState<'mrpack' | 'zip'>('mrpack');
-  const [name, setName] = useState(instanceName || 'My Modpack');
+  const format = 'zip'; // Format dikunci ke .zip sesuai spesifikasi
+  const [name, setName] = useState('');
   const [version, setVersion] = useState('1.0.0');
   const [summary, setSummary] = useState('');
   const [includeConfigs, setIncludeConfigs] = useState(true);
-  const [includeResourcepacks, setIncludeResourcepacks] = useState(false);
-  const [includeShaderpacks, setIncludeShaderpacks] = useState(false);
+  const [includeResourcepacks, setIncludeResourcepacks] = useState(true);
+  const [includeShaderpacks, setIncludeShaderpacks] = useState(true);
   const [selectedProfile, setSelectedProfile] = useState<string>('active');
   const [savedProfiles, setSavedProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const effectiveLoader = targetProfile?.loader || defaultLoader || 'fabric';
+  const effectiveGameVersion = targetProfile?.gameVersion || defaultGameVersion || '1.20.1';
+  const isProfileExport = Boolean(targetProfile) || mode === 'modpack';
+
   useEffect(() => {
     if (!isOpen) return;
-    setName(instanceName || 'My Modpack');
+
+    if (targetProfile) {
+      setName(targetProfile.name);
+      setSelectedProfile(targetProfile.id);
+      setIncludeConfigs(true);
+      setIncludeResourcepacks(true);
+      setIncludeShaderpacks(true);
+    } else {
+      setName(instanceName || 'My Modpack');
+      setSelectedProfile('active');
+      setIncludeConfigs(false); // Mode default: hanya mods, resourcepacks, shaders
+      setIncludeResourcepacks(true);
+      setIncludeShaderpacks(true);
+    }
+
+    setVersion('1.0.0');
+    setSummary('');
     setResultMessage(null);
     setErrorMessage(null);
 
@@ -42,7 +75,7 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
       } catch {}
     };
     loadProfiles();
-  }, [isOpen, instanceName]);
+  }, [isOpen, instanceName, targetProfile, mode]);
 
   useEffect(() => {
     if (errorMessage) {
@@ -125,38 +158,25 @@ export const ExportModpackModal: React.FC<ExportModpackModalProps> = ({
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1.5">{t.export.formatLabel}</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setFormat('mrpack')}
-                className={`p-2.5 rounded-lg border text-left transition-colors ${
-                  format === 'mrpack'
-                    ? 'border-emerald-500/50 bg-emerald-950/20 text-emerald-300'
-                    : 'border-[#1E2822] bg-[#131B16] text-zinc-400 hover:border-zinc-700'
-                }`}
-              >
-                <div className="text-xs font-semibold">.mrpack</div>
-                <div className="text-[10px] opacity-75">Modrinth Standard</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFormat('zip')}
-                className={`p-2.5 rounded-lg border text-left transition-colors ${
-                  format === 'zip'
-                    ? 'border-emerald-500/50 bg-emerald-950/20 text-emerald-300'
-                    : 'border-[#1E2822] bg-[#131B16] text-zinc-400 hover:border-zinc-700'
-                }`}
-              >
-                <div className="text-xs font-semibold">.zip</div>
-                <div className="text-[10px] opacity-75">Standalone Archive</div>
-              </button>
+          {/* Format & Target Scope Info */}
+          <div className="p-3 bg-obsidian-surface border border-obsidian-border rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-nordic-text">
+                {t.export.formatLabel || 'Format Ekspor'}:
+              </span>
+              <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-950/40 border border-emerald-500/40 text-emerald-400">
+                .ZIP Archive
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-nordic-muted">
+              <span>{isProfileExport ? 'Cakupan: Full Profile Modpack' : 'Cakupan: Folder mods, resourcepacks, shaders'}</span>
+              <span className="font-mono text-emerald-active font-semibold">
+                {effectiveLoader} • MC {effectiveGameVersion}
+              </span>
             </div>
           </div>
 
-          {savedProfiles.length > 0 && (
+          {savedProfiles.length > 0 && !targetProfile && (
             <div>
               <label className="block text-xs font-medium text-zinc-300 mb-1">{t.export.sourceLabel}</label>
               <select

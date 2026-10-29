@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Trash2, X, AlertTriangle, ShieldAlert, CheckSquare, Square, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Trash2, X, AlertTriangle, ShieldAlert, CheckSquare, Square, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 
 interface DeleteInstanceModalProps {
@@ -14,6 +14,17 @@ interface DeleteInstanceModalProps {
   onDeleted: () => void;
 }
 
+const CAPTCHA_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789#$!%*@';
+
+function generateRandomCaptcha(length = 6): string {
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * CAPTCHA_CHARS.length);
+    result += CAPTCHA_CHARS[randomIndex];
+  }
+  return result;
+}
+
 export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
   isOpen,
   onClose,
@@ -22,9 +33,15 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
 }) => {
   const { t } = useLanguage();
   const [val1Checked, setVal1Checked] = useState(false);
+  const [captchaCode, setCaptchaCode] = useState('');
   const [val2Text, setVal2Text] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const refreshCaptcha = useCallback(() => {
+    setCaptchaCode(generateRandomCaptcha(6));
+    setVal2Text('');
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -32,17 +49,13 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
       setVal2Text('');
       setDeleting(false);
       setErrorMsg(null);
+      refreshCaptcha();
     }
-  }, [isOpen, instance]);
+  }, [isOpen, instance, refreshCaptcha]);
 
   if (!isOpen || !instance) return null;
 
-  const expectedPhrase = (t.modalDeleteInstance?.expectedPhraseTemplate || 'SAYA BENAR-BENAR YAKIN INGIN MENGHAPUS PROFIL {name} DARI LOADMODER')
-    .replace('{name}', instance.name.toUpperCase())
-    .trim();
-
-  const normalizeText = (txt: string) => txt.replace(/\s+/g, ' ').trim().toUpperCase();
-  const isTextMatch = normalizeText(val2Text) === normalizeText(expectedPhrase);
+  const isTextMatch = val2Text.trim() === captchaCode && captchaCode.length > 0;
   const canDelete = val1Checked && isTextMatch && !deleting;
 
   const handleDelete = async (e: React.FormEvent) => {
@@ -69,7 +82,7 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
 
   const handlePasteAttempt = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    setErrorMsg(t.modalDeleteInstance?.pasteDisabled || 'Fitur paste dinonaktifkan demi keamanan. Silakan ketik kalimat secara manual.');
+    setErrorMsg(t.modalDeleteInstance?.pasteDisabled || 'Fitur paste dinonaktifkan demi keamanan. Silakan ketik kode verifikasi secara manual.');
   };
 
   return (
@@ -152,25 +165,40 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
             </label>
           </div>
 
-          {/* 2. VALIDASI LANGKAH KEDUA (Pengetikan Teks Konfirmasi Panjang & Ribet) */}
+          {/* 2. VALIDASI LANGKAH KEDUA (Pengetikan Kode Captcha Acak) */}
           <div className="pt-2 border-t border-obsidian-border/60 space-y-2.5">
-            <div className="text-[11px] font-bold text-red-400 uppercase tracking-wider">
-              Validasi 2: Konfirmasi Teks Manual (Ketat)
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-bold text-red-400 uppercase tracking-wider">
+                {t.modalDeleteInstance?.validation2Title || 'Validasi 2: Kode Verifikasi Acak'}
+              </div>
+              <button
+                type="button"
+                onClick={refreshCaptcha}
+                title="Muat ulang kode acak"
+                className="flex items-center space-x-1 text-[11px] text-nordic-muted hover:text-nordic-text transition-colors cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>{t.modalDeleteInstance?.refreshCaptcha || 'Muat Ulang'}</span>
+              </button>
             </div>
             <p className="text-xs text-nordic-muted leading-relaxed">
               {t.modalDeleteInstance?.validation2Label ||
-                'Ketik kalimat konfirmasi berikut secara manual huruf demi huruf:'}
+                'Ketik kode verifikasi acak berikut secara manual:'}
             </p>
 
-            {/* Target Monospace Phrase Box */}
-            <div className="p-3 rounded bg-obsidian-bg border border-red-500/30 space-y-1.5 select-none">
-              <div className="flex items-center justify-between text-[10px] uppercase font-mono text-nordic-muted">
-                <span>Target Kalimat Konfirmasi:</span>
-                <span className="text-red-400 font-semibold">*Ketik manual</span>
+            {/* Target Captcha Display Box */}
+            <div className="flex items-center justify-between p-3 rounded bg-obsidian-bg border border-red-500/30 select-none">
+              <div className="flex items-center space-x-2">
+                <span className="text-[10px] uppercase font-mono text-nordic-muted">
+                  {t.modalDeleteInstance?.captchaLabel || 'Kode Verifikasi:'}
+                </span>
+                <span className="font-mono text-base font-bold text-red-400 tracking-widest px-2.5 py-1 rounded bg-red-950/40 border border-red-500/40">
+                  {captchaCode}
+                </span>
               </div>
-              <div className="font-mono text-red-300 text-xs font-semibold leading-relaxed break-all">
-                {expectedPhrase}
-              </div>
+              <span className="text-[10px] text-red-400/80 font-mono">
+                *Ketik persis huruf & simbol
+              </span>
             </div>
 
             {/* Input field with Paste disabled */}
@@ -185,9 +213,9 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
                 onPaste={handlePasteAttempt}
                 placeholder={
                   t.modalDeleteInstance?.validation2Placeholder ||
-                  'Ketik kalimat konfirmasi di atas secara manual...'
+                  'Ketik kode acak di atas...'
                 }
-                className={`w-full px-3 py-2 text-xs rounded bg-obsidian-surface border font-mono tracking-wide focus:outline-none transition-colors ${
+                className={`w-full px-3 py-2 text-xs rounded bg-obsidian-surface border font-mono tracking-widest focus:outline-none transition-colors ${
                   isTextMatch
                     ? 'border-emerald-primary text-emerald-active bg-emerald-950/15'
                     : 'border-obsidian-border text-nordic-text focus:border-red-500'
@@ -207,14 +235,14 @@ export const DeleteInstanceModal: React.FC<DeleteInstanceModalProps> = ({
                   {isTextMatch ? (
                     <span className="flex items-center space-x-1">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-primary" />
-                      <span>{t.modalDeleteInstance?.textMatchSuccess || 'Kalimat konfirmasi terverifikasi cocok'}</span>
+                      <span>{t.modalDeleteInstance?.textMatchSuccess || 'Kode verifikasi cocok'}</span>
                     </span>
                   ) : (
-                    <span>{t.modalDeleteInstance?.textMatchPending || 'Menunggu pengetikan kalimat yang cocok...'}</span>
+                    <span>{t.modalDeleteInstance?.textMatchPending || 'Menunggu pengetikan kode yang cocok...'}</span>
                   )}
                 </span>
                 <span className="font-mono text-[10px] text-nordic-muted">
-                  {val2Text.trim().length} / {expectedPhrase.length} karakter
+                  {val2Text.trim().length} / {captchaCode.length} karakter
                 </span>
               </div>
             </div>

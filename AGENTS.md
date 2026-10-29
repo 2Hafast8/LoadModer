@@ -34,7 +34,28 @@ src/
 
 ---
 
-## 2. Verification Protocol (Mandatory Before Submitting Work)
+## 2. Mandatory Task Execution Protocol (Wajib Sebelum Mulai Eksekusi & Pengerjaan)
+
+Setiap kali pengguna memberikan tugas (permintaan fitur baru, perbaikan bug, refactoring, optimasi, atau modifikasi sistem apa pun), agen **WAJIB** menjalankan protokol pra-pengerjaan berikut secara berurutan:
+
+### 1. Eksplorasi Read-Only & Penyusunan Walkthrough Rencana Pengerjaan
+- **Eksplorasi Awal (Hanya Read-Only):** Agen diperbolehkan membaca kode, menelusuri berkas, memeriksa dependensi, dan menginspeksi alur eksekusi tanpa mengubah kode sumber (*write operations*).
+- **Wajib Buat Berkas Walkthrough (`walkthrough-*.md`):** Sebelum menulis baris kode pertama atau mengedit berkas apa pun, agen wajib menyusun dokumen walkthrough/rencana kerja terperinci yang mencakup:
+  1. **Tujuan & Ruang Lingkup Pengerjaan:** Analisis akar masalah (untuk bug) atau spesifikasi kebutuhan (untuk fitur).
+  2. **Rencana Arsitektur & Daftar Berkas:** Rincian berkas mana saja yang akan dibuat, diubah, atau dihapus beserta alasannya, dengan tetap mematuhi batasan modul (`core/` decoupled dari UI, atomic writes, dsb.).
+  3. **Rencana Pengujian & Verifikasi:** Strategi pengujian unit/integrasi untuk memastikan fungsi baru berjalan dan 297+ pengujian yang ada tidak mengalami regresi.
+
+### 2. Meminta Persetujuan Eksplisit Pengguna (Wajib Tunggu Konfirmasi)
+- **Larangan Keras Eksekusi Dini:** **DILARANG KERAS** mulai menulis kode, mengedit berkas, menghapus berkas, atau mengeksekusi perintah modifikasi disk sebelum pengguna meninjau dokumen walkthrough dan memberikan persetujuan eksplisit (misal: menekan tombol *Proceed* atau memberikan konfirmasi teks).
+- Sajikan tautan berkas walkthrough secara langsung dalam balasan obrolan dan soroti keputusan kunci yang memerlukan masukan pengguna.
+
+### 3. Mulai Eksekusi & Pengerjaan
+- Setelah dan **hanya setelah** pengguna memberikan persetujuan, barulah agen diizinkan mulai mengedit kode dan mengeksekusi implementasi sesuai rencana yang telah disepakati.
+- Jika di tengah pengerjaan muncul kendala teknis tak terduga yang membutuhkan perubahan rencana arsitektur secara drastis, agen wajib berhenti sejenak, memperbarui walkthrough, dan meminta konfirmasi ulang sebelum melanjutkan.
+
+---
+
+## 3. Verification Protocol (Mandatory Before Submitting Work)
 
 Whenever code or tests are modified, execute the following commands in order:
 
@@ -53,7 +74,7 @@ Never report a task as complete if any test or type check fails.
 
 ---
 
-## 3. Anti-Slop & Code Quality Rules
+## 4. Anti-Slop & Code Quality Rules
 
 Follow the guidelines in `.agent/skills/`:
 - **No Useless Comments (`antislop-code`):** Do not write comments that narrate syntax (e.g. `// increment count`, `// return result`). Only document non-obvious engineering decisions, constraints, or subtle edge cases.
@@ -63,7 +84,7 @@ Follow the guidelines in `.agent/skills/`:
 
 ---
 
-## 4. Agent Skills Catalog
+## 5. Agent Skills Catalog
 
 LoadModer maintains 18 specialized engineering skills located in `.agent/skills/`. For full descriptions, consult [`docs/SKILL.md`](docs/SKILL.md):
 
@@ -74,7 +95,7 @@ LoadModer maintains 18 specialized engineering skills located in `.agent/skills/
 
 ---
 
-## 5. Mandatory Pre-Push Protocol (Wajib Sebelum Melakukan Git Push)
+## 6. Mandatory Pre-Push Protocol (Wajib Sebelum Melakukan Git Push)
 
 Setiap kali pengguna meminta untuk melakukan `git push` (baik ke branch `dev`, `main`, maupun branch lainnya), agen **WAJIB** menyelesaikan dan memverifikasi langkah-langkah persiapan berikut secara berurutan:
 

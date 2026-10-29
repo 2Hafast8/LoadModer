@@ -787,10 +787,15 @@ async function computeInstanceStatus(active: any) {
       const active = instanceConfig.getActiveInstance();
       if (!active?.rootDir) return [];
 
+      const baseDir =
+        active.mode === 'modpack' && active.modsDir
+          ? path.dirname(active.modsDir)
+          : active.rootDir;
+
       const folder =
         type === 'shaderpacks'
-          ? active.shaderpacksDir || path.join(active.rootDir, 'shaderpacks')
-          : active.resourcepacksDir || path.join(active.rootDir, 'resourcepacks');
+          ? (active.mode === 'modpack' ? path.join(baseDir, 'shaderpacks') : (active.shaderpacksDir || path.join(active.rootDir, 'shaderpacks')))
+          : (active.mode === 'modpack' ? path.join(baseDir, 'resourcepacks') : (active.resourcepacksDir || path.join(active.rootDir, 'resourcepacks')));
       let entries: string[] = [];
       try {
         entries = await readdir(folder);
@@ -854,11 +859,22 @@ async function computeInstanceStatus(active: any) {
         if (!active?.rootDir) throw new Error('Instance belum ditentukan');
 
         const safeName = path.basename(fileName);
+        const baseDir =
+          active.mode === 'modpack' && active.modsDir
+            ? path.dirname(active.modsDir)
+            : active.rootDir;
+
         let targetDir = customDir ?? active.modsDir;
         if (type === 'shader') {
-          targetDir = active.shaderpacksDir || path.join(active.rootDir, 'shaderpacks');
+          targetDir =
+            active.mode === 'modpack'
+              ? path.join(baseDir, 'shaderpacks')
+              : (active.shaderpacksDir || path.join(active.rootDir, 'shaderpacks'));
         } else if (type === 'resourcepack') {
-          targetDir = active.resourcepacksDir || path.join(active.rootDir, 'resourcepacks');
+          targetDir =
+            active.mode === 'modpack'
+              ? path.join(baseDir, 'resourcepacks')
+              : (active.resourcepacksDir || path.join(active.rootDir, 'resourcepacks'));
         }
 
         const targetPath = path.join(targetDir, safeName);
@@ -923,7 +939,12 @@ async function computeInstanceStatus(active: any) {
         return { success: false, error: 'Tidak ada instance Minecraft aktif yang dipilih' };
       }
 
-      const results = await installLocalFiles(filePaths, active.rootDir, active.modsDir, undefined, {
+      const baseDir =
+        active.mode === 'modpack' && active.modsDir
+          ? path.dirname(active.modsDir)
+          : active.rootDir;
+
+      const results = await installLocalFiles(filePaths, baseDir, active.modsDir, undefined, {
         launcher: active.launcher,
       });
       const anySuccess = results.some((r) => r.success);
@@ -966,7 +987,12 @@ async function computeInstanceStatus(active: any) {
         tempFilePaths.push(tempPath);
       }
 
-      const results = await installLocalFiles(tempFilePaths, active.rootDir, active.modsDir, undefined, {
+      const baseDir =
+        active.mode === 'modpack' && active.modsDir
+          ? path.dirname(active.modsDir)
+          : active.rootDir;
+
+      const results = await installLocalFiles(tempFilePaths, baseDir, active.modsDir, undefined, {
         launcher: active.launcher,
       });
 
@@ -1021,7 +1047,12 @@ async function computeInstanceStatus(active: any) {
       const arrayBuf = await resp.arrayBuffer();
       await writeFile(tempPath, Buffer.from(arrayBuf));
 
-      const results = await installLocalFiles([tempPath], active.rootDir, active.modsDir, undefined, {
+      const baseDir =
+        active.mode === 'modpack' && active.modsDir
+          ? path.dirname(active.modsDir)
+          : active.rootDir;
+
+      const results = await installLocalFiles([tempPath], baseDir, active.modsDir, undefined, {
         launcher: active.launcher,
       });
 

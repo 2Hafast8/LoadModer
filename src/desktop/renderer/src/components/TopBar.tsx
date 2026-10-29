@@ -11,11 +11,13 @@ import {
   Languages,
   Sparkles,
   RefreshCw,
+  HelpCircle,
+  Settings,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.js';
 import type { AppUpdateInfo } from './UpdateModal.js';
 
-export type NavTab = 'mods' | 'explore' | 'instances' | 'bisect';
+export type NavTab = 'mods' | 'explore' | 'instances' | 'bisect' | 'help' | 'settings';
 
 interface TopBarProps {
   currentTab: NavTab;
@@ -34,9 +36,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeInstanceName,
   onOpenInstances,
   updateInfo,
-  onOpenUpdateModal,
-  onCheckUpdate,
-  isCheckingUpdate,
 }) => {
   const { language, toggleLanguage, t } = useLanguage();
 
@@ -44,11 +43,18 @@ export const TopBar: React.FC<TopBarProps> = ({
   const handleMaximize = () => window.api?.window?.maximize();
   const handleClose = () => window.api?.window?.close();
 
-  const tabs: { id: NavTab; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: NavTab; label: string; icon: React.ReactNode; hasBadge?: boolean }[] = [
     { id: 'mods', label: t.topbar.mods, icon: <Boxes className="w-4 h-4" /> },
     { id: 'explore', label: t.topbar.explore, icon: <Compass className="w-4 h-4" /> },
     { id: 'instances', label: t.topbar.instances, icon: <Layers className="w-4 h-4" /> },
     { id: 'bisect', label: t.topbar.diagnostics, icon: <Activity className="w-4 h-4" /> },
+    { id: 'help', label: t.topbar.help || 'Help', icon: <HelpCircle className="w-4 h-4" /> },
+    {
+      id: 'settings',
+      label: t.topbar.settings || 'Settings',
+      icon: <Settings className="w-4 h-4" />,
+      hasBadge: Boolean(updateInfo?.updateAvailable),
+    },
   ];
 
   return (
@@ -59,34 +65,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="font-bold tracking-tight text-nordic-text text-xs uppercase">
             LoadModer
           </span>
-          {updateInfo?.updateAvailable ? (
-            <button
-              onClick={onOpenUpdateModal}
-              className="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1 rounded bg-emerald-tint text-emerald-active border border-emerald-primary/40 hover:bg-emerald-primary/20 transition-all cursor-pointer shadow-sm animate-pulse"
-              title={t.updater.updateAvailable}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-primary" />
-              <span>{t.updater.updateAvailableBadge.replace('{version}', updateInfo.latestVersion)}</span>
-            </button>
-          ) : (
-            <button
-              onClick={onOpenUpdateModal || onCheckUpdate}
-              disabled={isCheckingUpdate}
-              className="text-xs font-mono px-2 py-1 rounded bg-obsidian-card text-nordic-muted border border-obsidian-border hover:text-nordic-text hover:border-emerald-primary/40 transition-colors cursor-pointer flex items-center space-x-1.5"
-              title={updateInfo ? t.updater.upToDate : t.updater.checkForUpdates}
-            >
-              {isCheckingUpdate ? (
-                <>
-                  <RefreshCw className="w-3 h-3 animate-spin text-emerald-primary" />
-                  <span>{t.updater.checking}</span>
-                </>
-              ) : updateInfo ? (
-                <span>{t.updater.upToDateBadge.replace('{version}', updateInfo.currentVersion)}</span>
-              ) : (
-                <span>v2.10.3</span>
-              )}
-            </button>
-          )}
+          <span
+            className="text-[11px] font-mono px-2 py-0.5 rounded bg-obsidian-card text-nordic-muted border border-obsidian-border select-none"
+            title="LoadModer Standalone Desktop"
+          >
+            v{updateInfo?.currentVersion || '2.11.0'}
+          </span>
         </div>
       </div>
 
@@ -97,7 +81,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors duration-150 cursor-pointer ${
+              className={`relative flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors duration-150 cursor-pointer ${
                 isActive
                   ? 'bg-emerald-tint text-emerald-active border border-emerald-primary/30'
                   : 'text-nordic-muted hover:text-nordic-text hover:bg-obsidian-hover'
@@ -105,6 +89,9 @@ export const TopBar: React.FC<TopBarProps> = ({
             >
               {tab.icon}
               <span>{tab.label}</span>
+              {tab.hasBadge && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-primary animate-pulse ml-0.5" />
+              )}
             </button>
           );
         })}
